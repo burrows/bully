@@ -1,0 +1,6 @@
+[submodule "vendor/nodeunit"]
+	path = vendor/nodeunit
+	url = http://github.com/caolan/nodeunit.git
+[submodule "vendor/jison"]
+	path = vendor/jison
+	url = http://github.com/zaach/jison.git
