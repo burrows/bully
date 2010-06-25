@@ -36,7 +36,13 @@ Bully.funcall = function(recv, name) {
   return fn.apply(null, [recv]);
 };
 
+Bully.call_super = function(recv, klass, name) {
+  do {
+    klass = klass.super;
+  } while (klass && !klass.m_tbl[name]);
 
+  return klass.m_tbl[name].apply(null, [recv]);
+};
 
 // bootstrap the Object and Class objects
 Bully.Object = Bully.alloc_object();

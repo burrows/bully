@@ -105,3 +105,46 @@ exports["Bully.funcall invokes the method with the given name on the given recei
   test.done();
 };
 
+exports["Bully.call_super invokes the method of the given name defined on the nearest superclass of the given class"] = function(test) {
+  var A = Bully.define_class('A'),    a = Bully.funcall(A, 'new'),
+      B = Bully.define_class('B', A), b = Bully.funcall(B, 'new'),
+      C = Bully.define_class('C', B), c = Bully.funcall(C, 'new');
+
+  Bully.define_method(A, 'foo', function(recv) {
+    return 'A#foo';
+  });
+
+  Bully.define_method(B, 'foo', function(recv) {
+    return Bully.call_super(recv, B, 'foo') + ',B#foo';
+  });
+
+  Bully.define_method(C, 'foo', function(recv) {
+    return Bully.call_super(recv, C, 'foo') + ',C#foo';
+  });
+
+  test.equals(Bully.funcall(a, 'foo'), 'A#foo');
+  test.equals(Bully.funcall(b, 'foo'), 'A#foo,B#foo');
+  test.equals(Bully.funcall(c, 'foo'), 'A#foo,B#foo,C#foo');
+
+  test.done();
+};
+
+exports["Bully.call_super can handle skipping classes that don't define the method"] = function(test) {
+  var A = Bully.define_class('A'),    a = Bully.funcall(A, 'new'),
+      B = Bully.define_class('B', A), b = Bully.funcall(B, 'new'),
+      C = Bully.define_class('C', B), c = Bully.funcall(C, 'new');
+
+  Bully.define_method(A, 'foo', function(recv) {
+    return 'A#foo';
+  });
+
+  Bully.define_method(C, 'foo', function(recv) {
+    return Bully.call_super(recv, C, 'foo') + ',C#foo';
+  });
+
+  test.equals(Bully.funcall(a, 'foo'), 'A#foo');
+  test.equals(Bully.funcall(b, 'foo'), 'A#foo');
+  test.equals(Bully.funcall(c, 'foo'), 'A#foo,C#foo');
+
+  test.done();
+};
