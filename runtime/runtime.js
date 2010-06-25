@@ -44,6 +44,14 @@ Bully.call_super = function(recv, klass, name) {
   return klass.m_tbl[name].apply(null, [recv]);
 };
 
+Bully.ivar_set = function(obj, name, val) {
+  obj.iv_tbl[name] = val;
+};
+
+Bully.ivar_get = function(obj, name) {
+  return obj.iv_tbl[name];
+};
+
 // bootstrap the Object and Class objects
 Bully.Object = Bully.alloc_object();
 Bully.Class  = Bully.alloc_object();

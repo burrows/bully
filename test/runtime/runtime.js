@@ -148,3 +148,24 @@ exports["Bully.call_super can handle skipping classes that don't define the meth
 
   test.done();
 };
+
+exports["Bully.ivar_set should set the given value in the given object's iv_tbl"] = function(test) {
+  var o = Bully.funcall(Bully.Object, 'new');
+
+  Bully.ivar_set(o, '@foo', 'abc');
+
+  test.equals(o.iv_tbl['@foo'], 'abc');
+
+  test.done();
+};
+
+exports["Bully.ivar_get should retrieve the value for the given instance variable name"] = function(test) {
+  var o = Bully.funcall(Bully.Object, 'new');
+
+  Bully.ivar_set(o, '@bar', 'xyz');
+
+  test.equals(Bully.ivar_get(o, '@foo'));
+
+  test.done();
+};
+
