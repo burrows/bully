@@ -12,13 +12,23 @@ exports["Bully.Object's superclass is null"] = function(test) {
   test.done();
 };
 
+exports["Bully.Modules's class is Bully.Class"] = function(test) {
+  test.equals(Bully.Module.klass, Bully.Class);
+  test.done();
+};
+
+exports["Bully.Module's superclass is Object"] = function(test) {
+  test.equals(Bully.Module.super, Bully.Object);
+  test.done();
+};
+
 exports["Bully.Class' class is Bully.Class"] = function(test) {
   test.equals(Bully.Class.klass, Bully.Class);
   test.done();
 };
 
-exports["Bully.Class' superclass is Bully.Object"] = function(test) {
-  test.equals(Bully.Class.super, Bully.Object);
+exports["Bully.Class' superclass is Bully.Module"] = function(test) {
+  test.equals(Bully.Class.super, Bully.Module);
   test.done();
 };
 
@@ -38,6 +48,12 @@ exports["Bully.define_class returns an object whose superclass is the given clas
 exports["Bully.define_class returns an object whose superclass is Bully.Object when no superclass is given"] = function(test) {
   var MyClass = Bully.define_class('MyClass');
   test.equals(MyClass.super, Bully.Object);
+  test.done();
+};
+
+exports["Bully.define_module returns an object whose class is Bully.Module"] = function(test) {
+  var MyModule = Bully.define_module('MyModule');
+  test.equals(MyModule.klass, Bully.Module);
   test.done();
 };
 
@@ -169,3 +185,67 @@ exports["Bully.ivar_get should retrieve the value for the given instance variabl
   test.done();
 };
 
+exports["Bully.define_const adds an entry to the given class' iv_tbl"] = function(test) {
+  var cls = Bully.funcall(Bully.Class, 'new');
+
+  Bully.define_const(cls, 'MyConst', 8);
+
+  test.equals(cls.iv_tbl['MyConst'], 8);
+
+  test.done();
+};
+
+exports["Bully.define_global_const adds an entry to Bully.class_tbl"] = function(test) {
+  Bully.define_global_const('Foobar', 'hey');
+  test.equals(Bully.class_tbl['Foobar'], 'hey');
+  test.done();
+};
+
+exports["Bully.const_get can access constants defined directly on a class"] = function(test) {
+  var cls = Bully.funcall(Bully.Class, 'new');
+  Bully.define_const(cls, 'MyConst', 4);
+  test.equals(Bully.const_get(cls, 'MyConst'), 4);
+  test.done();
+};
+
+exports["Bully.const_get can access constants defined on a superclass"] = function(test) {
+  var A = Bully.define_class('A'),
+      B = Bully.define_class('B', A);
+
+  Bully.define_const(A, 'MyConst', 9);
+  test.equals(Bully.const_get(B, 'MyConst'), 9);
+  test.done();
+};
+
+exports["Bully.const_get can access constants defined on the superclass' superclass"] = function(test) {
+  var A = Bully.define_class('A'),
+      B = Bully.define_class('B', A);
+      C = Bully.define_class('C', B);
+
+  Bully.define_const(A, 'MyConst', 'xyz');
+  test.equals(Bully.const_get(C, 'MyConst'), 'xyz');
+  test.done();
+};
+
+exports["Bully.const_get can access global constants"] = function(test) {
+  var A = Bully.define_class('A');
+
+  Bully.define_global_const('MyConst', 99);
+  test.equals(Bully.const_get(A, 'MyConst'), 99);
+  test.done();
+};
+
+exports["Bully.const_get throws an exception if constant is not defined"] = function(test) {
+  var A = Bully.define_class('A');
+
+  test.expect(1);
+
+  try {
+    Bully.const_get(A, 'SomeUndefinedConstant');
+  }
+  catch (e) {
+    test.equals(e, 'uninitialized constant SomeUndefinedConstant');
+  }
+
+  test.done();
+};

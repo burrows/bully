@@ -17,6 +17,15 @@ Bully.define_class = function(name, super) {
   return klass;
 };
 
+Bully.define_module = function(name) {
+  var klass = Bully.alloc_object();
+
+  klass.klass = Bully.Module;
+  klass.m_tbl = {};
+
+  return klass;
+};
+
 Bully.define_method = function(klass, name, fn) {
   klass.m_tbl[name] = fn;
 };
@@ -52,16 +61,52 @@ Bully.ivar_get = function(obj, name) {
   return obj.iv_tbl[name];
 };
 
-// bootstrap the Object and Class objects
+Bully.define_const = function(klass, name, val) {
+  klass.iv_tbl[name] = val;
+};
+
+Bully.class_tbl = {};
+Bully.define_global_const = function(name, val) {
+  Bully.class_tbl[name] = val;
+};
+
+Bully.const_get = function(klass, name) {
+  var found = false, val;
+  do {
+    if (klass.iv_tbl.hasOwnProperty(name)) {
+      found = true;
+      val = klass.iv_tbl[name];
+    }
+    else {
+      klass = klass.super;
+    }
+  } while (!found && klass.super);
+
+  if (!found && Bully.class_tbl.hasOwnProperty(name)) {
+    val = Bully.class_tbl[name];
+    found = true;
+  }
+
+  if (!found) { throw "uninitialized constant " + name; }
+
+  return val;
+};
+
+// bootstrap the Object, Module and Class classes
 Bully.Object = Bully.alloc_object();
+Bully.Module = Bully.alloc_object();
 Bully.Class  = Bully.alloc_object();
 
 Bully.Object.klass = Bully.Class;
 Bully.Object.super = null;
 Bully.Object.m_tbl = {};
 
+Bully.Module.klass = Bully.Class;
+Bully.Module.super = Bully.Object;
+Bully.Module.m_tbl = {};
+
 Bully.Class.klass = Bully.Class;
-Bully.Class.super = Bully.Object;
+Bully.Class.super = Bully.Module;
 Bully.Class.m_tbl = {};
 
 Bully.define_method(Bully.Class, 'new', function(recv) {
