@@ -175,6 +175,18 @@ exports["Bully.funcall invokes the method with the given name on the given recei
   test.done();
 };
 
+exports["Bully.funcall invokes the method, passing it an arguments array"] = function(test) {
+  var A = Bully.define_class('A'),
+      a = Bully.funcall(A, 'new');
+
+  Bully.define_method(A, 'foo', function(recv, args) {
+    return args;
+  });
+
+  test.same(Bully.funcall(a, 'foo', [1, 2, 3]), [1, 2, 3]);
+  test.done();
+};
+
 exports["Bully.call_super invokes the method of the given name defined on the nearest superclass of the given class"] = function(test) {
   var A = Bully.define_class('A'),    a = Bully.funcall(A, 'new'),
       B = Bully.define_class('B', A), b = Bully.funcall(B, 'new'),

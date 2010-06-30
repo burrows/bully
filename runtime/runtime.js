@@ -72,9 +72,9 @@ Bully.lookup_method = function(recv, name) {
   return klass ? klass.m_tbl[name] : null;
 };
 
-Bully.funcall = function(recv, name) {
+Bully.funcall = function(recv, name, args) {
   var fn = Bully.lookup_method(recv, name);
-  return fn.apply(null, [recv]);
+  return fn.apply(null, [recv, args]);
 };
 
 Bully.call_super = function(recv, klass, name) {
