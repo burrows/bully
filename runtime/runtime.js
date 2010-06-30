@@ -72,6 +72,10 @@ Bully.lookup_method = function(recv, name) {
   return klass ? klass.m_tbl[name] : null;
 };
 
+Bully.respond_to = function(obj, name) {
+  return !!Bully.lookup_method(obj, name);
+};
+
 Bully.funcall = function(recv, name, args) {
   var fn = Bully.lookup_method(recv, name);
   return fn.apply(null, [recv, args]);
@@ -141,9 +145,17 @@ Bully.Class.klass = Bully.Class;
 Bully.Class.super = Bully.Module;
 Bully.Class.m_tbl = {};
 
-Bully.define_method(Bully.Class, 'new', function(recv) {
+Bully.define_method(Bully.Class, 'new', function(recv, args) {
   var o = Bully.alloc_object();
   o.klass = recv;
+
+  if (Bully.respond_to(o, 'initialize')) {
+    Bully.funcall(o, 'initialize', args);
+  }
+
   return o;
 });
+
+// String class
+Bully.String = Bully.define_class('String');
 

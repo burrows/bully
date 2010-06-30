@@ -127,6 +127,20 @@ exports["Bully.Class.new creates a new object instance whose class is the receiv
   test.done();
 };
 
+exports["Bully.Class.new calls the initalize method if the object responds to it, passing the arguments passed to new"] = function(test) {
+  var A = Bully.define_class('A'), a;
+
+  Bully.define_method(A, 'initialize', function(recv, args) {
+    Bully.ivar_set(recv, '@foo', args);
+  });
+
+  a = Bully.funcall(A, 'new', ['a', 'b', 'c']);
+
+  test.same(Bully.ivar_get(a, '@foo'), ['a', 'b', 'c']);
+
+  test.done();
+};
+
 exports["Bully.lookup_method first looks for the method on the receiver's class"] = function(test) {
   var A = Bully.define_class('A'),
       a = Bully.funcall(A, 'new'),
@@ -160,6 +174,18 @@ exports["Bully.lookup_method next looks for the method on the receiver's supercl
   Bully.define_method(A, 'foo', fn);
 
   test.equals(Bully.lookup_method(c, 'foo'), fn);
+  test.done();
+};
+
+exports["Bully.respond_to returns true if the given object responds to the given message name and false otherwise"] = function(test) {
+  var A = Bully.define_class('A'),
+      a = Bully.funcall(A, 'new');
+
+  Bully.define_method(A, 'hello', function() {});
+
+  test.equals(Bully.respond_to(a, 'hello'), true);
+  test.equals(Bully.respond_to(a, 'no_method'), false);
+
   test.done();
 };
 
