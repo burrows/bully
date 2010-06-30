@@ -51,9 +51,63 @@ exports["Bully.define_class returns an object whose superclass is Bully.Object w
   test.done();
 };
 
+exports["Bully.define_class defines a constant in the global scope"] = function(test) {
+  var MyClass = Bully.define_class('MyClass');
+
+  test.equals(Bully.class_tbl['MyClass'], MyClass);
+
+  test.done();
+};
+
+exports["Bully.define_class_under defines a constant under the given class"] = function(test) {
+  var outer = Bully.define_class('Outer'),
+      inner = Bully.define_class_under(outer, 'Inner');
+
+  test.equals(Bully.class_tbl.hasOwnProperty('Inner'), false);
+  test.equals(outer.iv_tbl['Inner'], inner);
+
+  test.done();
+};
+
+exports["Bully.define_class_under defines a constant under the given module"] = function(test) {
+  var outer = Bully.define_module('Outer'),
+      inner = Bully.define_class_under(outer, 'Inner');
+
+  test.equals(Bully.class_tbl.hasOwnProperty('Inner'), false);
+  test.equals(outer.iv_tbl['Inner'], inner);
+
+  test.done();
+};
+
 exports["Bully.define_module returns an object whose class is Bully.Module"] = function(test) {
   var MyModule = Bully.define_module('MyModule');
   test.equals(MyModule.klass, Bully.Module);
+  test.done();
+};
+
+exports["Bully.define_module defines a constant in the global scope"] = function(test) {
+  var MyModule = Bully.define_module('MyModule');
+  test.equals(Bully.class_tbl['MyModule'], MyModule);
+  test.done();
+};
+
+exports["Bully.define_module_under defines a constant under the given class"] = function(test) {
+  var outer = Bully.define_class('Outer'),
+      inner = Bully.define_module_under(outer, 'Inner');
+
+  test.equals(Bully.class_tbl.hasOwnProperty('Inner'), false);
+  test.equals(outer.iv_tbl['Inner'], inner);
+
+  test.done();
+};
+
+exports["Bully.define_class_under defines a constant under the given module"] = function(test) {
+  var outer = Bully.define_module('Outer'),
+      inner = Bully.define_module_under(outer, 'Inner');
+
+  test.equals(Bully.class_tbl.hasOwnProperty('Inner'), false);
+  test.equals(outer.iv_tbl['Inner'], inner);
+
   test.done();
 };
 

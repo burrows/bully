@@ -7,7 +7,7 @@ Bully.alloc_object = function() {
   };
 };
 
-Bully.define_class = function(name, super) {
+Bully.create_class = function(super) {
   var klass = Bully.alloc_object();
 
   klass.klass = Bully.Class;
@@ -17,13 +17,45 @@ Bully.define_class = function(name, super) {
   return klass;
 };
 
-Bully.define_module = function(name) {
-  var klass = Bully.alloc_object();
+Bully.define_class = function(name, super) {
+  var klass = Bully.create_class(super);
 
-  klass.klass = Bully.Module;
-  klass.m_tbl = {};
+  Bully.define_global_const(name, klass);
 
   return klass;
+};
+
+Bully.define_class_under = function(outer, name, super) {
+  var klass = Bully.create_class(super);
+
+  Bully.define_const(outer, name, klass);
+
+  return klass;
+};
+
+Bully.create_module = function() {
+  var mod = Bully.alloc_object();
+
+  mod.klass = Bully.Module;
+  mod.m_tbl = {};
+
+  return mod;
+};
+
+Bully.define_module = function(name) {
+  var mod = Bully.create_module();
+
+  Bully.define_global_const(name, mod);
+
+  return mod;
+};
+
+Bully.define_module_under = function(outer, name, super) {
+  var mod = Bully.create_module();
+
+  Bully.define_const(outer, name, mod);
+
+  return mod;
 };
 
 Bully.define_method = function(klass, name, fn) {
