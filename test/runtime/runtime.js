@@ -12,6 +12,11 @@ exports["Bully.Object's superclass is null"] = function(test) {
   test.done();
 };
 
+exports["Bully.Object#to_s should return 'Object'"] = function(test) {
+  test.equals(Bully.funcall(Bully.Object, 'to_s').data, 'Object');
+  test.done();
+};
+
 exports["Bully.Modules's class is Bully.Class"] = function(test) {
   test.equals(Bully.Module.klass, Bully.Class);
   test.done();
@@ -22,6 +27,11 @@ exports["Bully.Module's superclass is Object"] = function(test) {
   test.done();
 };
 
+exports["Bully.Module#to_s should return 'Module'"] = function(test) {
+  test.equals(Bully.funcall(Bully.Module, 'to_s').data, 'Module');
+  test.done();
+};
+
 exports["Bully.Class' class is Bully.Class"] = function(test) {
   test.equals(Bully.Class.klass, Bully.Class);
   test.done();
@@ -29,6 +39,11 @@ exports["Bully.Class' class is Bully.Class"] = function(test) {
 
 exports["Bully.Class' superclass is Bully.Module"] = function(test) {
   test.equals(Bully.Class.super, Bully.Module);
+  test.done();
+};
+
+exports["Bully.Class#to_s should return 'Class'"] = function(test) {
+  test.equals(Bully.funcall(Bully.Class, 'to_s').data, 'Class');
   test.done();
 };
 
@@ -339,5 +354,27 @@ exports["Bully.const_get throws an exception if constant is not defined"] = func
     test.equals(e, 'uninitialized constant SomeUndefinedConstant');
   }
 
+  test.done();
+};
+
+exports["Bully.define_class should set the class' classpath"] = function(test) {
+  var A = Bully.define_class('A'),
+      B = Bully.define_class_under(A, 'B'),
+      C = Bully.define_class_under(B, 'C');
+
+  test.equals(Bully.funcall(A, 'to_s').data, 'A');
+  test.equals(Bully.funcall(B, 'to_s').data, 'A::B');
+  test.equals(Bully.funcall(C, 'to_s').data, 'A::B::C');
+  test.done();
+};
+
+exports["Bully.define_module should set the modules' classpath"] = function(test) {
+  var A = Bully.define_module('A'),
+      B = Bully.define_module_under(A, 'B'),
+      C = Bully.define_module_under(B, 'C');
+
+  test.equals(Bully.funcall(A, 'to_s').data, 'A');
+  test.equals(Bully.funcall(B, 'to_s').data, 'A::B');
+  test.equals(Bully.funcall(C, 'to_s').data, 'A::B::C');
   test.done();
 };

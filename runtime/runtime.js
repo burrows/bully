@@ -21,6 +21,7 @@ Bully.define_class = function(name, super) {
   var klass = Bully.create_class(super);
 
   Bully.define_global_const(name, klass);
+  Bully.set_class_path(klass, null, name);
 
   return klass;
 };
@@ -29,6 +30,7 @@ Bully.define_class_under = function(outer, name, super) {
   var klass = Bully.create_class(super);
 
   Bully.define_const(outer, name, klass);
+  Bully.set_class_path(klass, outer, name);
 
   return klass;
 };
@@ -46,6 +48,7 @@ Bully.define_module = function(name) {
   var mod = Bully.create_module();
 
   Bully.define_global_const(name, mod);
+  Bully.set_class_path(mod, null, name);
 
   return mod;
 };
@@ -54,8 +57,21 @@ Bully.define_module_under = function(outer, name, super) {
   var mod = Bully.create_module();
 
   Bully.define_const(outer, name, mod);
+  Bully.set_class_path(mod, outer, name);
 
   return mod;
+};
+
+Bully.class_path = function(klass) {
+  return Bully.ivar_get(klass, '__classpath__');
+};
+
+Bully.set_class_path = function(klass, under, name) {
+  if (under) {
+    name = Bully.class_path(under).data + '::' + name;
+  }
+
+  Bully.ivar_set(klass, '__classpath__', Bully.str_new(name));
 };
 
 Bully.define_method = function(klass, name, fn) {
@@ -128,23 +144,33 @@ Bully.const_get = function(klass, name) {
   return val;
 };
 
-// bootstrap the Object, Module and Class classes
+// bootstrap the basic types
 Bully.Object = Bully.alloc_object();
 Bully.Module = Bully.alloc_object();
 Bully.Class  = Bully.alloc_object();
+Bully.String = Bully.alloc_object();
 
 Bully.Object.klass = Bully.Class;
 Bully.Object.super = null;
 Bully.Object.m_tbl = {};
+Bully.define_global_const('Object', Bully.Object);
 
 Bully.Module.klass = Bully.Class;
 Bully.Module.super = Bully.Object;
 Bully.Module.m_tbl = {};
+Bully.define_global_const('Module', Bully.Module);
 
 Bully.Class.klass = Bully.Class;
 Bully.Class.super = Bully.Module;
 Bully.Class.m_tbl = {};
+Bully.define_global_const('Class', Bully.Class);
 
+Bully.String.klass = Bully.Class;
+Bully.String.super = null;
+Bully.String.m_tbl = {};
+Bully.define_global_const('String', Bully.String);
+
+// Class class methods
 Bully.define_method(Bully.Class, 'new', function(recv, args) {
   var o = Bully.alloc_object();
   o.klass = recv;
@@ -156,6 +182,45 @@ Bully.define_method(Bully.Class, 'new', function(recv, args) {
   return o;
 });
 
-// String class
-Bully.String = Bully.define_class('String');
+// Module class methods
+Bully.define_method(Bully.Module, 'to_s', function(recv) {
+  return Bully.ivar_get(recv, '__classpath__');
+});
 
+// String class
+Bully.str_new = function(js_str) {
+  var o = Bully.alloc_object();
+  o.klass = Bully.String;
+  o.data = js_str;
+  return o;
+};
+
+Bully.str_cat = function(str, js_str) {
+  str.data += js_str;
+  return str;
+};
+
+Bully.define_method(Bully.String, '<<', function(recv, args) {
+  Bully.str_cat(recv, args[0].data);
+  return recv;
+});
+
+// Array class
+Bully.Array = Bully.define_class('Array');
+
+Bully.ary_new = function() {
+  var o = Bully.alloc_object();
+  o.klass = Bully.Array;
+  o.data = [];
+  return o;
+};
+
+Bully.define_method(Bully.Array, 'push', function(recv, args) {
+  Array.prototype.push.apply(recv.data, args);
+  return recv;
+});
+
+Bully.set_class_path(Bully.Object, null, 'Object');
+Bully.set_class_path(Bully.Module, null, 'Module');
+Bully.set_class_path(Bully.Class, null, 'Class');
+Bully.set_class_path(Bully.String, null, 'String');
