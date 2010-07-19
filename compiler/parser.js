@@ -9,7 +9,7 @@ performAction: function anonymous(yytext,yyleng,yylineno,yy) {
 
 var $$ = arguments[5],$0=arguments[5].length;
 switch(arguments[4]) {
-case 1:return this.$ = new Nodes.Expressions();
+case 1:return this.$ = Nodes.Expressions.create();
 break;
 case 2:return this.$ = $$[$0-1+1-1]
 break;
@@ -41,9 +41,9 @@ case 15:this.$ = $$[$0-1+1-1];
 break;
 case 16:this.$ = $$[$0-1+1-1];
 break;
-case 17:this.$ = new Nodes.Literal();
+case 17:this.$ = Nodes.Literal.create("NUMBER", $$[$0-1+1-1]);
 break;
-case 18:this.$ = new Nodes.Literal();
+case 18:this.$ = Nodes.Literal.create("STRING", $$[$0-1+1-1]);
 break;
 case 19:this.$ = $$[$0-4+1-1];
 break;
@@ -57,7 +57,7 @@ case 23:this.$ = $$[$0-1+1-1];
 break;
 case 24:this.$ = $$[$0-3+1-1];
 break;
-case 25:this.$ = new Nodes.Def($$[$0-5+2-1], [$$[$0-5+4-1]]);
+case 25:this.$ = Nodes.Def.create($$[$0-5+2-1], [$$[$0-5+4-1]]);
 break;
 case 26:this.$ = $$[$0-8+1-1];
 break;
@@ -73,7 +73,7 @@ case 31:this.$ = $$[$0-4+1-1];
 break;
 case 32:this.$ = $$[$0-3+1-1];
 break;
-case 33:this.$ = new Nodes.Class($$[$0-5+2-1], [$$[$0-5+4-1]]);
+case 33:this.$ = Nodes.Class.create($$[$0-5+2-1], [$$[$0-5+4-1]]);
 break;
 }
 },

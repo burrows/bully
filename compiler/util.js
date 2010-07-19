@@ -19,6 +19,8 @@ exports.klass = function(super) {
         o.initialize.apply(o, Array.prototype.slice.apply(arguments));
       }
 
+      o.klass = this;
+
       return o;
     }
   }, prop;

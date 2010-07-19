@@ -8,7 +8,7 @@ function o(rule, action) {
 
 var grammar = {
   Root: [
-    o('',            'return $$ = new Nodes.Expressions();'),
+    o('',            'return $$ = Nodes.Expressions.create();'),
     o('Expressions', 'return $$ = $1')
   ],
 
@@ -36,8 +36,8 @@ var grammar = {
   ],
 
   Literal: [
-    o('NUMBER', '$$ = new Nodes.Literal();'),
-    o('STRING', '$$ = new Nodes.Literal();')
+    o('NUMBER', '$$ = Nodes.Literal.create("NUMBER", $1);'),
+    o('STRING', '$$ = Nodes.Literal.create("STRING", $1);')
   ],
 
   Call: [
@@ -53,7 +53,7 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Expressions END', '$$ = new Nodes.Def($2, [$4]);'),
+    o('DEF IDENTIFIER Terminator Expressions END', '$$ = Nodes.Def.create($2, [$4]);'),
     o('DEF IDENTIFIER ( ParamList ) Terminator Expressions END')
   ],
   
@@ -70,7 +70,7 @@ var grammar = {
   ],
 
   Class: [
-    o('CLASS CONSTANT Terminator Expressions END', '$$ = new Nodes.Class($2, [$4]);')
+    o('CLASS CONSTANT Terminator Expressions END', '$$ = Nodes.Class.create($2, [$4]);')
   ]
 };
 

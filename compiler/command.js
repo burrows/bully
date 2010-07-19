@@ -65,7 +65,7 @@ function printNodes(files) {
 
   files.forEach(function(file) {
     ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
-    sys.puts(ast.to_s());
+    sys.puts(ast.toString());
   });
 };
 
