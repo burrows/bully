@@ -3,28 +3,33 @@ var sys = require('sys');
 puts = sys.puts;
 
 require.paths.unshift('vendor/jison/lib');
+require.paths.unshift('.');
 
-var Parser = require('jison').Parser;
+var Parser = require('jison').Parser,
+    Nodes  = require('compiler/nodes').Nodes;
 
-function o(rule) {
-  return [rule, 'puts("' + rule + '");'];
+global.Nodes = Nodes;
+global.sys = sys;
+
+function o(rule, action) {
+  return [rule, action || '$$ = $1;'];
 }
 
 var grammar = {
   Root: [
-    o('Expressions')
+    o('',            'return $$ = new Nodes.Expressions();'),
+    o('Expressions', 'return $$ = $1')
+  ],
+
+  Expressions: [
+    o('Expression',                          '$$ = Nodes.Expressions.wrap([$1]);'),
+    o('Expressions Terminator Expression',   '$1.push($3);'),
+    o('Expressions Terminator',              '$$ = $1;')
   ],
 
   Terminator: [
     o(';'),
     o('NEWLINE')
-  ],
-
-  Expressions: [
-    o(''),
-    o('Expression'),
-    o('Expressions Terminator Expression'),
-    o('Expressions Terminator')
   ],
 
   Expression: [
@@ -40,29 +45,14 @@ var grammar = {
   ],
 
   Literal: [
-    o('NUMBER'),
-    o('STRING')
-  ],
-
-  Assignment: [
-    o('IDENTIFIER = Expression'),
-    o('CONSTANT = Expression')
-  ],
-
-  Def: [
-    o('DEF IDENTIFIER Terminator Expressions END'),
-    o('DEF IDENTIFIER ( ParamList ) Terminator Expressions END')
-  ],
-
-  Class: [
-    o('CLASS CONSTANT Terminator Expressions END')
+    o('NUMBER', '$$ = new Nodes.Literal();'),
+    o('STRING', '$$ = new Nodes.Literal();')
   ],
 
   Call: [
-    o('IDENTIFIER'),
     o('IDENTIFIER ( ArgList )'),
-    o('Expression . IDENTIFIER'),
-    o('Expression . IDENTIFIER ( ArgList )')
+    o('Expression . IDENTIFIER ( ArgList )'),
+    o('IDENTIFIER . IDENTIFIER ( ArgList )')
   ],
 
   ArgList: [
@@ -71,14 +61,33 @@ var grammar = {
     o('ArgList , Expression')
   ],
 
+  Def: [
+    o('DEF IDENTIFIER Terminator Expressions END', '$$ = new Nodes.Def($2, [$4]);'),
+    o('DEF IDENTIFIER ( ParamList ) Terminator Expressions END')
+  ],
+  
   ParamList: [
     o(''),
     o('IDENTIFIER'),
     o('ParamList , IDENTIFIER')
+  ],
+
+  Assignment: [
+    o('IDENTIFIER = Expression'),
+    o('@ IDENTIFIER = Expression'),
+    o('CONSTANT = Expression')
+  ],
+
+  Class: [
+    o('CLASS CONSTANT Terminator Expressions END', '$$ = new Nodes.Class($2, [$4]);')
   ]
 };
 
-var operators = [];
+var operators = [
+  ['left',  '.'],
+  ['right', 'CLASS'],
+  ['right', '=']
+];
 
 var tokens = [], name, alt, token;
 var sys = require('sys');
@@ -92,12 +101,12 @@ for (name in grammar) {
   });
 }
 
-sys.puts(sys.inspect(tokens));
+//sys.puts(sys.inspect(tokens));
 
 var parser = new Parser({
   tokens: tokens,
   bnf: grammar,
-  operators: operators,
+  operators: operators.reverse(),
   startSymbol: 'Root',
   lex: null
 });
@@ -107,7 +116,7 @@ var fs = require('fs'),
     sys = require('sys'),
     Lexer = require('./lexer').Lexer,
     lexer = new Lexer(),
-    code = fs.readFileSync('./test.rb', 'ascii');
+    code = fs.readFileSync('./test.bully', 'ascii');
 
 parser.lexer = {
   lex: function() {
@@ -125,6 +134,8 @@ parser.lexer = {
   showPosition: function() { return this.pos; }
 };
 
-sys.puts(sys.inspect(lexer.tokenize(code)));
+//sys.puts(parser.generate());
+//sys.puts(sys.inspect(lexer.tokenize(code)));
 
-parser.parse(lexer.tokenize(code));
+var ast = parser.parse(lexer.tokenize(code));
+sys.puts(ast.to_s());
