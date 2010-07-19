@@ -1,15 +1,6 @@
-var sys = require('sys');
-
-//puts = sys.puts;
-
 require.paths.unshift('vendor/jison/lib');
-require.paths.unshift('.');
 
-var Parser = require('jison').Parser,
-    Nodes  = require('compiler/nodes').Nodes;
-
-global.Nodes = Nodes;
-global.sys = sys;
+var Parser = require('jison').Parser;
 
 function o(rule, action) {
   return [rule, action || '$$ = $1;'];
@@ -90,7 +81,6 @@ var operators = [
 ];
 
 var tokens = [], name, alt, token;
-var sys = require('sys');
 for (name in grammar) {
   if (!grammar.hasOwnProperty(name)) { continue; }
 
@@ -109,31 +99,3 @@ exports.parser = new Parser({
   lex: null
 });
 
-// test
-//var fs = require('fs'),
-//    sys = require('sys'),
-//    Lexer = require('./lexer').Lexer,
-//    lexer = new Lexer(),
-//    code = fs.readFileSync('./test.bully', 'ascii');
-
-//parser.lexer = {
-//  lex: function() {
-//    var token = this.tokens[this.pos] || [''];
-//    this.pos = this.pos + 1;
-//    this.yylineno = token[2];
-//    this.yytext = token[1];
-//    return token[0];
-//  },
-//  setInput: function(tokens) {
-//    this.tokens = tokens;
-//    this.pos = 0;
-//  },
-//  upcomingInput: function() { return ''; },
-//  showPosition: function() { return this.pos; }
-//};
-
-//sys.puts(parser.generate());
-//sys.puts(sys.inspect(lexer.tokenize(code)));
-
-//var ast = parser.parse(lexer.tokenize(code));
-//sys.puts(ast.to_s());

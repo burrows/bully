@@ -3,8 +3,11 @@ var sys          = require('sys'),
     fs           = require('fs'),
     opts         = require('./opts'),
     Lexer        = require('./lexer').Lexer,
+    Nodes        = require('./Nodes').Nodes,
     parser       = require('./parser').parser,
     selectedOpts = {};
+
+global.Nodes = Nodes;
 
 var options = [
   {
@@ -57,7 +60,13 @@ function printTokens(files) {
   });
 };
 
-function printNodes() {
+function printNodes(files) {
+  var ast;
+
+  files.forEach(function(file) {
+    ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+    sys.puts(ast.to_s());
+  });
 };
 
 exports.run = function() {
