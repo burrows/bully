@@ -1,190 +1,236 @@
 
-var klass = require('util').klass,
+var util  = require('util'),
+    klass = util.klass,
+    fmt   = util.fmt
     Nodes = {};
 
 //------------------------------------------------------------------------------
 // Nodes.Base
 //------------------------------------------------------------------------------
-Nodes.Base = klass();
-Nodes.Base.method('initialize', function(nodes) {
-  this.children = [];
+Nodes.Base = klass({
+  instanceMethods: {
+    initialize: function(nodes) {
+      this.children = [];
 
-  (nodes || []).forEach(function(node) { this.push(node); }, this);
-});
-Nodes.Base.method('name', function() {
-  return 'Base';
-});
-Nodes.Base.method('push', function(node) {
-  node.parent = this;
-  this.children.push(node);
-});
-Nodes.Base.method('toString', function(idt) {
-  var s;
+      (nodes || []).forEach(function(node) { this.push(node); }, this);
+    },
 
-  idt = idt || '';
-  s   = idt + this.name() + "\n";
+    name: function() {
+      return 'Base';
+    },
 
-  this.children.forEach(function(c) {
-    s += c.toString(idt + "  ");
-  });
+    push: function(node) {
+      node.parent = this;
+      this.children.push(node);
+    },
 
-  return s
-});
-Nodes.Base.method('compile', function() {
-  throw "compile method must be implemented in subclass";
+    toString: function(idt) {
+      var s;
+
+      idt = idt || '';
+      s   = idt + this.name() + "\n";
+
+      this.children.forEach(function(c) {
+        s += c.toString(idt + "  ");
+      });
+
+      return s
+    },
+
+    compile: function() {
+      throw "compile method must be implemented in subclass";
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.Expressions
 //------------------------------------------------------------------------------
-Nodes.Expressions = klass(Nodes.Base);
+Nodes.Expressions = klass({
+  super: Nodes.Base,
 
-Nodes.Expressions.classMethod('wrap', function(nodes) {
-  return this.create(nodes);
-});
+  classMethods: {
+    wrap: function(nodes) {
+      return this.create(nodes);
+    }
+  },
 
-Nodes.Expressions.method('name', function() {
-  return 'Expressions';
-});
+  instanceMethods: {
+    name: function() {
+      return 'Expressions';
+    },
 
-Nodes.Expressions.method('isRoot', function() {
-  return !this.parent;
-});
+    isRoot: function() {
+      return !this.parent;
+    },
 
-Nodes.Expressions.method('compile', function() {
-  var isRoot = this.isRoot(),
-      code   = '';
+    compile: function() {
+      var isRoot = this.isRoot(),
+          code   = '';
 
-  if (isRoot) {
-    code += "(function() {\n";
+      if (isRoot) {
+        code += "(function() {\n";
+      }
+
+      this.children.forEach(function(child) {
+        code += child.compile();
+      });
+
+      if (isRoot) {
+        code += "})();";
+      }
+
+      return code;
+    }
   }
-
-  this.children.forEach(function(child) {
-    code += child.compile();
-  });
-
-  if (isRoot) {
-    code += "})();";
-  }
-
-  return code;
 });
 
 //------------------------------------------------------------------------------
 // Nodes.Literal
 //------------------------------------------------------------------------------
-Nodes.Literal = klass(Nodes.Base);
-Nodes.Literal.method('initialize', function(type, token) {
-  arguments.callee.base.call(this);
-  this.type  = type;
-  this.token = token;
-});
-Nodes.Literal.method('name', function() {
-  return 'Literal (' + this.type + ': ' + this.token + ')';
-});
+Nodes.Literal = klass({
+  super: Nodes.Base,
 
-Nodes.Literal.method('compile', function() {
-  switch (this.type) {
-    case 'STRING':
-      return "Bully.str_new(\"" + this.token + "\");\n"; 
-    case 'NUMBER':
-      return "Bully.num_new(\"" + this.token + "\");\n"; 
+  instanceMethods: {
+    initialize: function(type, token) {
+      arguments.callee.base.call(this);
+      this.type  = type;
+      this.token = token;
+    },
+
+    name: function() {
+      return fmt('Literal (%@:%@)', this.type, this.token);
+    },
+
+    compile: function() {
+      switch (this.type) {
+        case 'STRING':
+          return fmt("Bully.str_new(\"%@\");\n", this.token);
+        case 'NUMBER':
+          return fmt("Bully.num_new(\"%@\");\n", this.token);
+      }
+    }
   }
 });
+
 //------------------------------------------------------------------------------
 // Nodes.Def
 //------------------------------------------------------------------------------
-Nodes.Def = klass(Nodes.Base);
+Nodes.Def = klass({
+  super: Nodes.Base,
 
-Nodes.Def.method('initialize', function(identifier, nodes) {
-  arguments.callee.base.call(this, nodes);
-  this.identifier = identifier;
-});
+  instanceMethods: {
+    initialize: function(identifier, nodes) {
+      arguments.callee.base.call(this, nodes);
+      this.identifier = identifier;
+    },
 
-Nodes.Def.method('name', function() {
-  return 'Def (' + this.identifier + ')';
-});
+    name: function() {
+      return 'Def (' + this.identifier + ')';
+    },
 
-Nodes.Def.method('compile', function(ctx) {
-  var code  = "\nBully.define_method(" + 'FIXME' + ', "' +  this.identifier + '", function(recv, args) {';
+    compile: function(ctx) {
+      var code = fmt("Bully.define_method(FIXME, '%@', function(recv, args) {\n", this.identifier);
 
-  this.children.forEach(function(child) {
-    code += child.compile();
-  });
+      this.children.forEach(function(child) {
+        code += child.compile();
+      });
 
-  code += "});\n";
+      code += "});\n";
 
-  return code;
+      return code;
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.Class
 //------------------------------------------------------------------------------
-Nodes.Class = klass(Nodes.Base);
+Nodes.Class = klass({
+  super: Nodes.Base,
 
-Nodes.Class.method('initialize', function(constant, nodes) {
-  arguments.callee.base.call(this, nodes);
-  this.constant = constant;
-});
+  instanceMethods: {
+    initialize: function(constant, nodes) {
+      arguments.callee.base.call(this, nodes);
+      this.constant = constant;
+    },
 
-Nodes.Class.method('name', function() {
-  return 'Class (' + this.constant + ')';
+    name: function() {
+      return fmt('Class (%@)', this.constant);
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.LocalAssign
 //------------------------------------------------------------------------------
-Nodes.LocalAssign = klass(Nodes.Base);
+Nodes.LocalAssign = klass({
+  super: Nodes.Base,
 
-Nodes.LocalAssign.method('initialize', function(varName, expression) {
-  arguments.callee.base.call(this, [expression]);
-  this.varName = varName;
-});
+  instanceMethods: {
+    initialize: function(varName, expression) {
+      arguments.callee.base.call(this, [expression]);
+      this.varName = varName;
+    },
 
-Nodes.LocalAssign.method('name', function() {
-  return 'LocalAssign (' + this.varName + ')';
+    name: function() {
+      return fmt('LocalAssign (%@)', this.varName);
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.InstanceAssign
 //------------------------------------------------------------------------------
-Nodes.InstanceAssign = klass(Nodes.Base);
+Nodes.InstanceAssign = klass({
+  super: Nodes.Base,
 
-Nodes.InstanceAssign.method('initialize', function(varName, expression) {
-  arguments.callee.base.call(this, [expression]);
-  this.varName = varName;
-});
+  instanceMethods: {
+    initialize: function(varName, expression) {
+      arguments.callee.base.call(this, [expression]);
+      this.varName = varName;
+    },
 
-Nodes.InstanceAssign.method('name', function() {
-  return 'InstanceAssign (' + this.varName + ')';
+    name: function() {
+      return fmt('InstanceAssign (%@)', this.varName);
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.ClassAssign
 //------------------------------------------------------------------------------
-Nodes.ClassAssign = klass(Nodes.Base);
+Nodes.ClassAssign = klass({
+  super: Nodes.Base,
 
-Nodes.ClassAssign.method('initialize', function(varName, expression) {
-  arguments.callee.base.call(this, [expression]);
-  this.varName = varName;
-});
+  instanceMethods: {
+    initialize: function(varName, expression) {
+      arguments.callee.base.call(this, [expression]);
+      this.varName = varName;
+    },
 
-Nodes.ClassAssign.method('name', function() {
-  return 'ClassAssign (' + this.varName + ')';
+    name: function() {
+      return fmt('ClassAssign (%@)', this.varName);
+    }
+  }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.ConstantAssign
 //------------------------------------------------------------------------------
-Nodes.ConstantAssign = klass(Nodes.Base);
+Nodes.ConstantAssign = klass({
+  super: Nodes.Base,
 
-Nodes.ConstantAssign.method('initialize', function(varName, expression) {
-  arguments.callee.base.call(this, [expression]);
-  this.varName = varName;
-});
+  instanceMethods: {
+    initialize: function(varName, expression) {
+      arguments.callee.base.call(this, [expression]);
+      this.varName = varName;
+    },
 
-Nodes.ConstantAssign.method('name', function() {
-  return 'ConstantAssign (' + this.varName + ')';
+    name: function() {
+      return fmt('ConstantAssign (%@)', this.varName);
+    }
+  }
 });
 
 exports.Nodes = Nodes;
