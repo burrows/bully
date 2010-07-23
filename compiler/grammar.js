@@ -64,9 +64,10 @@ var grammar = {
   ],
 
   Assignment: [
-    o('IDENTIFIER = Expression'),
-    o('@ IDENTIFIER = Expression'),
-    o('CONSTANT = Expression')
+    o('IDENTIFIER = Expression',     '$$ = Nodes.LocalAssign.create($1, $3);'),
+    o('@ IDENTIFIER = Expression',   '$$ = Nodes.InstanceAssign.create($2, $4);'),
+    o('@ @ IDENTIFIER = Expression', '$$ = Nodes.ClassAssign.create($3, $5);'),
+    o('CONSTANT = Expression',       '$$ = Nodes.ConstantAssign.create($1, $3);')
   ],
 
   Class: [

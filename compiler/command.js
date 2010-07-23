@@ -69,6 +69,13 @@ function printNodes(files) {
   });
 };
 
+function compile(files) {
+  files.forEach(function(file) {
+    ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+    sys.puts(ast.compile());
+  });
+};
+
 exports.run = function() {
   var files;
 
@@ -76,7 +83,8 @@ exports.run = function() {
 
   files = opts.args();
 
-  if (selectedOpts.help)        { opts.help();        }
-  else if (selectedOpts.tokens) { printTokens(files); }
-  else if (selectedOpts.nodes)  { printNodes(files);  }
+  if (selectedOpts.help)         { opts.help();        }
+  else if (selectedOpts.tokens)  { printTokens(files); }
+  else if (selectedOpts.nodes)   { printNodes(files);  }
+  else if (selectedOpts.compile) { compile(files);     }
 };
