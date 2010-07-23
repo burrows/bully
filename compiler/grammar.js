@@ -71,7 +71,8 @@ var grammar = {
   ],
 
   Class: [
-    o('CLASS CONSTANT Terminator Expressions END', '$$ = Nodes.Class.create($2, [$4]);')
+    o('CLASS CONSTANT Terminator Expressions END',            '$$ = Nodes.Class.create($2, null, [$4]);'),
+    o('CLASS CONSTANT < CONSTANT Terminator Expressions END', '$$ = Nodes.Class.create($2, $4, [$6]);')
   ]
 };
 

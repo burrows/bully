@@ -2,6 +2,7 @@
 var util  = require('util'),
     klass = util.klass,
     fmt   = util.fmt
+    Scope = require('scope').Scope,
     Nodes = {};
 
 //------------------------------------------------------------------------------
@@ -15,7 +16,7 @@ Nodes.Base = klass({
       (nodes || []).forEach(function(node) { this.push(node); }, this);
     },
 
-    name: function() {
+    nodeName: function() {
       return 'Base';
     },
 
@@ -28,7 +29,7 @@ Nodes.Base = klass({
       var s;
 
       idt = idt || '';
-      s   = idt + this.name() + "\n";
+      s   = idt + this.nodeName() + "\n";
 
       this.children.forEach(function(c) {
         s += c.toString(idt + "  ");
@@ -56,7 +57,7 @@ Nodes.Expressions = klass({
   },
 
   instanceMethods: {
-    name: function() {
+    nodeName: function() {
       return 'Expressions';
     },
 
@@ -64,23 +65,19 @@ Nodes.Expressions = klass({
       return !this.parent;
     },
 
-    compile: function() {
-      var isRoot = this.isRoot(),
-          code   = '';
+    compile: function(ctx) {
+      var exprs = '';
 
-      if (isRoot) {
-        code += "(function() {\n";
-      }
+      ctx = ctx || {
+        scope: Scope.create(),
+        mod: null
+      };
 
       this.children.forEach(function(child) {
-        code += child.compile();
+        exprs += child.compile(ctx);
       });
 
-      if (isRoot) {
-        code += "})();";
-      }
-
-      return code;
+      return fmt("(function() {\n%@\n%@\n})();", ctx.scope.compile(), exprs);
     }
   }
 });
@@ -98,7 +95,7 @@ Nodes.Literal = klass({
       this.token = token;
     },
 
-    name: function() {
+    nodeName: function() {
       return fmt('Literal (%@:%@)', this.type, this.token);
     },
 
@@ -125,7 +122,7 @@ Nodes.Def = klass({
       this.identifier = identifier;
     },
 
-    name: function() {
+    nodeName: function() {
       return 'Def (' + this.identifier + ')';
     },
 
@@ -150,13 +147,38 @@ Nodes.Class = klass({
   super: Nodes.Base,
 
   instanceMethods: {
-    initialize: function(constant, nodes) {
+    initialize: function(name, super, nodes) {
       arguments.callee.base.call(this, nodes);
-      this.constant = constant;
+      this.name  = name;
+      this.super = super;
     },
 
-    name: function() {
-      return fmt('Class (%@)', this.constant);
+    nodeName: function() {
+      return fmt('Class (%@%@)', this.name, this.super ? ' < ' + this.super : '');
+    },
+
+    compile: function(ctx) {
+      var mod = ctx.mod, code;
+
+      if (ctx.scope.find(this.name)) {
+        // reopening an existing class
+      }
+      else {
+        // declaring a new class
+        code = fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, this.super ? this.super : 'null');
+      }
+
+      ctx.scope = Scope.create(ctx.scope);
+      ctx.mod   = this.name;
+
+      this.children.forEach(function(child) {
+        code += child.compile(ctx);
+      });
+
+      ctx.scope = ctx.scope.parent;
+      ctx.mod   = mod;
+
+      return code;
     }
   }
 });
@@ -173,7 +195,7 @@ Nodes.LocalAssign = klass({
       this.varName = varName;
     },
 
-    name: function() {
+    nodeName: function() {
       return fmt('LocalAssign (%@)', this.varName);
     }
   }
@@ -191,7 +213,7 @@ Nodes.InstanceAssign = klass({
       this.varName = varName;
     },
 
-    name: function() {
+    nodeName: function() {
       return fmt('InstanceAssign (%@)', this.varName);
     }
   }
@@ -209,7 +231,7 @@ Nodes.ClassAssign = klass({
       this.varName = varName;
     },
 
-    name: function() {
+    nodeName: function() {
       return fmt('ClassAssign (%@)', this.varName);
     }
   }
@@ -227,7 +249,7 @@ Nodes.ConstantAssign = klass({
       this.varName = varName;
     },
 
-    name: function() {
+    nodeName: function() {
       return fmt('ConstantAssign (%@)', this.varName);
     }
   }

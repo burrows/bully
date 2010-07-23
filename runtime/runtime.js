@@ -124,15 +124,18 @@ Bully.define_global_const = function(name, val) {
 
 Bully.const_get = function(klass, name) {
   var found = false, val;
-  do {
-    if (klass.iv_tbl.hasOwnProperty(name)) {
-      found = true;
-      val = klass.iv_tbl[name];
-    }
-    else {
-      klass = klass.super;
-    }
-  } while (!found && klass.super);
+
+  if (klass) {
+    do {
+      if (klass.iv_tbl.hasOwnProperty(name)) {
+        found = true;
+        val = klass.iv_tbl[name];
+      }
+      else {
+        klass = klass.super;
+      }
+    } while (!found && klass.super);
+  }
 
   if (!found && Bully.class_tbl.hasOwnProperty(name)) {
     val = Bully.class_tbl[name];

@@ -342,6 +342,14 @@ exports["Bully.const_get can access global constants"] = function(test) {
   test.done();
 };
 
+exports["Bully.const_get when passed null as the first argument will simply look up a global constant"] = function(test) {
+  var A = Bully.define_class('A');
+
+  Bully.define_global_const('MyConst', 99);
+  test.equals(Bully.const_get(null, 'MyConst'), 99);
+  test.done();
+};
+
 exports["Bully.const_get throws an exception if constant is not defined"] = function(test) {
   var A = Bully.define_class('A');
 
