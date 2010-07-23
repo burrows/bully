@@ -1,9 +1,9 @@
 
-var util  = require('util'),
-    klass = util.klass,
-    fmt   = util.fmt
-    Scope = require('scope').Scope,
-    Nodes = {};
+var util       = require('util'),
+    klass      = util.klass,
+    fmt        = util.fmt
+    ScopeChain = require('scope').ScopeChain,
+    Nodes      = {};
 
 //------------------------------------------------------------------------------
 // Nodes.Base
@@ -69,7 +69,7 @@ Nodes.Expressions = klass({
       var exprs = '';
 
       ctx = ctx || {
-        scope: Scope.create(),
+        scopes: ScopeChain.create(),
         mod: null
       };
 
@@ -77,7 +77,7 @@ Nodes.Expressions = klass({
         exprs += child.compile(ctx);
       });
 
-      return fmt("(function() {\n%@\n%@\n})();", ctx.scope.compile(), exprs);
+      return fmt("(function() {\n%@\n%@\n})();", ctx.scopes.compileCurrent(), exprs);
     }
   }
 });
@@ -160,7 +160,7 @@ Nodes.Class = klass({
     compile: function(ctx) {
       var mod = ctx.mod, code;
 
-      if (ctx.scope.find(this.name)) {
+      if (ctx.scopes.find(this.name)) {
         // reopening an existing class
       }
       else {
@@ -168,14 +168,14 @@ Nodes.Class = klass({
         code = fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, this.super ? this.super : 'null');
       }
 
-      ctx.scope = Scope.create(ctx.scope);
+      ctx.scopes.push();
       ctx.mod   = this.name;
 
       this.children.forEach(function(child) {
         code += child.compile(ctx);
       });
 
-      ctx.scope = ctx.scope.parent;
+      ctx.scopes.pop();
       ctx.mod   = mod;
 
       return code;
