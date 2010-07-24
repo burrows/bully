@@ -1,6 +1,10 @@
 exports.klass = function(data) {
   var k = {
-    methods: {},
+    methods: {
+      instanceOf: function(klass) {
+        return this.klass === klass;
+      }
+    },
 
     create: function() {
       var o = Object.create(this.methods);

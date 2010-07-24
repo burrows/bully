@@ -11,9 +11,10 @@ var util       = require('util'),
 Nodes.Context = klass({
   instanceMethods: {
     initialize: function() {
-      this.scopes      = ScopeChain.create();
-      this.modules     = [];
-      this.indentLevel = 0;
+      this.scopes        = ScopeChain.create();
+      this.modules       = [];
+      this.indentLevel   = 0;
+      this._shouldIndent = true;
     },
 
     indent: function() {
@@ -24,10 +25,20 @@ Nodes.Context = klass({
       this.indentLevel--;
     },
 
+    shouldIndent: function(bool) {
+      this._shouldIndent = bool;
+    },
+
     tab: function() {
       var tab = '', i;
-      for (i = 0; i < this.indentLevel; i++) { tab += '  '; }
-      return tab;
+
+      if (this._shouldIndent) {
+        for (i = 0; i < this.indentLevel; i++) { tab += '  '; }
+        return tab;
+      }
+      else {
+        return '';
+      }
     },
 
     module: function() {
@@ -254,9 +265,12 @@ Nodes.LocalAssign = klass({
     },
 
     compile: function(ctx) {
-      var tab = ctx.tab();
+      var tab = ctx.tab(), code;
       ctx.scopes.find(this.varName);
-      return fmt("%@%@ = %@", tab, this.varName, this.compileChildren(ctx));
+      ctx.shouldIndent(false);
+      code = this.compileChildren(ctx);
+      ctx.shouldIndent(true);
+      return fmt("%@%@ = %@", tab, this.varName, code);
     }
   }
 });
