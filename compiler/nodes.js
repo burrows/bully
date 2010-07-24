@@ -108,25 +108,9 @@ Nodes.Expressions = klass({
     },
 
     compile: function(ctx) {
-      var expr, tab, vars;
-
       ctx = ctx || Nodes.Context.create();
-      tab = ctx.tab();
 
-      ctx.scopes.push();
-      ctx.indent();
-
-      exprs = this.compileChildren(ctx);
-
-      if (ctx.scopes.any()) {
-        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
-      }
-
-      ctx.scopes.pop();
-      ctx.outdent();
-
-      return fmt("%@(function() {\n%@%@})();\n",
-        tab, exprs, tab);
+      return this.compileChildren(ctx);
     }
   }
 });
@@ -178,18 +162,24 @@ Nodes.Def = klass({
     },
 
     compile: function(ctx) {
-      var tab = ctx.tab(), code;
+      var mod = ctx.module(), tab = ctx.tab(), code, exprs;
 
-      code = fmt("%@Bully.define_method(FIXME, '%@', function(recv, args) {\n",
-        tab, this.identifier);
+      code = fmt("%@Bully.define_method(%@, '%@', function(recv, args) {\n",
+        tab, mod, this.identifier);
 
+      ctx.scopes.push();
       ctx.indent();
 
-      code += this.compileChildren(ctx);
+      exprs = this.compileChildren(ctx);
 
+      if (ctx.scopes.any()) {
+        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
+      }
+
+      ctx.scopes.pop();
       ctx.outdent();
 
-      code += fmt("%@});\n", tab);
+      code += fmt("%@%@});\n", exprs, tab);
 
       return code;
     }
@@ -214,8 +204,7 @@ Nodes.Class = klass({
     },
 
     compile: function(ctx) {
-      var mod = ctx.module(),
-          tab = ctx.tab(), superRef, code;
+      var mod = ctx.module(), tab = ctx.tab(), superRef, code, exprs;
 
       ctx.scopes.find(this.name);
 
@@ -225,11 +214,23 @@ Nodes.Class = klass({
         fmt("%@%@ = Bully.define_class_under(%@, '%@', %@);\n", tab, this.name, mod, this.name, superRef) :
         fmt("%@%@ = Bully.define_class('%@', %@);\n", tab, this.name, this.name, superRef);
 
+      code += fmt("%@(function() {\n", tab);
+
+      ctx.scopes.push();
       ctx.modules.push(this.name);
+      ctx.indent();
 
-      code += this.compileChildren(ctx);
+      exprs = this.compileChildren(ctx);
 
+      if (ctx.scopes.any()) {
+        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
+      }
+
+      ctx.scopes.pop();
       ctx.modules.pop();
+      ctx.outdent();
+
+      code += exprs + fmt("%@})();\n", tab);
 
       return code;
     }
@@ -250,6 +251,12 @@ Nodes.LocalAssign = klass({
 
     nodeName: function() {
       return fmt('LocalAssign (%@)', this.varName);
+    },
+
+    compile: function(ctx) {
+      var tab = ctx.tab();
+      ctx.scopes.find(this.varName);
+      return fmt("%@%@ = %@", tab, this.varName, this.compileChildren(ctx));
     }
   }
 });
