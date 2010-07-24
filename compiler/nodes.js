@@ -28,6 +28,11 @@ Nodes.Context = klass({
       var tab = '', i;
       for (i = 0; i < this.indentLevel; i++) { tab += '  '; }
       return tab;
+    },
+
+    module: function() {
+      var len = this.modules.length;
+      return len > 0 ? this.modules[len - 1] : null;
     }
   }
 });
@@ -203,20 +208,24 @@ Nodes.Class = klass({
     },
 
     compile: function(ctx) {
-      var tab = ctx.tab(), code;
+      var mod = ctx.module(),
+          tab = ctx.tab(), superRef, code;
 
-      if (ctx.scopes.find(this.name)) {
-        // reopening an existing class
-      }
-      else {
-        // declaring a new class
-        code = fmt("%@%@ = Bully.define_class('%@', %@);\n",
-          tab, this.name, this.name, this.super ? this.super : 'null');
-      }
+      ctx.scopes.find(this.name);
+
+      superRef = this.super ? this.super : 'null';
+
+      code = mod ?
+        fmt("%@%@ = Bully.define_class_under(%@, '%@', %@);\n", tab, this.name, mod, this.name, superRef) :
+        fmt("%@%@ = Bully.define_class('%@', %@);\n", tab, this.name, this.name, superRef);
+
+      ctx.modules.push(this.name);
 
       this.children.forEach(function(child) {
         code += child.compile(ctx);
       });
+
+      ctx.modules.pop();
 
       return code;
     }
