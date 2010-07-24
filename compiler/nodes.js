@@ -72,6 +72,16 @@ Nodes.Base = klass({
 
     compile: function() {
       throw "compile method must be implemented in subclass";
+    },
+
+    compileChildren: function(ctx) {
+      var code = '';
+
+      this.children.forEach(function(child) {
+        code += child.compile(ctx);
+      });
+
+      return code;
     }
   }
 });
@@ -98,7 +108,7 @@ Nodes.Expressions = klass({
     },
 
     compile: function(ctx) {
-      var exprs = '', tab, vars;
+      var expr, tab, vars;
 
       ctx = ctx || Nodes.Context.create();
       tab = ctx.tab();
@@ -106,9 +116,7 @@ Nodes.Expressions = klass({
       ctx.scopes.push();
       ctx.indent();
 
-      this.children.forEach(function(child) {
-        exprs += child.compile(ctx);
-      });
+      exprs = this.compileChildren(ctx);
 
       if (ctx.scopes.any()) {
         exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
@@ -177,9 +185,7 @@ Nodes.Def = klass({
 
       ctx.indent();
 
-      this.children.forEach(function(child) {
-        code += child.compile();
-      });
+      code += this.compileChildren(ctx);
 
       ctx.outdent();
 
@@ -221,9 +227,7 @@ Nodes.Class = klass({
 
       ctx.modules.push(this.name);
 
-      this.children.forEach(function(child) {
-        code += child.compile(ctx);
-      });
+      code += this.compileChildren(ctx);
 
       ctx.modules.pop();
 
