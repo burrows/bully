@@ -13,16 +13,16 @@ Nodes.Context = klass({
     initialize: function() {
       this.scopes        = ScopeChain.create();
       this.modules       = [];
-      this.indentLevel   = 0;
+      this._tab          = '';
       this._shouldIndent = true;
     },
 
     indent: function() {
-      this.indentLevel++;
+      this._tab += '  ';
     },
 
     outdent: function() {
-      this.indentLevel--;
+      this._tab = this._tab.substr(2);
     },
 
     shouldIndent: function(bool) {
@@ -30,15 +30,7 @@ Nodes.Context = klass({
     },
 
     tab: function() {
-      var tab = '', i;
-
-      if (this._shouldIndent) {
-        for (i = 0; i < this.indentLevel; i++) { tab += '  '; }
-        return tab;
-      }
-      else {
-        return '';
-      }
+      return this._shouldIndent ? this._tab : '';
     },
 
     module: function() {
