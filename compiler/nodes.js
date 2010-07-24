@@ -6,6 +6,33 @@ var util       = require('util'),
     Nodes      = {};
 
 //------------------------------------------------------------------------------
+// Nodes.Context
+//------------------------------------------------------------------------------
+Nodes.Context = klass({
+  instanceMethods: {
+    initialize: function() {
+      this.scopes      = ScopeChain.create();
+      this.modules     = [];
+      this.indentLevel = 0;
+    },
+
+    indent: function() {
+      this.indentLevel++;
+    },
+
+    outdent: function() {
+      this.indentLevel--;
+    },
+
+    tab: function() {
+      var tab = '', i;
+      for (i = 0; i < this.indentLevel; i++) { tab += '  '; }
+      return tab;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
 // Nodes.Base
 //------------------------------------------------------------------------------
 Nodes.Base = klass({
@@ -66,18 +93,27 @@ Nodes.Expressions = klass({
     },
 
     compile: function(ctx) {
-      var exprs = '';
+      var exprs = '', tab, vars;
 
-      ctx = ctx || {
-        scopes: ScopeChain.create(),
-        mod: null
-      };
+      ctx = ctx || Nodes.Context.create();
+      tab = ctx.tab();
+
+      ctx.scopes.push();
+      ctx.indent();
 
       this.children.forEach(function(child) {
         exprs += child.compile(ctx);
       });
 
-      return fmt("(function() {\n%@\n%@\n})();", ctx.scopes.compileCurrent(), exprs);
+      if (ctx.scopes.any()) {
+        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
+      }
+
+      ctx.scopes.pop();
+      ctx.outdent();
+
+      return fmt("%@(function() {\n%@%@})();\n",
+        tab, exprs, tab);
     }
   }
 });
@@ -99,12 +135,14 @@ Nodes.Literal = klass({
       return fmt('Literal (%@:%@)', this.type, this.token);
     },
 
-    compile: function() {
+    compile: function(ctx) {
+      var tab = ctx.tab();
+
       switch (this.type) {
         case 'STRING':
-          return fmt("Bully.str_new(\"%@\");\n", this.token);
+          return fmt("%@Bully.str_new(\"%@\");\n", tab, this.token);
         case 'NUMBER':
-          return fmt("Bully.num_new(\"%@\");\n", this.token);
+          return fmt("%@Bully.num_new(\"%@\");\n", tab, this.token);
       }
     }
   }
@@ -127,13 +165,20 @@ Nodes.Def = klass({
     },
 
     compile: function(ctx) {
-      var code = fmt("Bully.define_method(FIXME, '%@', function(recv, args) {\n", this.identifier);
+      var tab = ctx.tab(), code;
+
+      code = fmt("%@Bully.define_method(FIXME, '%@', function(recv, args) {\n",
+        tab, this.identifier);
+
+      ctx.indent();
 
       this.children.forEach(function(child) {
         code += child.compile();
       });
 
-      code += "});\n";
+      ctx.outdent();
+
+      code += fmt("%@});\n", tab);
 
       return code;
     }
@@ -158,25 +203,20 @@ Nodes.Class = klass({
     },
 
     compile: function(ctx) {
-      var mod = ctx.mod, code;
+      var tab = ctx.tab(), code;
 
       if (ctx.scopes.find(this.name)) {
         // reopening an existing class
       }
       else {
         // declaring a new class
-        code = fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, this.super ? this.super : 'null');
+        code = fmt("%@%@ = Bully.define_class('%@', %@);\n",
+          tab, this.name, this.name, this.super ? this.super : 'null');
       }
-
-      ctx.scopes.push();
-      ctx.mod   = this.name;
 
       this.children.forEach(function(child) {
         code += child.compile(ctx);
       });
-
-      ctx.scopes.pop();
-      ctx.mod   = mod;
 
       return code;
     }

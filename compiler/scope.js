@@ -8,6 +8,11 @@ var Scope = exports.Scope = klass({
     initialize: function(parent) {
       this.parent = parent;
       this.vars   = {};
+      this._any   = false;
+    },
+
+    any: function() {
+      return this._any;
     },
 
     compile: function() {
@@ -22,7 +27,8 @@ var Scope = exports.Scope = klass({
 
     find: function(name) {
       if (this.check(name)) { return true; }
-      this.vars[name] = true;;
+      this.vars[name] = true;
+      this._any = true;
       return false;
     },
 
@@ -57,6 +63,10 @@ var ScopeChain = exports.ScopeChain = klass({
 
     pop: function() {
       return this.scopes.pop();
+    },
+
+    any: function() {
+      return this.current().any();
     },
 
     compileCurrent: function() {
