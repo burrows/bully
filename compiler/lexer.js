@@ -2,7 +2,7 @@
 var Lexer = function() {
 };
 
-Lexer.KEYWORDS = ['def', 'class', 'end', 'true', 'false', 'nil', 'self'];
+Lexer.KEYWORDS = ['def', 'class', 'end', 'true', 'false', 'nil', 'self', 'return'];
 
 Lexer.prototype = {
   tokenize: function(code) {

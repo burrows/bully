@@ -13,7 +13,7 @@ Nodes.Context = klass({
     initialize: function() {
       this.scopes        = ScopeChain.create();
       this.modules       = [];
-      this._tab          = '';
+      this._tab          = '  ';
       this._shouldIndent = true;
     },
 
@@ -90,9 +90,9 @@ Nodes.Base = klass({
 });
 
 //------------------------------------------------------------------------------
-// Nodes.Expressions
+// Nodes.Body
 //------------------------------------------------------------------------------
-Nodes.Expressions = klass({
+Nodes.Body = klass({
   super: Nodes.Base,
 
   classMethods: {
@@ -103,7 +103,7 @@ Nodes.Expressions = klass({
 
   instanceMethods: {
     nodeName: function() {
-      return 'Expressions';
+      return 'Body';
     },
 
     isRoot: function() {
@@ -111,9 +111,46 @@ Nodes.Expressions = klass({
     },
 
     compile: function(ctx) {
+      var code, vars;
+
       ctx = ctx || Nodes.Context.create();
 
-      return this.compileChildren(ctx);
+      code = this.compileChildren(ctx);
+
+      if (this.isRoot()) {
+        if (ctx.scopes.any()) {
+          code = fmt("(function() {\n  %@\n%@})();", ctx.scopes.compileCurrent(), code);
+        }
+        else {
+          code = fmt("(function() {\n%@})();", code);
+        }
+      }
+
+      return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.Return
+//------------------------------------------------------------------------------
+Nodes.Return = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    nodeName: function() {
+      return 'Return';
+    },
+
+    compile: function(ctx) {
+      var tab = ctx.tab(), expr;
+
+      ctx.shouldIndent(false);
+      expr = this.compileChildren(ctx);
+      ctx.shouldIndent(true);
+
+      return this.children.length > 0 ? fmt("%@return %@", tab, expr) :
+                                        fmt("%@return;\n", tab);
     }
   }
 });
@@ -165,7 +202,7 @@ Nodes.Def = klass({
     },
 
     compile: function(ctx) {
-      var mod = ctx.module(), tab = ctx.tab(), code, exprs;
+      var mod = ctx.module(), tab = ctx.tab(), code, body;
 
       code = fmt("%@Bully.define_method(%@, '%@', function(recv, args) {\n",
         tab, mod, this.identifier);
@@ -173,16 +210,16 @@ Nodes.Def = klass({
       ctx.scopes.push();
       ctx.indent();
 
-      exprs = this.compileChildren(ctx);
+      body = this.compileChildren(ctx);
 
       if (ctx.scopes.any()) {
-        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
+        body = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), body);
       }
 
       ctx.scopes.pop();
       ctx.outdent();
 
-      code += fmt("%@%@});\n", exprs, tab);
+      code += fmt("%@%@});\n", body, tab);
 
       return code;
     }
@@ -207,7 +244,7 @@ Nodes.Class = klass({
     },
 
     compile: function(ctx) {
-      var mod = ctx.module(), tab = ctx.tab(), superRef, code, exprs;
+      var mod = ctx.module(), tab = ctx.tab(), superRef, code, body;
 
       ctx.scopes.find(this.name);
 
@@ -223,17 +260,17 @@ Nodes.Class = klass({
       ctx.modules.push(this.name);
       ctx.indent();
 
-      exprs = this.compileChildren(ctx);
+      body = this.compileChildren(ctx);
 
       if (ctx.scopes.any()) {
-        exprs = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), exprs);
+        body = fmt("%@%@\n%@", ctx.tab(), ctx.scopes.compileCurrent(), body);
       }
 
       ctx.scopes.pop();
       ctx.modules.pop();
       ctx.outdent();
 
-      code += exprs + fmt("%@})();\n", tab);
+      code += body + fmt("%@})();\n", tab);
 
       return code;
     }

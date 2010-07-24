@@ -8,19 +8,25 @@ function o(rule, action) {
 
 var grammar = {
   Root: [
-    o('',            'return $$ = Nodes.Expressions.create();'),
-    o('Expressions', 'return $$ = $1')
+    o('',            'return $$ = Nodes.Body.create();'),
+    o('Body',        'return $$ = $1')
   ],
 
-  Expressions: [
-    o('Expression',                          '$$ = Nodes.Expressions.wrap([$1]);'),
-    o('Expressions Terminator Expression',   '$1.push($3);'),
-    o('Expressions Terminator',              '$$ = $1;')
+  Body: [
+    o('Expression',                 '$$ = Nodes.Body.wrap([$1]);'),
+    o('Statement',                  '$$ = Nodes.Body.wrap([$1]);'),
+    o('Body Terminator Expression', '$1.push($3);'),
+    o('Body Terminator Statement',  '$1.push($3);'),
+    o('Body Terminator',            '$$ = $1;')
   ],
 
   Terminator: [
     o(';'),
     o('NEWLINE')
+  ],
+
+  Statement: [
+    o('Return')
   ],
 
   Expression: [
@@ -33,6 +39,11 @@ var grammar = {
     o('TRUE'),
     o('FALSE'),
     o('NIL')
+  ],
+
+  Return: [
+    o('RETURN Expression', '$$ = Nodes.Return.create([$2]);'),
+    o('RETURN',            '$$ = Nodes.Return.create();')
   ],
 
   Literal: [
@@ -53,8 +64,8 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Expressions END', '$$ = Nodes.Def.create($2, [$4]);'),
-    o('DEF IDENTIFIER ( ParamList ) Terminator Expressions END')
+    o('DEF IDENTIFIER Terminator Body END', '$$ = Nodes.Def.create($2, [$4]);'),
+    o('DEF IDENTIFIER ( ParamList ) Terminator Body END')
   ],
   
   ParamList: [
@@ -71,8 +82,8 @@ var grammar = {
   ],
 
   Class: [
-    o('CLASS CONSTANT Terminator Expressions END',            '$$ = Nodes.Class.create($2, null, [$4]);'),
-    o('CLASS CONSTANT < CONSTANT Terminator Expressions END', '$$ = Nodes.Class.create($2, $4, [$6]);')
+    o('CLASS CONSTANT Terminator Body END',            '$$ = Nodes.Class.create($2, null, [$4]);'),
+    o('CLASS CONSTANT < CONSTANT Terminator Body END', '$$ = Nodes.Class.create($2, $4, [$6]);')
   ]
 };
 
