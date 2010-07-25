@@ -159,7 +159,8 @@ Nodes.Literal = klass({
     },
 
     nodeName: function() {
-      return fmt('Literal (%@:%@)', this.type, this.token);
+      return this.token ? fmt('Literal (%@:%@)', this.type, this.token) :
+                          fmt('Literal (%@)', this.type);
     },
 
     compileNode: function(ctx) {
@@ -190,9 +191,11 @@ Nodes.Def = klass({
   instanceMethods: {
     _needsClosure: true,
 
-    initialize: function(identifier, nodes) {
-      arguments.callee.base.call(this, nodes);
+    initialize: function(identifier, paramList, body) {
+      arguments.callee.base.call(this, [paramList, body]);
       this.identifier = identifier;
+      this.paramList  = paramList;
+      this.body       = body;
     },
 
     nodeName: function() {
@@ -200,14 +203,14 @@ Nodes.Def = klass({
     },
 
     compileNode: function(ctx) {
-      var body = this.children[0], mod = ctx.module(), code, bodyCode;
+      var mod = ctx.module(), code, bodyCode;
 
-      code = fmt("Bully.define_method(%@, '%@', function(recv, args) {\n",
+      code = fmt("Bully.define_method(%@, '%@', function(self) {\n",
         mod, this.identifier);
 
       ctx.scopes.push();
 
-      bodyCode = body.compile(ctx);
+      bodyCode = this.paramList.compile(ctx) + this.body.compile(ctx);
 
       if (ctx.scopes.any()) {
         bodyCode = fmt("  %@\n%@", ctx.scopes.compileCurrent(), bodyCode);
@@ -218,6 +221,140 @@ Nodes.Def = klass({
       code += fmt("%@});\nreturn Bully.nil;\n", bodyCode);
 
       return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.ParamList
+//------------------------------------------------------------------------------
+Nodes.ParamList = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    nodeName: function() {
+      return 'ParamList';
+    },
+
+    compileNode: function(ctx) {
+      var code = '';
+
+      this.children.forEach(function(child) {
+        code += child.compile(ctx);
+      });
+
+      return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.ReqParamList
+//------------------------------------------------------------------------------
+Nodes.ReqParamList = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    initialize: function(identifier) {
+      arguments.callee.base.call(this);
+      this.identifiers = [identifier];
+    },
+
+    push: function(identifier) {
+      this.identifiers.push(identifier);
+    },
+
+    nodeName: function() {
+      return 'ReqParamList (' + this.identifiers.join(', ') + ')';
+    },
+
+    compileNode: function(ctx) {
+      var code = '';
+      this.identifiers.forEach(function(identifier, idx) {
+        ctx.scopes.find(identifier);
+        code += fmt("  %@ = arguments[%@];\n", identifier, idx + 1);
+      });
+
+      return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.OptParamList
+//------------------------------------------------------------------------------
+Nodes.OptParamList = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    initialize: function(identifier, expr) {
+      arguments.callee.base.call(this);
+      this.opts = [[identifier, expr]];
+    },
+
+    push: function(identifier, expr) {
+      this.opts.push([identifier, expr]);
+    },
+
+    nodeName: function() {
+      var ids = [];
+      this.opts.forEach(function(opt) { ids.push(opt[0]); });
+      return 'OptParamList (' + ids.join(', ') + ')';
+    },
+
+    offset: function() {
+      return this.parent.children[0].instanceOf(Nodes.ReqParamList) ?
+        this.parent.children[0].identifiers.length + 1 : 1;
+    },
+
+    compileNode: function(ctx) {
+      var code = '', offset = this.offset();
+
+      this.opts.forEach(function(opt, idx) {
+        ctx.scopes.find(opt[0]);
+        code += fmt("  %@ = typeof arguments[%@] === 'undefined' ? %@ : arguments[%@];\n",
+          opt[0], offset + idx, opt[1].compile(ctx), offset + idx);
+      }, this);
+
+      return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.SplatParam
+//------------------------------------------------------------------------------
+Nodes.SplatParam = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    initialize: function(identifier) {
+      arguments.callee.base.call(this);
+      this.identifier = identifier;
+    },
+
+    nodeName: function() {
+      return 'SplatParam (' + this.identifier + ')';
+    },
+
+    offset: function() {
+      offset = 1;
+      this.parent.children.forEach(function(child) {
+        if (child.instanceOf(Nodes.ReqParamList)) {
+          offset += child.identifiers.length;
+        }
+        else if (child.instanceOf(Nodes.OptParamList)) {
+          offset += child.opts.length;
+        }
+      });
+
+      return offset;
+    },
+
+    compileNode: function(ctx) {
+      ctx.scopes.find(this.identifier);
+      return fmt("  %@ = Array.prototype.slice.call(arguments, %@);\n",
+        this.identifier, this.offset());
     }
   }
 });

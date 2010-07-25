@@ -2,6 +2,9 @@ require.paths.unshift('vendor/jison/lib');
 
 var Parser = require('jison').Parser;
 
+// FIXME: Jison trys to use the deprecated global puts method
+global.puts = require('sys').puts;
+
 function o(rule, action) {
   return [rule, action || '$$ = $1;'];
 }
@@ -85,14 +88,33 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Body END', '$$ = Nodes.Def.create($2, [$4.needsReturn()]);'),
-    o('DEF IDENTIFIER ( ParamList ) Terminator Body END')
+    o('DEF IDENTIFIER Terminator Body END',               '$$ = Nodes.Def.create($2, Nodes.ParamList.create(), $4.needsReturn());'),
+    o('DEF IDENTIFIER ( ParamList ) Terminator Body END', '$$ = Nodes.Def.create($2, $4, $7.needsReturn());'),
   ],
-  
+
   ParamList: [
-    o(''),
-    o('IDENTIFIER'),
-    o('ParamList , IDENTIFIER')
+    o('',                                         '$$ = Nodes.ParamList.create();'),
+    o('ReqParamList',                             '$$ = Nodes.ParamList.create([$1]);'),
+    o('OptParamList',                             '$$ = Nodes.ParamList.create([$1]);'),
+    o('SplatParam',                               '$$ = Nodes.ParamList.create([$1]);'),
+    o('ReqParamList , OptParamList',              '$$ = Nodes.ParamList.create([$1, $3]);'),
+    o('ReqParamList , OptParamList , SplatParam', '$$ = Nodes.ParamList.create([$1, $3, $5]);'),
+    o('ReqParamList , SplatParam',                '$$ = Nodes.ParamList.create([$1, $3]);'),
+    o('OptParamList , SplatParam',                '$$ = Nodes.ParamList.create([$1, $3]);')
+  ],
+
+  ReqParamList: [
+    o('IDENTIFIER',                '$$ = Nodes.ReqParamList.create($1);'),
+    o('ReqParamList , IDENTIFIER', '$1.push($3);')
+  ],
+
+  OptParamList: [
+    o('IDENTIFIER = Expression',                '$$ = Nodes.OptParamList.create($1, $3);'),
+    o('OptParamList , IDENTIFIER = Expression', '$1.push($3, $5);')
+  ],
+
+  SplatParam: [
+    o('* IDENTIFIER', '$$ = Nodes.SplatParam.create($2);')
   ],
 
   Assignment: [
