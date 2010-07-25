@@ -60,16 +60,16 @@ var grammar = {
 
   If: [
     o('IfStart END'),
-    o('IfStart ELSE NEWLINE Body END', '$1.addElse($4);'),
+    o('IfStart ELSE NEWLINE Body END', '$1.addElse($4.needsReturn());'),
   ],
 
   IfStart: [
-    o('IF Expression Then Body', '$$ = Nodes.If.create([$2, $4]);'),
+    o('IF Expression Then Body', '$$ = Nodes.If.create([$2, $4.needsReturn()]);'),
     o('IfStart ElsIf',           '$1.push($2);')
   ],
 
   ElsIf: [
-    o('ELSIF Expression Then Body', '$$ = Nodes.If.create([$2, $4]);')
+    o('ELSIF Expression Then Body', '$$ = Nodes.If.create([$2, $4.needsReturn()]);')
   ],
 
   Then: [
@@ -85,7 +85,7 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Body END', '$$ = Nodes.Def.create($2, [$4]);'),
+    o('DEF IDENTIFIER Terminator Body END', '$$ = Nodes.Def.create($2, [$4.needsReturn()]);'),
     o('DEF IDENTIFIER ( ParamList ) Terminator Body END')
   ],
   

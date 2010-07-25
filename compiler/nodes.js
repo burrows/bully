@@ -82,6 +82,16 @@ Nodes.Body = klass({
       return !this.parent;
     },
 
+    needsReturn: function() {
+      var len = this.children.length;
+
+      if (!this.children[len - 1].instanceOf(Nodes.Return)) {
+        this.children.push(Nodes.Return.create([this.children.pop()]));
+      }
+
+      return this;
+    },
+
     compile: function(ctx) {
       var code = '', vars;
 
@@ -266,7 +276,7 @@ Nodes.If = klass({
           elseBody = this.hasElse ? this.children.pop() : null,
           code;
 
-      code = fmt("if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+      code = fmt("(function() {\nif (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
 
       this.children.slice(2).forEach(function(child) {
         var expr = child.children[0],
@@ -277,6 +287,8 @@ Nodes.If = klass({
       if (elseBody) {
         code += fmt("\nelse {\n%@}", elseBody.compile(ctx));
       }
+
+      code += "\n})()";
 
       return code;
     }
