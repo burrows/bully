@@ -17,7 +17,7 @@ var grammar = {
     o('Statement',                  '$$ = Nodes.Body.wrap([$1]);'),
     o('Body Terminator Expression', '$1.push($3);'),
     o('Body Terminator Statement',  '$1.push($3);'),
-    o('Body Terminator',            '$$ = $1;')
+    o('Body Terminator')
   ],
 
   Terminator: [
@@ -35,6 +35,7 @@ var grammar = {
     o('Def'),
     o('Class'),
     o('Call'),
+    o('If'),
     o('CONSTANT'),
     o('TRUE'),
     o('FALSE'),
@@ -55,6 +56,26 @@ var grammar = {
     o('IDENTIFIER ( ArgList )'),
     o('Expression . IDENTIFIER ( ArgList )'),
     o('IDENTIFIER . IDENTIFIER ( ArgList )')
+  ],
+
+  If: [
+    o('IfStart END'),
+    o('IfStart ELSE NEWLINE Body END', '$1.addElse($4);'),
+  ],
+
+  IfStart: [
+    o('IF Expression Then Body', '$$ = Nodes.If.create([$2, $4]);'),
+    o('IfStart ElsIf',           '$1.push($2);')
+  ],
+
+  ElsIf: [
+    o('ELSIF Expression Then Body', '$$ = Nodes.If.create([$2, $4]);')
+  ],
+
+  Then: [
+    o('Terminator'),
+    o('THEN'),
+    o('Terminator THEN')
   ],
 
   ArgList: [

@@ -2,13 +2,27 @@
 var Lexer = function() {
 };
 
-Lexer.KEYWORDS = ['def', 'class', 'end', 'true', 'false', 'nil', 'self', 'return'];
+Lexer.KEYWORDS = [
+  'def',
+  'class',
+  'end',
+  'true',
+  'false',
+  'nil',
+  'self',
+  'return',
+  'if',
+  'unless',
+  'else',
+  'elsif',
+  'then'
+];
 
 Lexer.prototype = {
   tokenize: function(code) {
     var pos    = 0,  // current character position
         tokens = [], // list of the parsed tokens, form is: [tag, value]
-        line   = 1,  // the current source line number
+        line   = 0,  // the current source line number
         chunk, match;
 
     while (pos < code.length) {

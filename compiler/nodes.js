@@ -57,16 +57,6 @@ Nodes.Base = klass({
 
     compile: function() {
       throw "compile method must be implemented in subclass";
-    },
-
-    compileChildren: function(ctx) {
-      var code = '';
-
-      this.children.forEach(function(child) {
-        code += child.compile(ctx);
-      });
-
-      return code;
     }
   }
 });
@@ -246,6 +236,47 @@ Nodes.Class = klass({
         fmt("  %@ = Bully.define_class('%@', %@);\n", this.name, this.name, superRef);
 
       code += bodyCode + "  return Bully.nil;\n})()";
+
+      return code;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.If
+//
+// TODO: make if expressions assignable
+//------------------------------------------------------------------------------
+Nodes.If = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    nodeName: function() {
+      return 'If';
+    },
+
+    addElse: function(body) {
+      this.push(body);
+      this.hasElse = true;
+    },
+
+    compile: function(ctx) {
+      var expr     = this.children[0],
+          body     = this.children[1],
+          elseBody = this.hasElse ? this.children.pop() : null,
+          code;
+
+      code = fmt("if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+
+      this.children.slice(2).forEach(function(child) {
+        var expr = child.children[0],
+            body = child.children[1];
+        code += fmt("\nelse if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+      });
+
+      if (elseBody) {
+        code += fmt("\nelse {\n%@}", elseBody.compile(ctx));
+      }
 
       return code;
     }
