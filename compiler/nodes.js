@@ -178,12 +178,14 @@ Nodes.Literal = klass({
 //------------------------------------------------------------------------------
 // Nodes.Def
 //
-// TODO: make method definitions assignable
+// TODO: make it possible to define global methods
 //------------------------------------------------------------------------------
 Nodes.Def = klass({
   super: Nodes.Base,
 
   instanceMethods: {
+    _needsClosure: true,
+
     initialize: function(identifier, nodes) {
       arguments.callee.base.call(this, nodes);
       this.identifier = identifier;
@@ -209,7 +211,7 @@ Nodes.Def = klass({
 
       ctx.scopes.pop();
 
-      code += fmt("%@})", bodyCode);
+      code += fmt("%@});\nreturn Bully.nil;\n", bodyCode);
 
       return code;
     }
@@ -218,8 +220,6 @@ Nodes.Def = klass({
 
 //------------------------------------------------------------------------------
 // Nodes.Class
-//
-// TODO: fix the indentation for class definitions
 //------------------------------------------------------------------------------
 Nodes.Class = klass({
   super: Nodes.Base,
