@@ -73,6 +73,10 @@ Lexer.prototype = {
       else if (chunk.match(/^ /)) {
         pos += 1;
       }
+      // ignore comments
+      else if (match = chunk.match(/^#.*$/m)) {
+        pos += match[0].length + 1;
+      }
       // treat all other single characters as a token
       else {
         match = chunk.substring(0, 1);
