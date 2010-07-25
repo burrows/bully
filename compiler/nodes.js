@@ -170,6 +170,10 @@ Nodes.Literal = klass({
           return fmt("Bully.num_new(\"%@\")", this.token);
         case 'NIL':
           return "Bully.nil";
+        case 'TRUE':
+          return "Bully._true";
+        case 'FALSE':
+          return "Bully._false";
       }
     }
   }

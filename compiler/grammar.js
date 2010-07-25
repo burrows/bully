@@ -36,10 +36,7 @@ var grammar = {
     o('Class'),
     o('Call'),
     o('If'),
-    o('CONSTANT'),
-    o('TRUE'),
-    o('FALSE'),
-    o('NIL')
+    o('CONSTANT')
   ],
 
   Return: [
@@ -49,7 +46,10 @@ var grammar = {
 
   Literal: [
     o('NUMBER', '$$ = Nodes.Literal.create("NUMBER", $1);'),
-    o('STRING', '$$ = Nodes.Literal.create("STRING", $1);')
+    o('STRING', '$$ = Nodes.Literal.create("STRING", $1);'),
+    o('NIL',    '$$ = Nodes.Literal.create("NIL");'),
+    o('TRUE',   '$$ = Nodes.Literal.create("TRUE");'),
+    o('FALSE',  '$$ = Nodes.Literal.create("FALSE");')
   ],
 
   Call: [
