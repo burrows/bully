@@ -27,6 +27,8 @@ Nodes.Context = klass({
 //------------------------------------------------------------------------------
 Nodes.Base = klass({
   instanceMethods: {
+    _needsClosure: false,
+
     initialize: function(nodes) {
       this.children = [];
 
@@ -55,8 +57,18 @@ Nodes.Base = klass({
       return s
     },
 
-    compile: function() {
-      throw "compile method must be implemented in subclass";
+    compile: function(ctx) {
+      var code = this.compileNode(ctx);
+
+      if (this._needsClosure) {
+        code = fmt("(function() {\n%@})()", code.replace(/^(?=.)/gm, '  '));
+      }
+
+      return code;
+    },
+
+    compileNode: function() {
+      throw "compileNode method must be implemented in subclass";
     }
   }
 });
@@ -92,7 +104,7 @@ Nodes.Body = klass({
       return this;
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       var code = '', vars;
 
       ctx = ctx || Nodes.Context.create();
@@ -126,10 +138,9 @@ Nodes.Return = klass({
       return 'Return';
     },
 
-    compile: function(ctx) {
-      var expr = this.children[0];
-      return this.children.length > 0 ? fmt("return %@", expr.compile(ctx)) :
-                                        "return";
+    compileNode: function(ctx) {
+      return this.children.length > 0 ?
+        fmt("return %@", this.children[0].compile(ctx)) : "return";
     }
   }
 });
@@ -151,12 +162,14 @@ Nodes.Literal = klass({
       return fmt('Literal (%@:%@)', this.type, this.token);
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       switch (this.type) {
         case 'STRING':
           return fmt("Bully.str_new(\"%@\")", this.token);
         case 'NUMBER':
           return fmt("Bully.num_new(\"%@\")", this.token);
+        case 'NIL':
+          return "Bully.nil";
       }
     }
   }
@@ -180,7 +193,7 @@ Nodes.Def = klass({
       return 'Def (' + this.identifier + ')';
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       var body = this.children[0], mod = ctx.module(), code, bodyCode;
 
       code = fmt("Bully.define_method(%@, '%@', function(recv, args) {\n",
@@ -205,27 +218,34 @@ Nodes.Def = klass({
 
 //------------------------------------------------------------------------------
 // Nodes.Class
+//
+// TODO: fix the indentation for class definitions
 //------------------------------------------------------------------------------
 Nodes.Class = klass({
   super: Nodes.Base,
 
   instanceMethods: {
+    _needsClosure: true,
+
     initialize: function(name, super, nodes) {
       arguments.callee.base.call(this, nodes);
       this.name  = name;
       this.super = super;
+
+      // class expressions always return nil so we ensure that the last node
+      // of the class' body is a return node with an expression of nil
+      this.children[0].push(Nodes.Return.create([Nodes.Literal.create('NIL')]));
     },
 
     nodeName: function() {
       return fmt('Class (%@%@)', this.name, this.super ? ' < ' + this.super : '');
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       var body     = this.children[0],
           mod      = ctx.module(),
           superRef = this.super ? this.super : 'null',
-          code     = "(function() {\n",
-          bodyCode;
+          code     = '', bodyCode;
 
       ctx.scopes.find(this.name);
 
@@ -234,33 +254,36 @@ Nodes.Class = klass({
 
       bodyCode = body.compile(ctx);
 
+      // HACK: a Body node automatically indents itself, but we don't want it
+      // to here because the generated class code also gets wrapped in a 
+      // closure which also indents
+      bodyCode = bodyCode.replace(/^  /gm, '');
+
       if (ctx.scopes.any()) {
-        code += fmt("  %@\n", ctx.scopes.compileCurrent());
+        code += ctx.scopes.compileCurrent() + "\n";
       }
 
       ctx.scopes.pop();
       ctx.modules.pop();
 
       code += mod ?
-        fmt("  %@ = Bully.define_class_under(%@, '%@', %@);\n", this.name, mod, this.name, superRef) :
-        fmt("  %@ = Bully.define_class('%@', %@);\n", this.name, this.name, superRef);
+        fmt("%@ = Bully.define_class_under(%@, '%@', %@);\n", this.name, mod, this.name, superRef) :
+        fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, superRef);
 
-      code += bodyCode + "  return Bully.nil;\n})()";
-
-      return code;
+      return code + bodyCode;
     }
   }
 });
 
 //------------------------------------------------------------------------------
 // Nodes.If
-//
-// TODO: make if expressions assignable
 //------------------------------------------------------------------------------
 Nodes.If = klass({
   super: Nodes.Base,
 
   instanceMethods: {
+    _needsClosure: true,
+
     nodeName: function() {
       return 'If';
     },
@@ -270,25 +293,23 @@ Nodes.If = klass({
       this.hasElse = true;
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       var expr     = this.children[0],
           body     = this.children[1],
           elseBody = this.hasElse ? this.children.pop() : null,
           code;
 
-      code = fmt("(function() {\nif (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+      code = fmt("if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
 
       this.children.slice(2).forEach(function(child) {
         var expr = child.children[0],
             body = child.children[1];
-        code += fmt("\nelse if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+        code += fmt(" else if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
       });
 
       if (elseBody) {
-        code += fmt("\nelse {\n%@}", elseBody.compile(ctx));
+        code += fmt(" else {\n%@}\n", elseBody.compile(ctx));
       }
-
-      code += "\n})()";
 
       return code;
     }
@@ -311,7 +332,7 @@ Nodes.LocalAssign = klass({
       return fmt('LocalAssign (%@)', this.varName);
     },
 
-    compile: function(ctx) {
+    compileNode: function(ctx) {
       var code;
       ctx.scopes.find(this.varName);
       return fmt("%@ = %@", this.varName, this.children[0].compile(ctx));
