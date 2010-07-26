@@ -97,7 +97,10 @@ Nodes.Body = klass({
     needsReturn: function() {
       var len = this.children.length;
 
-      if (!this.children[len - 1].instanceOf(Nodes.Return)) {
+      if (len === 0) {
+        this.children.push(Nodes.Return.create([Nodes.Literal.create('NIL')]));
+      }
+      else if (!this.children[len - 1].instanceOf(Nodes.Return)) {
         this.children.push(Nodes.Return.create([this.children.pop()]));
       }
 

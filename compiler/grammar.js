@@ -11,11 +11,11 @@ function o(rule, action) {
 
 var grammar = {
   Root: [
-    o('',            'return $$ = Nodes.Body.create();'),
-    o('Body',        'return $$ = $1')
+    o('Body', 'return $1')
   ],
 
   Body: [
+    o('',                           '$$ = Nodes.Body.create();'),
     o('Expression',                 '$$ = Nodes.Body.wrap([$1]);'),
     o('Statement',                  '$$ = Nodes.Body.wrap([$1]);'),
     o('Body Terminator Expression', '$1.push($3);'),
