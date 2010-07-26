@@ -363,6 +363,51 @@ Nodes.SplatParam = klass({
 });
 
 //------------------------------------------------------------------------------
+// Nodes.Call
+//------------------------------------------------------------------------------
+Nodes.Call = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    initialize: function(expr, identifier, argList) {
+      var nodes = [];
+
+      if (expr) { nodes.push(expr); }
+      if (argList) { nodes.push(argList); }
+
+      arguments.callee.base.call(this, nodes);
+
+      this.expr       = expr;
+      this.identifier = identifier;
+      this.argList    = argList;
+    },
+
+    nodeName: function() {
+      return 'Call (' + this.identifier + ')';
+    },
+
+    compileNode: function(ctx) {
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.ArgList
+//------------------------------------------------------------------------------
+Nodes.ArgList = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    nodeName: function() {
+      return 'ArgList';
+    },
+
+    compileNode: function(ctx) {
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
 // Nodes.Class
 //------------------------------------------------------------------------------
 Nodes.Class = klass({

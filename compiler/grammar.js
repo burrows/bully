@@ -56,9 +56,10 @@ var grammar = {
   ],
 
   Call: [
-    o('IDENTIFIER ( ArgList )'),
-    o('Expression . IDENTIFIER ( ArgList )'),
-    o('IDENTIFIER . IDENTIFIER ( ArgList )')
+    o('IDENTIFIER',                          '$$ = Nodes.Call.create(null, $1, null);'),
+    o('IDENTIFIER ( ArgList )',              '$$ = Nodes.Call.create(null, $1, $3);'),
+    o('Expression . IDENTIFIER',             '$$ = Nodes.Call.create($1, $3, null);'),
+    o('Expression . IDENTIFIER ( ArgList )', '$$ = Nodes.Call.create($1, $3, $5);')
   ],
 
   If: [
@@ -82,9 +83,9 @@ var grammar = {
   ],
 
   ArgList: [
-    o(''),
-    o('Expression'),
-    o('ArgList , Expression')
+    o('',                     '$$ = Nodes.ArgList.create();'),
+    o('Expression',           '$$ = Nodes.ArgList.create([$1]);'),
+    o('ArgList , Expression', '$1.push($3);')
   ],
 
   Def: [
