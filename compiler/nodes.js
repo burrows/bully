@@ -387,6 +387,15 @@ Nodes.Call = klass({
     },
 
     compileNode: function(ctx) {
+      var expr = this.expr ? this.expr.compile(ctx) : 'self',
+          args = this.argList ? this.argList.compile(ctx) : '[]';
+
+      if (!this.expr && ctx.scopes.check(this.identifier)) {
+        // this is actually a local variable reference
+        return this.identifier;
+      }
+
+      return fmt("Bully.funcall(%@, '%@', %@)", expr, this.identifier, args);
     }
   }
 });
@@ -403,6 +412,12 @@ Nodes.ArgList = klass({
     },
 
     compileNode: function(ctx) {
+      var exprs = [];
+      this.children.forEach(function(expr) {
+        exprs.push(expr.compile(ctx));
+      });
+
+      return '[' + exprs.join(', ') + ']';
     }
   }
 });
@@ -579,6 +594,45 @@ Nodes.ConstantAssign = klass({
 
     nodeName: function() {
       return fmt('ConstantAssign (%@)', this.varName);
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.Constant
+//------------------------------------------------------------------------------
+Nodes.Constant = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    initialize: function(name) {
+      arguments.callee.base.call(this);
+      this.name = name;
+    },
+
+    nodeName: function() {
+      return fmt('Constant (%@)', this.name);
+    },
+
+    compileNode: function(ctx) {
+      return this.name;
+    }
+  }
+});
+
+//------------------------------------------------------------------------------
+// Nodes.Self
+//------------------------------------------------------------------------------
+Nodes.Self = klass({
+  super: Nodes.Base,
+
+  instanceMethods: {
+    nodeName: function() {
+      return 'Self';
+    },
+
+    compileNode: function(ctx) {
+      return 'self';
     }
   }
 });

@@ -39,7 +39,16 @@ var grammar = {
     o('Class'),
     o('Call'),
     o('If'),
-    o('CONSTANT')
+    o('Constant'),
+    o('Self')
+  ],
+
+  Constant: [
+    o('CONSTANT', '$$ = Nodes.Constant.create($1);'),
+  ],
+
+  Self: [
+    o('SELF', '$$ = Nodes.Self.create();'),
   ],
 
   Return: [
