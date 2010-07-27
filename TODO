@@ -1,0 +1,16 @@
+* runtime:
+  * implement TrueClass, FalseClass, and NilClass
+  * implement Bully.truthy
+  * define Bully._true, Bully._false, and Bully.nil
+  * create Number class
+  * create Array class
+  * create Hash class
+  * create Proc class
+* compiler:
+  * global methods
+  * instance, class, and constant assignment
+  * Array and Hash literals
+  * operators
+  * blocks
+  * overall command improvements
+
