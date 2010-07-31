@@ -59,7 +59,7 @@ Bully.ivar_set = function(obj, name, val) {
   }
 };
 
-/**
+/*
  * Retrieves an instance variable value from the given object.  For immediate
  * objects, the instance variable is looked up from Bully.immediate_iv_tbl.
  */
@@ -77,10 +77,100 @@ Bully.ivar_get = function(obj, name, val) {
   return typeof val === 'undefined' ? null : val;
 };
 
-Bully.init = function() {
-  Bully.immediate_iv_tbl = {}; // stores instance variables for immediate objects
+/*
+ * @private
+ */
+Bully.class_boot = function(super) {
+  var klass = Bully.make_object();
+
+  klass.super = super;
+  klass.m_tbl = {};
+
+  return klass;
 };
 
+/*
+ * @private
+ */
+Bully.defclass_boot = function(name, super) {
+  var klass = Bully.class_boot(super);
+
+  // TODO: define constant for class name
+
+  return klass;
+};
+
+/*
+ * Returns the singleton class of the given object, creating it if necessary.
+ *
+ * A singleton class provides a place to store instance specific behavior.
+ */
+Bully.singleton_class = function(obj) {
+  var sklass;
+
+  if (obj.klass && obj.klass.is_singleton) {
+    sklass = obj.klass;
+  }
+  else {
+    sklass = Bully.class_boot(obj.klass);
+    sklass.is_singleton = true;
+    obj.klass = sklass;
+  }
+
+  return sklass;
+};
+
+/*
+ * @private
+ *
+ * Constructs a metaclass for the given Class instance.  A metaclass is simply
+ * the singleton class of a Class instance.
+ */
+Bully.make_metaclass = function(klass, super) {
+  var sklass = Bully.singleton_class(klass);
+
+  klass.klass  = sklass;
+  sklass.super = super || klass.super.klass;
+
+  return sklass;
+};
+
+/*
+ * Defines a new Class instance.
+ */
+Bully.define_class = function(name, super) {
+  var klass;
+
+  // TODO: call Bully.class_inherited
+  // TODO: make sure super is not Bully.Class
+  // TODO: make sure super is not a singleton class
+  // TODO: register constant name
+
+  super = super || Bully.Object;
+
+  klass = Bully.class_boot(super);
+
+  Bully.make_metaclass(klass, super.klass);
+
+  return klass;
+};
+
+Bully.immediate_iv_tbl = {}; // stores instance variables for immediate objects
+
+// TODO: bootstrap Object, Module, and Class
+Bully.init = function() {
+  var metaclass;
+
+  Bully.Object = Bully.defclass_boot('Object', null);
+  Bully.Module = Bully.defclass_boot('Module', Bully.Object);
+  Bully.Class  = Bully.defclass_boot('Class', Bully.Module);
+
+  metaclass = Bully.make_metaclass(Bully.Object, Bully.Class);
+  metaclass = Bully.make_metaclass(Bully.Module, metaclass);
+  Bully.make_metaclass(Bully.Class, metaclass);
+};
+
+//------------------------------------------------------------------------------ 
 
 // Bully.alloc_object = function() {
 //   return {

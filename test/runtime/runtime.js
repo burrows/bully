@@ -99,6 +99,50 @@ exports["Bully.ivar_get should return null when the instance variable doesn't ex
   test.done();
 };
 
+exports['Bully.init should bootstrap Object, Module, and Class classes'] = function(test) {
+  test.ok(!Bully.Object.is_singleton);
+  test.ok(Bully.Object.klass.is_singleton);
+  test.ok(!Bully.Module.is_singleton);
+  test.ok(Bully.Module.klass.is_singleton);
+  test.ok(!Bully.Class.is_singleton);
+  test.ok(Bully.Class.klass.is_singleton);
+
+  test.equals(Bully.Object.super, null); // TODO: this will fail once Kernel is included
+  test.equals(Bully.Object.klass.super, Bully.Class);
+  test.equals(Bully.Module.klass.super, Bully.Object.klass);
+  test.equals(Bully.Class.klass.super, Bully.Module.klass);
+
+  test.done();
+};
+
+exports["Bully.define_class with no super should create a class whose super is Bully.Object"] = function(test) {
+  var Human = Bully.define_class('Human');
+
+  test.ok(!Human.is_singleton);
+  test.ok(Human.klass.is_singleton);
+  test.equals(Human.super, Bully.Object);
+  test.equals(Human.klass.super, Bully.Object.klass);
+
+  test.done();
+};
+
+exports["Bully.define_class with a super should create a class descending from super"] = function(test) {
+  var Human = Bully.define_class('Human'),
+      Pirate = Bully.define_class('Pirate', Human);
+
+  test.ok(!Pirate.is_singleton);
+  test.ok(Pirate.klass.is_singleton);
+  test.equals(Pirate.super, Human);
+  test.equals(Pirate.klass.super, Human.klass);
+
+  test.done();
+};
+
+exports["Bully.singleton_class should create a singleton class for the object when one doesn't exist"] = function(test) {
+  test.ok(false);
+  test.done();
+};
+
 // exports["Bully.Object's class is Bully.Class"] = function(test) {
 //   test.equals(Bully.Object.klass, Bully.Class);
 //   test.done();
