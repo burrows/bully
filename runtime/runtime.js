@@ -83,6 +83,7 @@ Bully.ivar_get = function(obj, name, val) {
 Bully.class_boot = function(super) {
   var klass = Bully.make_object();
 
+  klass.klass = Bully.Class;
   klass.super = super;
   klass.m_tbl = {};
 
@@ -143,6 +144,7 @@ Bully.make_metaclass = function(klass, super) {
 Bully.define_class = function(name, super) {
   var klass;
 
+  // TODO: check for existance of class
   // TODO: call Bully.class_inherited
   // TODO: make sure super is not Bully.Class
   // TODO: make sure super is not a singleton class
@@ -155,6 +157,53 @@ Bully.define_class = function(name, super) {
   Bully.make_metaclass(klass, super.klass);
 
   return klass;
+};
+
+Bully.make_include_class = function(module, super) {
+  var iklass = Bully.class_boot(super);
+
+  iklass.is_include_class = true;
+  iklass.m_tbl = module.m_tbl;
+  iklass.klass = module;
+
+  return iklass;
+};
+
+Bully.include_module = function(klass, module) {
+  var current = klass, skip, p;
+
+  while (module) {
+    skip = false;
+    for (p = klass.super; p; p = p.super) {
+      if (p.m_tbl === module.m_tbl) { skip = true; }
+    }
+
+    if (!skip) {
+      current = current.super = Bully.make_include_class(module, current.super);
+    }
+
+    module  = module.super;
+  }
+};
+
+Bully.module_new = function() {
+  var mod = Bully.make_object();
+
+  mod.klass  = Bully.Module;
+  mod.super  = null;
+  mod.iv_tbl = null;
+  mod.m_tbl  = {};
+
+  return mod;
+};
+
+Bully.define_module = function(name) {
+  var mod = Bully.module_new();
+
+  // TODO: check for existance of module
+  // TODO: define constant for module
+
+  return mod;
 };
 
 Bully.define_method = function(klass, name, fn) {
