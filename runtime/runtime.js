@@ -108,6 +108,8 @@ Bully.defclass_boot = function(name, super) {
 Bully.singleton_class = function(obj) {
   var sklass;
 
+  // TODO: can't access singleton class of Numbers or Symbols
+
   if (obj.klass && obj.klass.is_singleton) {
     sklass = obj.klass;
   }
@@ -155,6 +157,42 @@ Bully.define_class = function(name, super) {
   return klass;
 };
 
+Bully.define_method = function(klass, name, fn) {
+  klass.m_tbl[name] = fn;
+};
+
+Bully.define_singleton_method = function(obj, name, fn) {
+  Bully.singleton_class(obj).m_tbl[name] = fn;
+};
+
+Bully.find_method = function(klass, name) {
+  while (klass && !klass.m_tbl[name]) {
+    klass = klass.super;
+  }
+
+  return klass ? klass.m_tbl[name] : null;
+};
+
+Bully.class_of = function(obj) {
+  var type = typeof obj;
+
+  if (typeof obj === 'number')      { return Bully.Number; }
+  else if (obj === null)            { return Bully.NilClass; }
+  else if (obj === true)            { return Bully.TrueClass; }
+  else if (obj === false)           { return Bully.FalseClass; }
+  else if (typeof obj === 'string') { return Bully.Symbol; }
+
+  return obj.klass;
+};
+
+Bully.dispatch_method = function(obj, name, args) {
+  var fn = Bully.find_method(Bully.class_of(obj), name);
+
+  // TODO: check if method was actually found, call method_missing if not
+
+  return fn.apply(null, [obj, args]);
+};
+
 Bully.immediate_iv_tbl = {}; // stores instance variables for immediate objects
 
 // TODO: bootstrap Object, Module, and Class
@@ -168,6 +206,15 @@ Bully.init = function() {
   metaclass = Bully.make_metaclass(Bully.Object, Bully.Class);
   metaclass = Bully.make_metaclass(Bully.Module, metaclass);
   Bully.make_metaclass(Bully.Class, metaclass);
+
+  // NilClass
+  Bully.NilClass = Bully.define_class('NilClass');
+  Bully.define_method(Bully.NilClass, 'to_i', function() {
+    return 0;
+  });
+  Bully.define_method(Bully.NilClass, 'nil?', function() {
+    return true;
+  });
 };
 
 //------------------------------------------------------------------------------ 
