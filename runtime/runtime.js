@@ -256,6 +256,29 @@ Bully.init = function() {
   metaclass = Bully.make_metaclass(Bully.Module, metaclass);
   Bully.make_metaclass(Bully.Class, metaclass);
 
+  // Class
+  Bully.define_method(Bully.Class, 'new', function(recv, args) {
+    var o = Bully.make_object();
+    o.klass = recv;
+
+    //if (Bully.respond_to(o, 'initialize')) {
+    //  Bully.funcall(o, 'initialize', args);
+    //}
+
+    return o;
+  });
+
+  // Kernel
+  Bully.Kernel = Bully.define_module('Kernel');
+  Bully.define_method(Bully.Kernel, 'puts', function(self, args) {
+    var sys = require('sys');
+    sys.puts(args[0]);
+    return null;
+  });
+
+  // Object
+  Bully.include_module(Bully.Object, Bully.Kernel);
+
   // NilClass
   Bully.NilClass = Bully.define_class('NilClass');
   Bully.define_method(Bully.NilClass, 'to_i', function() {
