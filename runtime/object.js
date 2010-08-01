@@ -47,7 +47,7 @@ Bully.dispatch_method = function(obj, name, args) {
 
   // TODO: check if method was actually found, call method_missing if not
 
-  return fn.apply(null, [obj, args]);
+  return fn.call(null, obj, args);
 };
 
 Bully.call_super = function(obj, klass, name, args) {

@@ -208,7 +208,7 @@ Nodes.Def = klass({
     compileNode: function(ctx) {
       var mod = ctx.module(), code, bodyCode;
 
-      code = fmt("Bully.define_method(%@, '%@', function(self) {\n",
+      code = fmt("Bully.define_method(%@, '%@', function(self, __args) {\n",
         mod, this.identifier);
 
       ctx.scopes.push();
@@ -275,7 +275,7 @@ Nodes.ReqParamList = klass({
       var code = '';
       this.identifiers.forEach(function(identifier, idx) {
         ctx.scopes.find(identifier);
-        code += fmt("  %@ = arguments[%@];\n", identifier, idx + 1);
+        code += fmt("  %@ = __args[%@];\n", identifier, idx);
       });
 
       return code;
@@ -307,7 +307,7 @@ Nodes.OptParamList = klass({
 
     offset: function() {
       return this.parent.children[0].instanceOf(Nodes.ReqParamList) ?
-        this.parent.children[0].identifiers.length + 1 : 1;
+        this.parent.children[0].identifiers.length : 0;
     },
 
     compileNode: function(ctx) {
@@ -315,7 +315,7 @@ Nodes.OptParamList = klass({
 
       this.opts.forEach(function(opt, idx) {
         ctx.scopes.find(opt[0]);
-        code += fmt("  %@ = typeof arguments[%@] === 'undefined' ? %@ : arguments[%@];\n",
+        code += fmt("  %@ = typeof __args[%@] === 'undefined' ? %@ : __args[%@];\n",
           opt[0], offset + idx, opt[1].compile(ctx), offset + idx);
       }, this);
 
@@ -341,7 +341,7 @@ Nodes.SplatParam = klass({
     },
 
     offset: function() {
-      offset = 1;
+      offset = 0;
       this.parent.children.forEach(function(child) {
         if (child.instanceOf(Nodes.ReqParamList)) {
           offset += child.identifiers.length;
@@ -356,7 +356,7 @@ Nodes.SplatParam = klass({
 
     compileNode: function(ctx) {
       ctx.scopes.find(this.identifier);
-      return fmt("  %@ = Array.prototype.slice.call(arguments, %@);\n",
+      return fmt("  %@ = Array.prototype.slice.call(__args, %@);\n",
         this.identifier, this.offset());
     }
   }
@@ -395,7 +395,7 @@ Nodes.Call = klass({
         return this.identifier;
       }
 
-      return fmt("Bully.funcall(%@, '%@', %@)", expr, this.identifier, args);
+      return fmt("Bully.dispatch_method(%@, '%@', %@)", expr, this.identifier, args);
     }
   }
 });

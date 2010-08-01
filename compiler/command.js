@@ -61,19 +61,24 @@ function printTokens(files) {
 };
 
 function printNodes(files) {
-  var ast;
-
   files.forEach(function(file) {
-    ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+    var ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
     sys.puts(ast.toString());
   });
 };
 
 function compile(files) {
   files.forEach(function(file) {
-    ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+    var ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
     sys.puts(ast.compile());
   });
+};
+
+function evaluate(file) {
+  var Bully = require('../runtime').Bully, ast;
+
+  ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+  eval(ast.compile());
 };
 
 exports.run = function() {
@@ -87,4 +92,5 @@ exports.run = function() {
   else if (selectedOpts.tokens)  { printTokens(files); }
   else if (selectedOpts.nodes)   { printNodes(files);  }
   else if (selectedOpts.compile) { compile(files);     }
+  else                           { evaluate(files[0]); }
 };
