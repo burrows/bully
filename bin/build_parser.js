@@ -1,7 +1,7 @@
 require.paths.unshift('.');
 
 var fs     = require('fs'),
-    parser = require('compiler/grammar').parser;
+    parser = require('src/grammar').parser;
 
-fs.writeFileSync('./compiler/parser.js', parser.generate());
+fs.writeFileSync('./src/parser.js', parser.generate());
 

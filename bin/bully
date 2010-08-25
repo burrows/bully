@@ -2,8 +2,8 @@
 
 var path = require('path'),
     fs   = require('fs');
-    //lib  = ;
-require.paths.unshift(path.join(path.dirname(fs.realpathSync(__filename)), '../compiler'));
+
+require.paths.unshift(path.join(path.dirname(fs.realpathSync(__filename)), '../src'));
 
 require('command').run();
 
