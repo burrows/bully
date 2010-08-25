@@ -1,9 +1,54 @@
 #!/usr/bin/env node
 
-var path = require('path'),
-    fs   = require('fs');
+var sys          = require('sys'),
+    path         = require('path'),
+    fs           = require('fs'),
+    opts         = require('../vendor/opts'),
+    Bully        = require('../src/bully').Bully,
+    selectedOpts = {};
 
-require.paths.unshift(path.join(path.dirname(fs.realpathSync(__filename)), '../src'));
+var options = [
+  {
+    short       : 't',
+    long        : 'tokens',
+    description : 'Print the tokens produced by the lexer',
+    callback    : function() { selectedOpts.tokens = true; }
+  },
+  {
+    short       : 'n',
+    long        : 'nodes',
+    description : 'Print the parse tree',
+    callback    : function() { selectedOpts.nodes = true; }
+  },
+  {
+    short       : 'h',
+    long        : 'help',
+    description : 'Show this help message',
+    callback    : function() { selectedOpts.help = true; }
+  }
+];
 
-require('command').run();
+
+function printTokens(file) {
+  sys.puts(sys.inspect((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii'))));
+};
+
+function printNodes(file) {
+  var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
+  sys.puts(ast.toString());
+};
+
+function evaluate(file) {
+  var Bully = require('../runtime').Bully, ast;
+
+  ast = Bully.parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+  eval(ast.compile());
+};
+
+opts.parse(options);
+
+if (selectedOpts.help)         { opts.help();                 }
+else if (selectedOpts.tokens)  { printTokens(opts.args()[0]); }
+else if (selectedOpts.nodes)   { printNodes(opts.args()[0]);  }
+else                           { evaluate(opts.args()[0]);    }
 

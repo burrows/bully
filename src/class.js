@@ -94,7 +94,7 @@ Bully.define_class = function(name, super) {
 /*
  * Defines a new Class instance under the given class or module.
  */
-Bully.define_class_under(outer, name, super) {
+Bully.define_class_under = function(outer, name, super) {
   var klass = Bully.make_class(name, super);
   Bully.define_const(outer, klass);
 

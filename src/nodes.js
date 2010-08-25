@@ -1,9 +1,7 @@
+Bully.Nodes = {};
 
-var util       = require('util'),
-    klass      = util.klass,
-    fmt        = util.fmt
-    ScopeChain = require('scope').ScopeChain,
-    Nodes      = {};
+var klass = Bully.Util.klass,
+    Nodes = Bully.Nodes;
 
 //------------------------------------------------------------------------------
 // Nodes.Context
@@ -61,7 +59,7 @@ Nodes.Base = klass({
       var code = this.compileNode(ctx);
 
       if (this._needsClosure) {
-        code = fmt("(function() {\n%@})()", code.replace(/^(?=.)/gm, '  '));
+        code = Bully.Util.fmt("(function() {\n%@})()", code.replace(/^(?=.)/gm, '  '));
       }
 
       return code;
@@ -118,10 +116,10 @@ Nodes.Body = klass({
 
       if (this.isRoot()) {
         if (ctx.scopes.any()) {
-          code = fmt("(function() {\n  %@\n%@})();", ctx.scopes.compileCurrent(), code);
+          code = Bully.Util.fmt("(function() {\n  %@\n%@})();", ctx.scopes.compileCurrent(), code);
         }
         else {
-          code = fmt("(function() {\n%@})();", code);
+          code = Bully.Util.fmt("(function() {\n%@})();", code);
         }
       }
 
@@ -143,7 +141,7 @@ Nodes.Return = klass({
 
     compileNode: function(ctx) {
       return this.children.length > 0 ?
-        fmt("return %@", this.children[0].compile(ctx)) : "return";
+        Bully.Util.fmt("return %@", this.children[0].compile(ctx)) : "return";
     }
   }
 });
@@ -162,16 +160,16 @@ Nodes.Literal = klass({
     },
 
     nodeName: function() {
-      return this.token ? fmt('Literal (%@:%@)', this.type, this.token) :
-                          fmt('Literal (%@)', this.type);
+      return this.token ? Bully.Util.fmt('Literal (%@:%@)', this.type, this.token) :
+                          Bully.Util.fmt('Literal (%@)', this.type);
     },
 
     compileNode: function(ctx) {
       switch (this.type) {
         case 'STRING':
-          return fmt("Bully.str_new(\"%@\")", this.token);
+          return Bully.Util.fmt("Bully.str_new(\"%@\")", this.token);
         case 'NUMBER':
-          return fmt("Bully.num_new(\"%@\")", this.token);
+          return Bully.Util.fmt("Bully.num_new(\"%@\")", this.token);
         case 'NIL':
           return "Bully.nil";
         case 'TRUE':
@@ -208,7 +206,7 @@ Nodes.Def = klass({
     compileNode: function(ctx) {
       var mod = ctx.module(), code, bodyCode;
 
-      code = fmt("Bully.define_method(%@, '%@', function(self, __args) {\n",
+      code = Bully.Util.fmt("Bully.define_method(%@, '%@', function(self, __args) {\n",
         mod, this.identifier);
 
       ctx.scopes.push();
@@ -216,12 +214,12 @@ Nodes.Def = klass({
       bodyCode = this.paramList.compile(ctx) + this.body.compile(ctx);
 
       if (ctx.scopes.any()) {
-        bodyCode = fmt("  %@\n%@", ctx.scopes.compileCurrent(), bodyCode);
+        bodyCode = Bully.Util.fmt("  %@\n%@", ctx.scopes.compileCurrent(), bodyCode);
       }
 
       ctx.scopes.pop();
 
-      code += fmt("%@});\nreturn Bully.nil;\n", bodyCode);
+      code += Bully.Util.fmt("%@});\nreturn Bully.nil;\n", bodyCode);
 
       return code;
     }
@@ -275,7 +273,7 @@ Nodes.ReqParamList = klass({
       var code = '';
       this.identifiers.forEach(function(identifier, idx) {
         ctx.scopes.find(identifier);
-        code += fmt("  %@ = __args[%@];\n", identifier, idx);
+        code += Bully.Util.fmt("  %@ = __args[%@];\n", identifier, idx);
       });
 
       return code;
@@ -315,7 +313,7 @@ Nodes.OptParamList = klass({
 
       this.opts.forEach(function(opt, idx) {
         ctx.scopes.find(opt[0]);
-        code += fmt("  %@ = typeof __args[%@] === 'undefined' ? %@ : __args[%@];\n",
+        code += Bully.Util.fmt("  %@ = typeof __args[%@] === 'undefined' ? %@ : __args[%@];\n",
           opt[0], offset + idx, opt[1].compile(ctx), offset + idx);
       }, this);
 
@@ -356,7 +354,7 @@ Nodes.SplatParam = klass({
 
     compileNode: function(ctx) {
       ctx.scopes.find(this.identifier);
-      return fmt("  %@ = Array.prototype.slice.call(__args, %@);\n",
+      return Bully.Util.fmt("  %@ = Array.prototype.slice.call(__args, %@);\n",
         this.identifier, this.offset());
     }
   }
@@ -395,7 +393,7 @@ Nodes.Call = klass({
         return this.identifier;
       }
 
-      return fmt("Bully.dispatch_method(%@, '%@', %@)", expr, this.identifier, args);
+      return Bully.Util.fmt("Bully.dispatch_method(%@, '%@', %@)", expr, this.identifier, args);
     }
   }
 });
@@ -442,7 +440,7 @@ Nodes.Class = klass({
     },
 
     nodeName: function() {
-      return fmt('Class (%@%@)', this.name, this.super ? ' < ' + this.super : '');
+      return Bully.Util.fmt('Class (%@%@)', this.name, this.super ? ' < ' + this.super : '');
     },
 
     compileNode: function(ctx) {
@@ -471,8 +469,8 @@ Nodes.Class = klass({
       ctx.modules.pop();
 
       code += mod ?
-        fmt("%@ = Bully.define_class_under(%@, '%@', %@);\n", this.name, mod, this.name, superRef) :
-        fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, superRef);
+        Bully.Util.fmt("%@ = Bully.define_class_under(%@, '%@', %@);\n", this.name, mod, this.name, superRef) :
+        Bully.Util.fmt("%@ = Bully.define_class('%@', %@);\n", this.name, this.name, superRef);
 
       return code + bodyCode;
     }
@@ -503,16 +501,16 @@ Nodes.If = klass({
           elseBody = this.hasElse ? this.children.pop() : null,
           code;
 
-      code = fmt("if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+      code = Bully.Util.fmt("if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
 
       this.children.slice(2).forEach(function(child) {
         var expr = child.children[0],
             body = child.children[1];
-        code += fmt(" else if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
+        code += Bully.Util.fmt(" else if (Bully.truthy(%@)) {\n%@}", expr.compile(ctx), body.compile(ctx));
       });
 
       if (elseBody) {
-        code += fmt(" else {\n%@}\n", elseBody.compile(ctx));
+        code += Bully.Util.fmt(" else {\n%@}\n", elseBody.compile(ctx));
       }
 
       return code;
@@ -533,13 +531,13 @@ Nodes.LocalAssign = klass({
     },
 
     nodeName: function() {
-      return fmt('LocalAssign (%@)', this.varName);
+      return Bully.Util.fmt('LocalAssign (%@)', this.varName);
     },
 
     compileNode: function(ctx) {
       var code;
       ctx.scopes.find(this.varName);
-      return fmt("%@ = %@", this.varName, this.children[0].compile(ctx));
+      return Bully.Util.fmt("%@ = %@", this.varName, this.children[0].compile(ctx));
     }
   }
 });
@@ -557,7 +555,7 @@ Nodes.InstanceAssign = klass({
     },
 
     nodeName: function() {
-      return fmt('InstanceAssign (%@)', this.varName);
+      return Bully.Util.fmt('InstanceAssign (%@)', this.varName);
     }
   }
 });
@@ -575,7 +573,7 @@ Nodes.ClassAssign = klass({
     },
 
     nodeName: function() {
-      return fmt('ClassAssign (%@)', this.varName);
+      return Bully.Util.fmt('ClassAssign (%@)', this.varName);
     }
   }
 });
@@ -593,7 +591,7 @@ Nodes.ConstantAssign = klass({
     },
 
     nodeName: function() {
-      return fmt('ConstantAssign (%@)', this.varName);
+      return Bully.Util.fmt('ConstantAssign (%@)', this.varName);
     }
   }
 });
@@ -611,7 +609,7 @@ Nodes.Constant = klass({
     },
 
     nodeName: function() {
-      return fmt('Constant (%@)', this.name);
+      return Bully.Util.fmt('Constant (%@)', this.name);
     },
 
     compileNode: function(ctx) {

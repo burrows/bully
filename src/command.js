@@ -23,12 +23,6 @@ var options = [
     callback    : function() { selectedOpts.nodes = true; }
   },
   {
-    short       : 'c',
-    long        : 'compile',
-    description : 'Compile the given bully code to javascript',
-    callback    : function() { selectedOpts.compile = true; }
-  },
-  {
     short       : 'h',
     long        : 'help',
     description : 'Show this help message',
@@ -38,40 +32,14 @@ var options = [
 
 var lexer = new Lexer();
 
-parser.lexer = {
-  lex: function() {
-    var token = this.tokens[this.pos] || [''];
-    this.pos = this.pos + 1;
-    this.yylineno = token[2];
-    this.yytext = token[1];
-    return token[0];
-  },
-  setInput: function(tokens) {
-    this.tokens = tokens;
-    this.pos = 0;
-  },
-  upcomingInput: function() { return ''; },
-  showPosition: function() { return this.pos; }
+
+function printTokens(file) {
+  sys.puts(sys.inspect(lexer.tokenize(fs.readFileSync(file, 'ascii'))));
 };
 
-function printTokens(files) {
-  files.forEach(function(file) {
-    sys.puts(sys.inspect(lexer.tokenize(fs.readFileSync(file, 'ascii'))));
-  });
-};
-
-function printNodes(files) {
-  files.forEach(function(file) {
-    var ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
-    sys.puts(ast.toString());
-  });
-};
-
-function compile(files) {
-  files.forEach(function(file) {
-    var ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
-    sys.puts(ast.compile());
-  });
+function printNodes(file) {
+  var ast = parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
+  sys.puts(ast.toString());
 };
 
 function evaluate(file) {
@@ -82,15 +50,14 @@ function evaluate(file) {
 };
 
 exports.run = function() {
-  var files;
+  var file;
 
   opts.parse(options);
 
-  files = opts.args();
+  file = opts.args()[0];
 
-  if (selectedOpts.help)         { opts.help();        }
-  else if (selectedOpts.tokens)  { printTokens(files); }
-  else if (selectedOpts.nodes)   { printNodes(files);  }
-  else if (selectedOpts.compile) { compile(files);     }
-  else                           { evaluate(files[0]); }
+  if (selectedOpts.help)         { opts.help();       }
+  else if (selectedOpts.tokens)  { printTokens(file); }
+  else if (selectedOpts.nodes)   { printNodes(file);  }
+  else                           { evaluate(file);    }
 };

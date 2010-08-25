@@ -1,8 +1,7 @@
 
-var Lexer = function() {
-};
+Bully.Lexer = function() {};
 
-Lexer.KEYWORDS = [
+Bully.Lexer.KEYWORDS = [
   'def',
   'class',
   'end',
@@ -18,7 +17,7 @@ Lexer.KEYWORDS = [
   'then'
 ];
 
-Lexer.prototype = {
+Bully.Lexer.prototype = {
   tokenize: function(code) {
     var pos    = 0,  // current character position
         tokens = [], // list of the parsed tokens, form is: [tag, value]
@@ -31,7 +30,7 @@ Lexer.prototype = {
       // match standard tokens
       if (match = chunk.match(/^([a-z]\w*)/)) {
         match = match[1];
-        if (Lexer.KEYWORDS.indexOf(match) != -1) {
+        if (Bully.Lexer.KEYWORDS.indexOf(match) != -1) {
           tokens.push([match.toUpperCase(), match, line]);
         }
         else {
@@ -88,6 +87,4 @@ Lexer.prototype = {
     return tokens;
   }
 };
-
-exports.Lexer = Lexer;
 

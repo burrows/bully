@@ -1,4 +1,6 @@
-exports.klass = function(data) {
+Bully.Util = {};
+
+Bully.Util.klass = function(data) {
   var k = {
     methods: {
       instanceOf: function(klass) {
@@ -52,7 +54,7 @@ exports.klass = function(data) {
   return k;
 };
 
-exports.fmt = function(str) {
+Bully.Util.fmt = function(str) {
   var args = Array.prototype.slice.call(arguments, 1), arg;
 
   return str.replace(/%@/g, function() {
