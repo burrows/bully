@@ -1,13 +1,22 @@
 * runtime:
-  * implement TrueClass, FalseClass, and NilClass
-  * implement Bully.truthy
-  * define Bully._true, Bully._false, and Bully.nil
+  * constants
+    * global
+    * nested
+  * class names
+  * create Symbol class
   * create Number class
   * create Array class
   * create Hash class
   * create Proc class
+  * create IO class
+  * implement inherited callback
+  * implement Class#instance_methods
+  * implement Object#send
+  * $stdout and $stderr global vars
 * compiler:
+  * lexical constant lookup
   * global methods
+  * global variables
   * instance, class, and constant assignment
   * Array and Hash literals
   * operators

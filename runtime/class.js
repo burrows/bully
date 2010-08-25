@@ -1,9 +1,4 @@
 /*
- * Stores instance variables for immediate objects.
- */
-Bully.immediate_iv_tbl = {};
-
-/*
  * @private
  */
 Bully.class_boot = function(super) {
@@ -65,22 +60,43 @@ Bully.make_metaclass = function(klass, super) {
 };
 
 /*
- * Defines a new Class instance.
+ * @private
+ *
+ * Creates a new Class instance and constructs its metaclass.
  */
-Bully.define_class = function(name, super) {
+Bully.make_class = function(name, super) {
   var klass;
 
   // TODO: check for existance of class
   // TODO: call Bully.class_inherited
   // TODO: make sure super is not Bully.Class
   // TODO: make sure super is not a singleton class
-  // TODO: register constant name
 
   super = super || Bully.Object;
 
   klass = Bully.class_boot(super);
 
   Bully.make_metaclass(klass, super.klass);
+
+  return klass;
+};
+
+/*
+ * Defines a new Class instance in the global scope.
+ */
+Bully.define_class = function(name, super) {
+  var klass = Bully.make_class(name, super);
+  Bully.define_global_const(name, klass);
+
+  return klass;
+};
+
+/*
+ * Defines a new Class instance under the given class or module.
+ */
+Bully.define_class_under(outer, name, super) {
+  var klass = Bully.make_class(name, super);
+  Bully.define_const(outer, klass);
 
   return klass;
 };
@@ -127,7 +143,18 @@ Bully.define_module = function(name) {
   var mod = Bully.module_new();
 
   // TODO: check for existance of module
-  // TODO: define constant for module
+
+  Bully.define_global_const(name, mod);
+
+  return mod;
+};
+
+Bully.define_module_under = function(outer, name) {
+  var mod = Bully.module_new();
+
+  // TODO: check for existance of module
+
+  Bully.define_const(outer, name, mod);
 
   return mod;
 };
