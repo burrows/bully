@@ -15,8 +15,8 @@ var options = [
     callback    : function() { selectedOpts.tokens = true; }
   },
   {
-    short       : 'n',
-    long        : 'nodes',
+    short       : 'p',
+    long        : 'parse',
     description : 'Print the parse tree',
     callback    : function() { selectedOpts.nodes = true; }
   },
@@ -33,9 +33,9 @@ function printTokens(file) {
   sys.puts(sys.inspect((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii'))));
 };
 
-function printNodes(file) {
+function printParseTree(file) {
   var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
-  sys.puts(ast.toString());
+  sys.puts(sys.inspect(ast, false, null));
 };
 
 function evaluate(file) {
@@ -47,8 +47,8 @@ function evaluate(file) {
 
 opts.parse(options);
 
-if (selectedOpts.help)         { opts.help();                 }
-else if (selectedOpts.tokens)  { printTokens(opts.args()[0]); }
-else if (selectedOpts.nodes)   { printNodes(opts.args()[0]);  }
-else                           { evaluate(opts.args()[0]);    }
+if (selectedOpts.help)         { opts.help();                    }
+else if (selectedOpts.tokens)  { printTokens(opts.args()[0]);    }
+else if (selectedOpts.nodes)   { printParseTree(opts.args()[0]); }
+else                           { evaluate(opts.args()[0]);       }
 
