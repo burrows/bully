@@ -4,6 +4,7 @@ global.Bully = exports.Bully = {};
   'util'
 , 'lexer'
 , 'nodes'
+, 'eval'
 , 'class',
 , 'variable'
 , 'object'

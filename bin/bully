@@ -39,10 +39,8 @@ function printParseTree(file) {
 };
 
 function evaluate(file) {
-  var Bully = require('../runtime').Bully, ast;
-
-  ast = Bully.parser.parse(lexer.tokenize(fs.readFileSync(file, 'ascii')));
-  eval(ast.compile());
+  var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
+  Bully.evaluate(ast);
 };
 
 opts.parse(options);
