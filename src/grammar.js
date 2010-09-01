@@ -65,24 +65,24 @@ var grammar = {
   ],
 
   Call: [
-    o('IDENTIFIER',                          "$$ = {type: 'Call', expression: null, name: $1, argList: null};"),
-    o('IDENTIFIER ( ArgList )',              "$$ = {type: 'Call', expression: null, name: $1, argList: $3};"),
-    o('Expression . IDENTIFIER',             "$$ = {type: 'Call', expression: $1,   name: $3, argList: null};"),
-    o('Expression . IDENTIFIER ( ArgList )', "$$ = {type: 'Call', expression: $1,   name: $3, argList: $5};")
+    o('IDENTIFIER',                          "$$ = {type: 'Call', expression: null, name: $1, arg_list: null};"),
+    o('IDENTIFIER ( ArgList )',              "$$ = {type: 'Call', expression: null, name: $1, arg_list: $3};"),
+    o('Expression . IDENTIFIER',             "$$ = {type: 'Call', expression: $1,   name: $3, arg_list: null};"),
+    o('Expression . IDENTIFIER ( ArgList )', "$$ = {type: 'Call', expression: $1,   name: $3, arg_list: $5};")
   ],
 
   If: [
     o('IfStart END'),
-    o('IfStart ELSE NEWLINE Body END', '$1.elseBody = $4;'),
+    o('IfStart ELSE NEWLINE Body END', '$1.else_body = $4;'),
   ],
 
   IfStart: [
-    o('IF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], elseBody: null};"),
+    o('IF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};"),
     o('IfStart ElsIf',           "$1.conditions = $1.conditions.concat($2.conditions); $1.bodies = $1.bodies.concat($2.bodies);")
   ],
 
   ElsIf: [
-    o('ELSIF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], elseBody: null};")
+    o('ELSIF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};")
   ],
 
   Then: [
@@ -135,8 +135,8 @@ var grammar = {
   ],
 
   Class: [
-    o('CLASS CONSTANT Terminator Body END',            "$$ = {type: 'Class', constant: $2, super: null, body: $4};"),
-    o('CLASS CONSTANT < CONSTANT Terminator Body END', "$$ = {type: 'Class', constant: $2, super: $4, body: $6};")
+    o('CLASS CONSTANT Terminator Body END',              "$$ = {type: 'Class', name: $2, super_expr: null, body: $4};"),
+    o('CLASS CONSTANT < Expression Terminator Body END', "$$ = {type: 'Class', name: $2, super_expr: $4, body: $6};")
   ]
 };
 

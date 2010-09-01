@@ -28,7 +28,6 @@ var options = [
   }
 ];
 
-
 function printTokens(file) {
   sys.puts(sys.inspect((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii'))));
 };
@@ -40,7 +39,7 @@ function printParseTree(file) {
 
 function evaluate(file) {
   var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
-  Bully.evaluate(ast);
+  Bully.Evaluator.evaluate(ast);
 };
 
 opts.parse(options);
