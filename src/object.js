@@ -88,6 +88,17 @@ Bully.init = function() {
     Bully.platform.puts(str);
     return null;
   });
+  Bully.define_method(Bully.Kernel, 'is_a?', function(self, args) {
+    var test_klass = args[0], klass = Bully.class_of(self);
+
+    while (klass) {
+      if (test_klass === klass) { return true; }
+
+      klass = klass.super;
+    }
+
+    return false;
+  });
 
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);

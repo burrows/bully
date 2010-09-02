@@ -81,7 +81,7 @@ Bully.Evaluator = {
 
 Bully.Evaluator.Context = function(self, module) {
   this.self   = self;
-  this.module = module || self.klass;
+  this.module = module || Bully.class_of(self);
 };
 
 Bully.Evaluator.Context.prototype = {
