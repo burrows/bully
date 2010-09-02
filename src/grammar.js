@@ -40,7 +40,8 @@ var grammar = {
     o('Call'),
     o('If'),
     o('Constant'),
-    o('Self')
+    o('Self'),
+    o('BeginBlock')
   ],
 
   Constant: [
@@ -137,6 +138,39 @@ var grammar = {
   Class: [
     o('CLASS CONSTANT Terminator Body END',              "$$ = {type: 'Class', name: $2, super_expr: null, body: $4};"),
     o('CLASS CONSTANT < Expression Terminator Body END', "$$ = {type: 'Class', name: $2, super_expr: $4, body: $6};")
+  ],
+
+  BeginBlock: [
+    o('BEGIN Body RescueBlocks EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: $4};"),
+    o('BEGIN Body EnsureBlock END',              "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: $3};"),
+    o('BEGIN Body RescueBlocks END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: null};"),
+    o('BEGIN Body END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: null};"),
+  ],
+
+  RescueBlocks: [
+    o('RescueBlock',              "$$ = [$1];"),
+    o('RescueBlocks RescueBlock', "$1.push($2);")
+  ],
+
+  RescueBlock: [
+    o('RESCUE Do Body',                              "$$ = {type: 'RescueBlock', exception_types: [], name: null, body: $3};"),
+    o('RESCUE ExceptionTypes Do Body',               "$$ = {type: 'RescueBlock', exception_types: $2, name: null, body: $4};"),
+    o('RESCUE ExceptionTypes => IDENTIFIER Do Body', "$$ = {type: 'RescueBlock', exception_types: $2, name: $4,   body: $6};")
+  ],
+
+  ExceptionTypes: [
+    o('Constant',                  "$$ = [$1];"),
+    o('ExceptionTypes , Constant', "$1.push($3);")
+  ],
+
+  EnsureBlock: [
+    o('ENSURE Body', "$$ = {type: 'EnsureBlock', body: $2};")
+  ],
+
+  Do: [
+    o('Terminator'),
+    o('DO'),
+    o('Terminator DO')
   ]
 };
 

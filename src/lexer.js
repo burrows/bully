@@ -3,6 +3,7 @@ Bully.Lexer = function() {};
 
 Bully.Lexer.KEYWORDS = [
   'def',
+  'do',
   'class',
   'end',
   'true',
@@ -14,7 +15,14 @@ Bully.Lexer.KEYWORDS = [
   'unless',
   'else',
   'elsif',
-  'then'
+  'then',
+  'begin',
+  'rescue',
+  'ensure'
+];
+
+Bully.Lexer.OPERATORS = [
+  '=>'
 ];
 
 Bully.Lexer.prototype = {
@@ -22,7 +30,9 @@ Bully.Lexer.prototype = {
     var pos    = 0,  // current character position
         tokens = [], // list of the parsed tokens, form is: [tag, value]
         line   = 0,  // the current source line number
-        chunk, match;
+        chunk, match, operatorRegex;
+
+    operatorRegex = new RegExp('^(' + Bully.Lexer.OPERATORS.join('|') + ')');
 
     while (pos < code.length) {
       chunk = code.substr(pos);
@@ -37,6 +47,12 @@ Bully.Lexer.prototype = {
           tokens.push(['IDENTIFIER', match, line]);
         }
 
+        pos += match.length;
+      }
+      // match operators
+      else if (match = chunk.match(operatorRegex)) {
+        match = match[1];
+        tokens.push([match, match, line]);
         pos += match.length;
       }
       // match constants
