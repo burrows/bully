@@ -38,9 +38,15 @@ Bully.Evaluator = {
   },
 
   evaluateCall: function(node, ctx) {
-    var receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self,
-        args     = node.arg_list ? this.evaluateArgList(node.arg_list, ctx) : [],
-        rv;
+    var receiver, args, rv;
+
+    // check to see if this is actually a local variable reference
+    if (!node.expression && !node.arg_list && ctx.locals[node.name]) {
+      return ctx.locals[node.name];
+    }
+
+    receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self;
+    args     = node.arg_list ? this.evaluateArgList(node.arg_list, ctx) : [];
 
     try {
       rv = Bully.dispatch_method(receiver, node.name, args);
@@ -51,6 +57,12 @@ Bully.Evaluator = {
     }
 
     return rv;
+  },
+
+  evaluateLocalAssign: function(node, ctx) {
+    var value = this.evaluate(node.expression);
+    ctx.locals[node.name] = value;
+    return value;
   },
 
   evaluateSelf: function(node, ctx) {
@@ -76,12 +88,28 @@ Bully.Evaluator = {
 
   evaluateStringLiteral: function(node, ctx) {
     return Bully.str_new(node.value);
+  },
+
+  evaluateBeginBlock: function(node, ctx) {
+    var ex;
+
+    try {
+      this.evaluateBody(node.body, ctx);
+    }
+    catch (e) {
+      ex = e;
+    }
+
+    if (node.ensure) {
+      this.evaluateBody(node.ensure, ctx)
+    }
   }
 };
 
 Bully.Evaluator.Context = function(self, module) {
   this.self   = self;
   this.module = module || Bully.class_of(self);
+  this.locals = {};
 };
 
 Bully.Evaluator.Context.prototype = {
