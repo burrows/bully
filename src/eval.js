@@ -91,14 +91,15 @@ Bully.Evaluator = {
   },
 
   evaluateBeginBlock: function(node, ctx) {
-    var handled = false, captured, types, type, i, j;
+    var handled = false, captured, rescue, types, type, i, j;
 
     try       { this.evaluateBody(node.body, ctx); }
     catch (e) { captured = e; }
 
     // see if any of the rescue blocks match the exception
     for (i = 0; i < node.rescues.length; i++) {
-      types = node.rescues[i].exception_types;
+      rescue = node.rescues[i];
+      types  = rescue.exception_types;
 
       for (j = 0; j < types.length; j++) {
         // FIXME: lookup constant for real
@@ -106,7 +107,10 @@ Bully.Evaluator = {
 
         if (Bully.dispatch_method(captured, 'is_a?', [type])) {
           handled = true;
-          // FIXME: set local variable if necessary
+          if (rescue.name) {
+            ctx.locals[rescue.name] = captured;
+          }
+
           this.evaluateBody(node.rescues[i].body, ctx);
         }
       }
