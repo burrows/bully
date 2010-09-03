@@ -17,6 +17,8 @@ Bully.class_boot = function(super) {
 Bully.defclass_boot = function(name, super) {
   var klass = Bully.class_boot(super);
 
+  Bully.ivar_set(klass, '__classpath__', name);
+
   // TODO: define constant for class name
 
   return klass;
@@ -88,6 +90,8 @@ Bully.define_class = function(name, super) {
   var klass = Bully.make_class(name, super);
   Bully.define_global_const(name, klass);
 
+  Bully.ivar_set(klass, '__classpath__', name);
+
   return klass;
 };
 
@@ -95,8 +99,12 @@ Bully.define_class = function(name, super) {
  * Defines a new Class instance under the given class or module.
  */
 Bully.define_class_under = function(outer, name, super) {
-  var klass = Bully.make_class(name, super);
+  var klass     = Bully.make_class(name, super),
+      classpath = Bully.ivar_get(outer, '__classpath__');
+
   Bully.define_const(outer, klass);
+
+  Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
   return klass;
 };
@@ -193,5 +201,17 @@ Bully.class_of = function(obj) {
   else if (typeof obj === 'string') { return Bully.Symbol; }
 
   return obj.klass;
+};
+
+Bully.real_class_of = function(obj) {
+  return Bully.real_class(Bully.class_of(obj));
+};
+
+Bully.real_class = function(klass) {
+  while (klass.is_singleton) {
+    klass = klass.super;
+  }
+
+  return klass;
 };
 

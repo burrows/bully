@@ -4,11 +4,13 @@
  * If passed an object, that object will be decorated with properties necessary
  * to be a Bully object, otherwise a brand new object is constructed.
  */
+Bully.next_object_id = 0;
 Bully.make_object = function(obj) {
   obj = obj || {};
 
   obj.klass  = null;
   obj.iv_tbl = {};
+  obj.id = Bully.next_object_id++;
 
   return obj;
 };
@@ -70,9 +72,9 @@ Bully.init = function() {
   Bully.make_metaclass(Bully.Class, metaclass);
 
   // Class
-  Bully.define_method(Bully.Class, 'new', function(recv, args) {
+  Bully.define_method(Bully.Class, 'new', function(self, args) {
     var o = Bully.make_object();
-    o.klass = recv;
+    o.klass = self;
 
     //if (Bully.respond_to(o, 'initialize')) {
     //  Bully.funcall(o, 'initialize', args);
@@ -81,8 +83,24 @@ Bully.init = function() {
     return o;
   });
 
+  Bully.define_method(Bully.Class, 'name', function(self, args) {
+    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
+  });
+
   // Kernel
   Bully.Kernel = Bully.define_module('Kernel');
+
+  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
+    return Bully.real_class_of(self);
+  });
+
+  Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
+    var klass = Bully.real_class_of(self),
+        name  = Bully.dispatch_method(klass, 'name').data;
+
+    return Bully.str_new('#<' + name + ':' + self.id + '>');
+  });
+
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;
     Bully.platform.puts(str);

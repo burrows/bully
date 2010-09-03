@@ -10,7 +10,6 @@ Bully.str_cat = function(str, js_str) {
   return str;
 };
 
-
 Bully.init_string = function() {
   Bully.String = Bully.define_class('String');
 
