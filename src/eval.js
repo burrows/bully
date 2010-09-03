@@ -91,18 +91,33 @@ Bully.Evaluator = {
   },
 
   evaluateBeginBlock: function(node, ctx) {
-    var ex;
+    var handled = false, captured, types, type, i, j;
 
-    try {
-      this.evaluateBody(node.body, ctx);
-    }
-    catch (e) {
-      ex = e;
+    try       { this.evaluateBody(node.body, ctx); }
+    catch (e) { captured = e; }
+
+    // see if any of the rescue blocks match the exception
+    for (i = 0; i < node.rescues.length; i++) {
+      types = node.rescues[i].exception_types;
+
+      for (j = 0; j < types.length; j++) {
+        // FIXME: lookup constant for real
+        type = Bully.const_get(Bully.Object, types[j].name);
+
+        if (Bully.dispatch_method(captured, 'is_a?', [type])) {
+          handled = true;
+          // FIXME: set local variable if necessary
+          this.evaluateBody(node.rescues[i].body, ctx);
+        }
+      }
     }
 
     if (node.ensure) {
-      this.evaluateBody(node.ensure, ctx)
+      this.evaluateBody(node.ensure.body, ctx)
     }
+
+    // if none of our rescue blocks matched, then re-raise
+    if (!handled) { Bully.raise(captured); }
   }
 };
 
