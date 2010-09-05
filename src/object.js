@@ -72,8 +72,12 @@ Bully.init = function() {
   Bully.make_metaclass(Bully.Class, metaclass);
 
   // Class
+  Bully.define_method(Bully.Class, 'allocate', function(self, args) {
+    return Bully.make_object();
+  });
+
   Bully.define_method(Bully.Class, 'new', function(self, args) {
-    var o = Bully.make_object();
+    var o = Bully.dispatch_method(self, 'allocate');
     o.klass = self;
 
     //if (Bully.respond_to(o, 'initialize')) {
@@ -100,6 +104,9 @@ Bully.init = function() {
 
     return Bully.str_new('#<' + name + ':' + self.id + '>');
   });
+
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl['to_s']);
 
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;

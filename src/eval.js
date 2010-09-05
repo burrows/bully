@@ -90,6 +90,16 @@ Bully.Evaluator = {
     return Bully.str_new(node.value);
   },
 
+  evaluateArrayLiteral: function(node, ctx) {
+    var elems = [], i;
+
+    for (i = 0; i < node.expressions.length; i++) {
+      elems.push(this.evaluate(node.expressions[i], ctx));
+    }
+
+    return Bully.array_new(elems);
+  },
+
   evaluateBeginBlock: function(node, ctx) {
     var handled = false, captured, rescue, types, type, i, j;
 

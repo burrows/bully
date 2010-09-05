@@ -13,14 +13,18 @@ Bully.str_cat = function(str, js_str) {
 Bully.init_string = function() {
   Bully.String = Bully.define_class('String');
 
-  Bully.define_singleton_method(Bully.String, 'new', function(self, args) {
-    var s = Bully.call_super(self, arguments.callee.klass, 'new', args);
-    s.data = '';
-    return s;
+  Bully.define_singleton_method(Bully.String, 'allocate', function(self, args) {
+    var o = Bully.make_object();
+    o.data = '';
+    return o;
   });
 
   Bully.define_method(Bully.String, 'to_s', function(self, args) {
     return self;
+  });
+
+  Bully.define_method(Bully.String, 'inspect', function(self, args) {
+    return Bully.str_new('"' + self.data + '"');
   });
 
   Bully.define_method(Bully.String, '<<', function(self, args) {
