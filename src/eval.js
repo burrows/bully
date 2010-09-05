@@ -90,6 +90,10 @@ Bully.Evaluator = {
     return Bully.str_new(node.value);
   },
 
+  evaluateNumberLiteral: function(node, ctx) {
+    return parseInt(node.value, 10);
+  },
+
   evaluateArrayLiteral: function(node, ctx) {
     var elems = [], i;
 
