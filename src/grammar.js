@@ -68,10 +68,12 @@ var grammar = {
   ],
 
   Call: [
-    o('IDENTIFIER',                          "$$ = {type: 'Call', expression: null, name: $1, arg_list: null};"),
-    o('IDENTIFIER ( ArgList )',              "$$ = {type: 'Call', expression: null, name: $1, arg_list: $3};"),
-    o('Expression . IDENTIFIER',             "$$ = {type: 'Call', expression: $1,   name: $3, arg_list: null};"),
-    o('Expression . IDENTIFIER ( ArgList )', "$$ = {type: 'Call', expression: $1,   name: $3, arg_list: $5};")
+    o('IDENTIFIER',                             "$$ = {type: 'Call', expression: null, name: $1,    args: null};"),
+    o('IDENTIFIER ( ArgList )',                 "$$ = {type: 'Call', expression: null, name: $1,    args: $3};"),
+    o('Expression . IDENTIFIER',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: []};"),
+    o('Expression . IDENTIFIER ( ArgList )',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5};"),
+    o('Expression [ Expression ]',              "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3]};"),
+    o('Expression [ Expression ] = Expression', "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6]};")
   ],
 
   If: [
@@ -95,13 +97,13 @@ var grammar = {
   ],
 
   ArgList: [
-    o('',                     "$$ = {type: 'ArgList', expressions: []};"),
-    o('Expression',           "$$ = {type: 'ArgList', expressions: [$1]};"),
-    o('ArgList , Expression', "$1.expressions.push($3);")
+    o('',                     "$$ = [];"),
+    o('Expression',           "$$ = [$1];"),
+    o('ArgList , Expression', "$1.push($3);")
   ],
 
   ArrayLiteral: [
-    o('[ ArgList ]', "$$ = {type: 'ArrayLiteral', expressions: $2.expressions};")
+    o('[ ArgList ]', "$$ = {type: 'ArrayLiteral', expressions: $2};")
   ],
 
   AssocList: [
@@ -192,6 +194,8 @@ var grammar = {
 
 var operators = [
   ['left',  '.'],
+  ['left',  '['],
+  ['left',  ']'],
   ['right', 'CLASS'],
   ['right', '=']
 ];

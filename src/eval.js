@@ -27,11 +27,11 @@ Bully.Evaluator = {
     return null;
   },
 
-  evaluateArgList: function(node, ctx) {
+  evaluateArgs: function(args, ctx) {
     var list = [], i;
 
-    for (i = 0; i < node.expressions.length; i++) {
-      list.push(this.evaluate(node.expressions[i], ctx));
+    for (i = 0; i < args.length; i++) {
+      list.push(this.evaluate(args[i], ctx));
     }
 
     return list;
@@ -41,12 +41,12 @@ Bully.Evaluator = {
     var receiver, args, rv;
 
     // check to see if this is actually a local variable reference
-    if (!node.expression && !node.arg_list && ctx.locals[node.name]) {
+    if (!node.expression && !node.args && ctx.locals[node.name]) {
       return ctx.locals[node.name];
     }
 
     receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self;
-    args     = node.arg_list ? this.evaluateArgList(node.arg_list, ctx) : [];
+    args     = node.args ? this.evaluateArgs(node.args, ctx) : [];
 
     try {
       rv = Bully.dispatch_method(receiver, node.name, args);
