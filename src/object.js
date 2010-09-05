@@ -143,4 +143,5 @@ Bully.init = function() {
 
   Bully.init_string();
   Bully.init_error();
+  Bully.init_array();
 };

@@ -34,6 +34,8 @@ var grammar = {
 
   Expression: [
     o('Literal'),
+    o('ArrayLiteral'),
+    o('HashLiteral'),
     o('Assignment'),
     o('Def'),
     o('Class'),
@@ -96,6 +98,20 @@ var grammar = {
     o('',                     "$$ = {type: 'ArgList', expressions: []};"),
     o('Expression',           "$$ = {type: 'ArgList', expressions: [$1]};"),
     o('ArgList , Expression', "$1.expressions.push($3);")
+  ],
+
+  ArrayLiteral: [
+    o('[ ArgList ]', "$$ = {type: 'ArrayLiteral', expressions: $2.expressions};")
+  ],
+
+  AssocList: [
+    o('',                                     "$$ = {type: 'AssocList', keys: [], values: []};" ),
+    o('Expression => Expression',             "$$ = {type: 'AssocList', keys: [$1], values: [$3]};"  ),
+    o('AssocList , Expression => Expression', "$1.keys.push($3); $1.values.push($5);" )
+  ],
+
+  HashLiteral: [
+    o('{ AssocList }', "$$ = {type: 'HashLiteral', keys: $2.keys, values: $2.values};")
   ],
 
   Def: [

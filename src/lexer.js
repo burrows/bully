@@ -29,7 +29,7 @@ Bully.Lexer.prototype = {
   tokenize: function(code) {
     var pos    = 0,  // current character position
         tokens = [], // list of the parsed tokens, form is: [tag, value]
-        line   = 0,  // the current source line number
+        line   = 1,  // the current source line number
         chunk, match, operatorRegex;
 
     operatorRegex = new RegExp('^(' + Bully.Lexer.OPERATORS.join('|') + ')');
