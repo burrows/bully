@@ -120,28 +120,28 @@ var grammar = {
   ],
 
   ParamList: [
-    o('',                                         "$$ = {type: 'ParamList', required: null, optional: null, splat: null};"),
-    o('ReqParamList',                             "$$ = {type: 'ParamList', required: $1,   optional: null, splat: null};"),
-    o('OptParamList',                             "$$ = {type: 'ParamList', required: null, optional: null, splat: null};"),
-    o('SplatParam',                               "$$ = {type: 'ParamList', required: null, optional: null, splat: null};"),
-    o('ReqParamList , OptParamList',              "$$ = {type: 'ParamList', required: $1,   optional: $3,   splat: null};"),
-    o('ReqParamList , OptParamList , SplatParam', "$$ = {type: 'ParamList', required: $1,   optional: $3,   splat: $5};"),
-    o('ReqParamList , SplatParam',                "$$ = {type: 'ParamList', required: $1,   optional: null, splat: $3};"),
-    o('OptParamList , SplatParam',                "$$ = {type: 'ParamList', required: null, optional: $1,   splat: $3};")
+    o('',                                         "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
+    o('ReqParamList',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: null};"),
+    o('OptParamList',                             "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
+    o('SplatParam',                               "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
+    o('ReqParamList , OptParamList',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null};"),
+    o('ReqParamList , OptParamList , SplatParam', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5};"),
+    o('ReqParamList , SplatParam',                "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3};"),
+    o('OptParamList , SplatParam',                "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3};")
   ],
 
   ReqParamList: [
-    o('IDENTIFIER',                "$$ = {type: 'ReqParamList', names: [$1]};"),
-    o('ReqParamList , IDENTIFIER', "$1.names.push($3);")
+    o('IDENTIFIER',                "$$ = [$1];"),
+    o('ReqParamList , IDENTIFIER', "$1.push($3);")
   ],
 
   OptParamList: [
-    o('IDENTIFIER = Expression',                "$$ = {type: 'OptParamList', params: [[$1, $3]]};"),
-    o('OptParamList , IDENTIFIER = Expression', "$1.params.push([$3, $5]);")
+    o('IDENTIFIER = Expression',                "$$ = [{name: $1, expression: $3}];"),
+    o('OptParamList , IDENTIFIER = Expression', "$1.push({name: $3, expression: $5});")
   ],
 
   SplatParam: [
-    o('* IDENTIFIER', "$$ = {type: 'SplatParam', name: $2};")
+    o('* IDENTIFIER', "$$ = $2;")
   ],
 
   Assignment: [

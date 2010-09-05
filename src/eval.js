@@ -141,8 +141,24 @@ Bully.Evaluator.Method = function(params, body) {
 
 Bully.Evaluator.Method.prototype = {
   call: function(receiver, args) {
-    // FIXME: handle args
-    return Bully.Evaluator.evaluateBody(this.body, new Bully.Evaluator.Context(receiver));
+    var ctx = new Bully.Evaluator.Context(receiver);
+    this.evaluateParamList(this.params, args, ctx);
+    return Bully.Evaluator.evaluateBody(this.body, ctx);
+  },
+
+  evaluateParamList: function(node, args, ctx) {
+    var i, req_len = node.required.length;
+
+    // FIXME: check passed argument length
+
+    for (i = 0; i < req_len; i++) {
+      ctx.locals[node.required[i]] = args[i];
+    }
+
+    for (i = 0; i < node.optional.length; i++) {
+      ctx.locals[node.optional[i].name] = typeof args[req_len + i] === 'undefined' ?
+        Bully.Evaluator.evaluate(node.optional[i].expression, ctx) : args[req_len + i];
+    }
   }
 };
 
