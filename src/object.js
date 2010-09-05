@@ -135,19 +135,6 @@ Bully.init = function() {
     return true;
   });
 
-  // Exception
-  Bully.Exception    = Bully.define_class('Exception');
-  Bully.RuntimeError = Bully.define_class('RuntimeError', Bully.Exception);
-
-  Bully.raise = function(exception) {
-    if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
-      exception = Bully.dispatch_method(exception, 'new', []);
-    }
-
-    throw exception;
-  };
-
-
   // main (top level self)
   Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
@@ -155,4 +142,5 @@ Bully.init = function() {
   });
 
   Bully.init_string();
+  Bully.init_error();
 };
