@@ -47,11 +47,11 @@ var grammar = {
   ],
 
   Constant: [
-    o('CONSTANT', "$$ = {type: 'Constant', name: $1};"),
+    o('CONSTANT', "$$ = {type: 'Constant', name: $1};")
   ],
 
   Self: [
-    o('SELF', "$$ = {type: 'Self'}"),
+    o('SELF', "$$ = {type: 'Self'}")
   ],
 
   Return: [
@@ -78,7 +78,7 @@ var grammar = {
 
   If: [
     o('IfStart END'),
-    o('IfStart ELSE NEWLINE Body END', '$1.else_body = $4;'),
+    o('IfStart ELSE NEWLINE Body END', '$1.else_body = $4;')
   ],
 
   IfStart: [
@@ -162,7 +162,7 @@ var grammar = {
     o('BEGIN Body RescueBlocks EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: $4};"),
     o('BEGIN Body EnsureBlock END',              "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: $3};"),
     o('BEGIN Body RescueBlocks END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: null};"),
-    o('BEGIN Body END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: null};"),
+    o('BEGIN Body END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: null};")
   ],
 
   RescueBlocks: [
@@ -200,15 +200,20 @@ var operators = [
   ['right', '=']
 ];
 
-var tokens = [], name, alt, token;
+var tokens = [], name, symbols, token, i, j;
 for (name in grammar) {
   if (!grammar.hasOwnProperty(name)) { continue; }
 
-  grammar[name].forEach(function(alt) {
-    alt[0].split(' ').forEach(function(token) {
-      if (!grammar[token] && tokens.indexOf(token) === -1) { tokens.push(token); }
-    });
-  });
+  for (i = 0; i < grammar[name].length; i += 1) {
+    symbols = grammar[name][i][0].split(' ');
+
+    for (j = 0; j < symbols.length; j += 1) {
+      token = symbols[j];
+      if (!grammar[token] && tokens.indexOf(token) === -1) {
+        tokens.push(token);
+      }
+    }
+  }
 }
 
 exports.parser = new Parser({

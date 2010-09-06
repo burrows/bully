@@ -1,11 +1,11 @@
 /*
  * @private
  */
-Bully.class_boot = function(super) {
+Bully.class_boot = function(_super) {
   var klass = Bully.make_object();
 
   klass.klass = Bully.Class;
-  klass.super = super;
+  klass._super = _super;
   klass.m_tbl = {};
 
   return klass;
@@ -14,8 +14,8 @@ Bully.class_boot = function(super) {
 /*
  * @private
  */
-Bully.defclass_boot = function(name, super) {
-  var klass = Bully.class_boot(super);
+Bully.defclass_boot = function(name, _super) {
+  var klass = Bully.class_boot(_super);
 
   Bully.ivar_set(klass, '__classpath__', name);
 
@@ -52,11 +52,11 @@ Bully.singleton_class = function(obj) {
  * Constructs a metaclass for the given Class instance.  A metaclass is simply
  * the singleton class of a Class instance.
  */
-Bully.make_metaclass = function(klass, super) {
+Bully.make_metaclass = function(klass, _super) {
   var sklass = Bully.singleton_class(klass);
 
   klass.klass  = sklass;
-  sklass.super = super || klass.super.klass;
+  sklass._super = _super || klass._super.klass;
 
   return sklass;
 };
@@ -66,7 +66,7 @@ Bully.make_metaclass = function(klass, super) {
  *
  * Creates a new Class instance and constructs its metaclass.
  */
-Bully.make_class = function(name, super) {
+Bully.make_class = function(name, _super) {
   var klass;
 
   // TODO: check for existance of class
@@ -74,11 +74,11 @@ Bully.make_class = function(name, super) {
   // TODO: make sure super is not Bully.Class
   // TODO: make sure super is not a singleton class
 
-  super = super || Bully.Object;
+  _super = _super || Bully.Object;
 
-  klass = Bully.class_boot(super);
+  klass = Bully.class_boot(_super);
 
-  Bully.make_metaclass(klass, super.klass);
+  Bully.make_metaclass(klass, _super.klass);
 
   return klass;
 };
@@ -86,8 +86,8 @@ Bully.make_class = function(name, super) {
 /*
  * Defines a new Class instance in the global scope.
  */
-Bully.define_class = function(name, super) {
-  var klass = Bully.make_class(name, super);
+Bully.define_class = function(name, _super) {
+  var klass = Bully.make_class(name, _super);
   Bully.define_global_const(name, klass);
 
   Bully.ivar_set(klass, '__classpath__', name);
@@ -98,8 +98,8 @@ Bully.define_class = function(name, super) {
 /*
  * Defines a new Class instance under the given class or module.
  */
-Bully.define_class_under = function(outer, name, super) {
-  var klass     = Bully.make_class(name, super),
+Bully.define_class_under = function(outer, name, _super) {
+  var klass     = Bully.make_class(name, _super),
       classpath = Bully.ivar_get(outer, '__classpath__');
 
   Bully.define_const(outer, klass);
@@ -109,8 +109,8 @@ Bully.define_class_under = function(outer, name, super) {
   return klass;
 };
 
-Bully.make_include_class = function(module, super) {
-  var iklass = Bully.class_boot(super);
+Bully.make_include_class = function(module, _super) {
+  var iklass = Bully.class_boot(_super);
 
   iklass.is_include_class = true;
   iklass.m_tbl = module.m_tbl;
@@ -124,15 +124,15 @@ Bully.include_module = function(klass, module) {
 
   while (module) {
     skip = false;
-    for (p = klass.super; p; p = p.super) {
+    for (p = klass._super; p; p = p._super) {
       if (p.m_tbl === module.m_tbl) { skip = true; }
     }
 
     if (!skip) {
-      current = current.super = Bully.make_include_class(module, current.super);
+      current = current._super = Bully.make_include_class(module, current._super);
     }
 
-    module  = module.super;
+    module  = module._super;
   }
 };
 
@@ -140,7 +140,7 @@ Bully.module_new = function() {
   var mod = Bully.make_object();
 
   mod.klass  = Bully.Module;
-  mod.super  = null;
+  mod._super  = null;
   mod.iv_tbl = null;
   mod.m_tbl  = {};
 
@@ -185,7 +185,7 @@ Bully.define_singleton_method = function(obj, name, fn) {
 
 Bully.find_method = function(klass, name) {
   while (klass && !klass.m_tbl[name]) {
-    klass = klass.super;
+    klass = klass._super;
   }
 
   return klass ? klass.m_tbl[name] : null;
@@ -209,7 +209,7 @@ Bully.real_class_of = function(obj) {
 
 Bully.real_class = function(klass) {
   while (klass.is_singleton) {
-    klass = klass.super;
+    klass = klass._super;
   }
 
   return klass;

@@ -22,7 +22,7 @@ Bully.ivar_set = function(obj, name, val) {
  * Retrieves an instance variable value from the given object.  For immediate
  * objects, the instance variable is looked up from Bully.immediate_iv_tbl.
  */
-Bully.ivar_get = function(obj, name, val) {
+Bully.ivar_get = function(obj, name) {
   var val;
 
   if (Bully.is_immediate(obj)) {
@@ -34,7 +34,7 @@ Bully.ivar_get = function(obj, name, val) {
   }
 
   return typeof val === 'undefined' ? null : val;
-}
+};
 
 /*
  * Defines a constant under the given class' namespace.  Constants are stored
@@ -43,14 +43,14 @@ Bully.ivar_get = function(obj, name, val) {
 Bully.define_const = function(klass, name, val) {
   // TODO: check format of name
   klass.iv_tbl[name] = val;
-}
+};
 
 /*
  * Defines a global constant.  The namespace of a global constant is Object.
  */
 Bully.define_global_const = function(name, val) {
   Bully.define_const(Bully.Object, name, val);
-}
+};
 
 /*
  * Attempts to lookup the given constant name.  This method simply searches
@@ -63,10 +63,10 @@ Bully.define_global_const = function(name, val) {
 Bully.const_get = function(klass, name) {
   do {
     if (klass.iv_tbl.hasOwnProperty(name)) {
-      return klass.iv_tbl[name]
+      return klass.iv_tbl[name];
     }
     else {
-      klass = klass.super
+      klass = klass._super;
     }
   } while (klass);
 

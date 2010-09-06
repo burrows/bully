@@ -29,7 +29,7 @@ Bully.init_array = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl['at']);
+  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl.at);
 
   Bully.define_method(Bully.Array, 'insert', function(self, args) {
     self[args[0]] = args[1];
@@ -44,7 +44,7 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, 'inspect', function(self, args) {
     var i = 0, elems = [];
 
-    for (i = 0; i < self.length; i++) {
+    for (i = 0; i < self.length; i += 1) {
       elems.push(Bully.dispatch_method(self[i], 'inspect').data);
     }
 

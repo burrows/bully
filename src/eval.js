@@ -9,7 +9,7 @@ Bully.Evaluator = {
   evaluateBody: function(node, ctx) {
     var i, line, rv;
 
-    for (i = 0; i < node.lines.length; i++) {
+    for (i = 0; i < node.lines.length; i += 1) {
       line = node.lines[i];
       rv = this.evaluate(line, ctx);
     }
@@ -30,7 +30,7 @@ Bully.Evaluator = {
   evaluateArgs: function(args, ctx) {
     var list = [], i;
 
-    for (i = 0; i < args.length; i++) {
+    for (i = 0; i < args.length; i += 1) {
       list.push(this.evaluate(args[i], ctx));
     }
 
@@ -97,7 +97,7 @@ Bully.Evaluator = {
   evaluateArrayLiteral: function(node, ctx) {
     var elems = [], i;
 
-    for (i = 0; i < node.expressions.length; i++) {
+    for (i = 0; i < node.expressions.length; i += 1) {
       elems.push(this.evaluate(node.expressions[i], ctx));
     }
 
@@ -111,11 +111,11 @@ Bully.Evaluator = {
     catch (e) { captured = e; }
 
     // see if any of the rescue blocks match the exception
-    for (i = 0; i < node.rescues.length; i++) {
+    for (i = 0; i < node.rescues.length; i += 1) {
       rescue = node.rescues[i];
       types  = rescue.exception_types;
 
-      for (j = 0; j < types.length; j++) {
+      for (j = 0; j < types.length; j += 1) {
         // FIXME: lookup constant for real
         type = Bully.const_get(Bully.Object, types[j].name);
 
@@ -131,7 +131,7 @@ Bully.Evaluator = {
     }
 
     if (node.ensure) {
-      this.evaluateBody(node.ensure.body, ctx)
+      this.evaluateBody(node.ensure.body, ctx);
     }
 
     // if none of our rescue blocks matched, then re-raise
@@ -165,17 +165,17 @@ Bully.Evaluator.Method.prototype = {
 
     // FIXME: check passed argument length
 
-    for (i = 0; i < req_len; i++) {
+    for (i = 0; i < req_len; i += 1) {
       ctx.locals[node.required[i]] = args[i];
     }
 
-    for (i = 0; i < node.optional.length; i++) {
+    for (i = 0; i < node.optional.length; i += 1) {
       if (typeof args[req_len + i] === 'undefined') {
         ctx.locals[node.optional[i].name] =
           Bully.Evaluator.evaluate(node.optional[i].expression, ctx);
       }
       else {
-        opt_len++;
+        opt_len += 1;
         ctx.locals[node.optional[i].name] = args[req_len + i];
       }
     }

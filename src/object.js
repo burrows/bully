@@ -10,7 +10,7 @@ Bully.make_object = function(obj) {
 
   obj.klass  = null;
   obj.iv_tbl = {};
-  obj.id = Bully.next_object_id++;
+  obj.id = Bully.next_object_id += 1;
 
   return obj;
 };
@@ -53,7 +53,7 @@ Bully.dispatch_method = function(obj, name, args) {
 };
 
 Bully.call_super = function(obj, klass, name, args) {
-  var fn = Bully.find_method(klass.super, name);
+  var fn = Bully.find_method(klass._super, name);
 
   // TODO: check if method was found
   
@@ -106,7 +106,7 @@ Bully.init = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl['to_s']);
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.to_s);
 
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;
@@ -130,7 +130,7 @@ Bully.init = function() {
     while (klass) {
       if (test_klass === klass) { return true; }
 
-      klass = klass.super;
+      klass = klass._super;
     }
 
     return false;
