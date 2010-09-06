@@ -114,6 +114,12 @@ Bully.init = function() {
     return null;
   });
 
+  Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
+    var str = Bully.dispatch_method(args[0], 'inspect').data;
+    Bully.platform.puts(str);
+    return null;
+  });
+
   Bully.define_module_method(Bully.Kernel, 'raise', function(self, args) {
     Bully.raise(args[0]);
   });

@@ -161,7 +161,7 @@ Bully.Evaluator.Method.prototype = {
   },
 
   evaluateParamList: function(node, args, ctx) {
-    var i, req_len = node.required.length;
+    var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
 
     // FIXME: check passed argument length
 
@@ -170,8 +170,18 @@ Bully.Evaluator.Method.prototype = {
     }
 
     for (i = 0; i < node.optional.length; i++) {
-      ctx.locals[node.optional[i].name] = typeof args[req_len + i] === 'undefined' ?
-        Bully.Evaluator.evaluate(node.optional[i].expression, ctx) : args[req_len + i];
+      if (typeof args[req_len + i] === 'undefined') {
+        ctx.locals[node.optional[i].name] =
+          Bully.Evaluator.evaluate(node.optional[i].expression, ctx);
+      }
+      else {
+        opt_len++;
+        ctx.locals[node.optional[i].name] = args[req_len + i];
+      }
+    }
+
+    if (node.splat) {
+      ctx.locals[node.splat] = Bully.array_new(args.slice(req_len + opt_len));
     }
   }
 };
