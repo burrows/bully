@@ -80,10 +80,6 @@ Bully.make_class = function(name, _super) {
 
   Bully.make_metaclass(klass, _super.klass);
 
-  if (Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
-  }
-
   return klass;
 };
 
@@ -95,6 +91,10 @@ Bully.define_class = function(name, _super) {
   Bully.define_global_const(name, klass);
 
   Bully.ivar_set(klass, '__classpath__', name);
+
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
 
   return klass;
 };
@@ -109,6 +109,10 @@ Bully.define_class_under = function(outer, name, _super) {
   Bully.define_const(outer, klass);
 
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
+
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
 
   return klass;
 };

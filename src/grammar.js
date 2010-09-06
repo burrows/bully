@@ -123,8 +123,10 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
-    o('DEF IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $7};")
+    o('DEF IDENTIFIER Terminator Body END',                      "$$ = {type: 'Def', name: $2, params: null, body: $4, singleton: false};"),
+    o('DEF IDENTIFIER ( ParamList ) Terminator Body END',        "$$ = {type: 'Def', name: $2, params: $4,   body: $7, singleton: false};"),
+    o('DEF SELF . IDENTIFIER Terminator Body END',               "$$ = {type: 'Def', name: $4, params: null, body: $6, singleton: true};"),
+    o('DEF SELF . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $4, params: $6,   body: $9, singleton: true};")
   ],
 
   ParamList: [

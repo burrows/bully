@@ -18,9 +18,10 @@ Bully.Evaluator = {
   },
 
   evaluateDef: function(node, ctx) {
-    var method = new Bully.Evaluator.Method(node.name, node.params, node.body);
+    var module = node.singleton ? Bully.class_of(ctx.module) : ctx.module,
+        method = new Bully.Evaluator.Method(node.name, node.params, node.body);
 
-    Bully.define_method(ctx.module, node.name, function(receiver, args) {
+    Bully.define_method(module, node.name, function(receiver, args) {
       return method.call(receiver, args);
     });
 
