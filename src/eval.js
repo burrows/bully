@@ -18,7 +18,7 @@ Bully.Evaluator = {
   },
 
   evaluateDef: function(node, ctx) {
-    var method = new Bully.Evaluator.Method(node.params, node.body);
+    var method = new Bully.Evaluator.Method(node.name, node.params, node.body);
 
     Bully.define_method(ctx.module, node.name, function(receiver, args) {
       return method.call(receiver, args);
@@ -59,6 +59,20 @@ Bully.Evaluator = {
     return rv;
   },
 
+  evaluateSuperCall: function(node, ctx) {
+    var args = node.args ? this.evaluateArgs(node.args, ctx) : [], rv;
+
+    try {
+      rv = Bully.call_super(ctx.self, ctx.current_method, args);
+    }
+    catch (e) {
+      if (e !== Bully.Evaluator.ReturnException) { throw e; }
+      else { rv = e.value; }
+    }
+
+    return rv;
+  },
+
   evaluateLocalAssign: function(node, ctx) {
     var value = this.evaluate(node.expression);
     ctx.locals[node.name] = value;
@@ -75,7 +89,8 @@ Bully.Evaluator = {
   },
 
   evaluateClass: function(node, ctx) {
-    var klass = Bully.define_class(node.name, null);
+    var _super = node.super_expr ? this.evaluate(node.super_expr, ctx) : null,
+        klass  = Bully.define_class(node.name, _super);
 
     this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
 
@@ -148,14 +163,19 @@ Bully.Evaluator.Context = function(self, module) {
 Bully.Evaluator.Context.prototype = {
 };
 
-Bully.Evaluator.Method = function(params, body) {
-  this.params = params;
-  this.body   = body;
+Bully.Evaluator.Method = function(name, params, body) {
+  this.name           = name;
+  this.params         = params;
+  this.body           = body;
+  this.current_method = null;
+
+  return this;
 };
 
 Bully.Evaluator.Method.prototype = {
   call: function(receiver, args) {
     var ctx = new Bully.Evaluator.Context(receiver);
+    ctx.current_method = this.name;
     if (this.params) { this.evaluateParamList(this.params, args, ctx); }
     return Bully.Evaluator.evaluateBody(this.body, ctx);
   },

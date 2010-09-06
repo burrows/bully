@@ -40,6 +40,7 @@ var grammar = {
     o('Def'),
     o('Class'),
     o('Call'),
+    o('SuperCall'),
     o('If'),
     o('Constant'),
     o('Self'),
@@ -74,6 +75,11 @@ var grammar = {
     o('Expression . IDENTIFIER ( ArgList )',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5};"),
     o('Expression [ Expression ]',              "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3]};"),
     o('Expression [ Expression ] = Expression', "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6]};")
+  ],
+
+  SuperCall: [
+    o('SUPER',             "$$ = {type: 'SuperCall', args: null};"),
+    o('SUPER ( ArgList )', "$$ = {type: 'SuperCall', args: $3};")
   ],
 
   If: [

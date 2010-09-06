@@ -80,6 +80,10 @@ Bully.make_class = function(name, _super) {
 
   Bully.make_metaclass(klass, _super.klass);
 
+  if (Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
+
   return klass;
 };
 

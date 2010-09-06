@@ -18,7 +18,8 @@ Bully.Lexer.KEYWORDS = [
   'then',
   'begin',
   'rescue',
-  'ensure'
+  'ensure',
+  'super'
 ];
 
 Bully.Lexer.OPERATORS = [

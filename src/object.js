@@ -52,10 +52,10 @@ Bully.dispatch_method = function(obj, name, args) {
   return fn.call(null, obj, args);
 };
 
-Bully.call_super = function(obj, klass, name, args) {
-  var fn = Bully.find_method(klass._super, name);
+Bully.call_super = function(obj, name, args) {
+  var fn = Bully.find_method(Bully.class_of(obj)._super, name);
 
-  // TODO: check if method was found
+  // FIXME: check if method was found
   
   return fn.call(null, obj, args);
 };
