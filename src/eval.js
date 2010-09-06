@@ -156,7 +156,7 @@ Bully.Evaluator.Method = function(params, body) {
 Bully.Evaluator.Method.prototype = {
   call: function(receiver, args) {
     var ctx = new Bully.Evaluator.Context(receiver);
-    this.evaluateParamList(this.params, args, ctx);
+    if (this.params) { this.evaluateParamList(this.params, args, ctx); }
     return Bully.Evaluator.evaluateBody(this.body, ctx);
   },
 

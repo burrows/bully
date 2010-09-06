@@ -123,7 +123,7 @@ case 56:this.$ = {type: 'ParamList', required: $$[$0-1+1-1], optional: [], splat
 break;
 case 57:this.$ = {type: 'ParamList', required: [], optional: [], splat: null};
 break;
-case 58:this.$ = {type: 'ParamList', required: [], optional: [], splat: null};
+case 58:this.$ = {type: 'ParamList', required: [], optional: [], splat: $$[$0-1+1-1]};
 break;
 case 59:this.$ = {type: 'ParamList', required: $$[$0-3+1-1], optional: $$[$0-3+3-1], splat: null};
 break;

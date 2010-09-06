@@ -60,6 +60,10 @@ Bully.call_super = function(obj, klass, name, args) {
   return fn.call(null, obj, args);
 };
 
+Bully.respond_to = function(obj, name) {
+  return !!Bully.find_method(Bully.class_of(obj), name);
+};
+
 Bully.init = function() {
   var metaclass;
 
@@ -80,9 +84,9 @@ Bully.init = function() {
     var o = Bully.dispatch_method(self, 'allocate');
     o.klass = self;
 
-    //if (Bully.respond_to(o, 'initialize')) {
-    //  Bully.funcall(o, 'initialize', args);
-    //}
+    if (Bully.respond_to(o, 'initialize')) {
+      Bully.dispatch_method(o, 'initialize', args);
+    }
 
     return o;
   });
@@ -103,6 +107,10 @@ Bully.init = function() {
         name  = Bully.dispatch_method(klass, 'name').data;
 
     return Bully.str_new('#<' + name + ':' + self.id + '>');
+  });
+
+  Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
+    return Bully.respond_to(self, args[0]);
   });
 
   // FIXME: properly alias this method
