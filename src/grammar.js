@@ -41,7 +41,6 @@ var grammar = {
     o('Def'),
     o('Class'),
     o('Call'),
-    o('SuperCall'),
     o('If'),
     o('Self'),
     o('BeginBlock')
@@ -65,17 +64,24 @@ var grammar = {
   ],
 
   Call: [
-    o('IDENTIFIER',                             "$$ = {type: 'Call', expression: null, name: $1,    args: null};"),
-    o('IDENTIFIER ( ArgList )',                 "$$ = {type: 'Call', expression: null, name: $1,    args: $3};"),
-    o('Expression . IDENTIFIER',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: []};"),
-    o('Expression . IDENTIFIER ( ArgList )',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5};"),
-    o('Expression [ Expression ]',              "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3]};"),
-    o('Expression [ Expression ] = Expression', "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6]};")
+    o('IDENTIFIER OptBlock',                             "$$ = {type: 'Call', expression: null, name: $1,    args: null, block: $2};"),
+    o('IDENTIFIER ( ArgList ) OptBlock',                 "$$ = {type: 'Call', expression: null, name: $1,    args: $3,   block: $5};"),
+    o('Expression . IDENTIFIER OptBlock',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: [],   block: $4};"),
+    o('Expression . IDENTIFIER ( ArgList ) OptBlock',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5,   block: $7};"),
+    o('Expression [ Expression ]',                       "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3], block: null};"),
+    o('Expression [ Expression ] = Expression',          "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6], block: null};"),
+    o('SUPER OptBlock',                                  "$$ = {type: 'SuperCall', args: null, block: $2};"),
+    o('SUPER ( ArgList ) OptBlock',                      "$$ = {type: 'SuperCall', args: $3,   block: $5};")
   ],
 
-  SuperCall: [
-    o('SUPER',             "$$ = {type: 'SuperCall', args: null};"),
-    o('SUPER ( ArgList )', "$$ = {type: 'SuperCall', args: $3};")
+  Block: [
+    o('DO | BlockParamList | Body END', "$$ = {type: 'Block', params: $3, body: $5};"),
+    o('{ | BlockParamList | Body }', "$$ = {type: 'Block', params: $3, body: $5};")
+  ],
+
+  OptBlock: [
+    o('', "$$ = null;"),
+    o('Block')
   ],
 
   If: [
@@ -123,6 +129,11 @@ var grammar = {
     o('DEF IDENTIFIER ( ParamList ) Terminator Body END',        "$$ = {type: 'Def', name: $2, params: $4,   body: $7, singleton: false};"),
     o('DEF SELF . IDENTIFIER Terminator Body END',               "$$ = {type: 'Def', name: $4, params: null, body: $6, singleton: true};"),
     o('DEF SELF . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $4, params: $6,   body: $9, singleton: true};")
+  ],
+
+  BlockParamList: [
+    o('IDENTIFIER',                  "$$ = {type: 'BlockParamList', required: [$1]};"),
+    o('BlockParamList , IDENTIFIER', "$1.required.push($3);")
   ],
 
   ParamList: [
