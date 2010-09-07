@@ -37,18 +37,14 @@ var grammar = {
     o('ArrayLiteral'),
     o('HashLiteral'),
     o('Assignment'),
+    o('VariableRef'),
     o('Def'),
     o('Class'),
     o('Call'),
     o('SuperCall'),
     o('If'),
-    o('Constant'),
     o('Self'),
     o('BeginBlock')
-  ],
-
-  Constant: [
-    o('CONSTANT', "$$ = {type: 'Constant', name: $1};")
   ],
 
   Self: [
@@ -155,10 +151,20 @@ var grammar = {
   ],
 
   Assignment: [
-    o('IDENTIFIER = Expression',     "$$ = {type: 'LocalAssign', name: $1, expression: $3};"),
-    o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: $2, expression: $4};"),
-    o('@ @ IDENTIFIER = Expression', "$$ = {type: 'ClassAssign', name: $3, expression: $5};"),
-    o('CONSTANT = Expression',       "$$ = {type: 'ConstantAssign', name: $1, expression: $3};")
+    o('IDENTIFIER = Expression',     "$$ = {type: 'LocalAssign',    name: $1,        expression: $3};"),
+    o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: '@' + $2,  expression: $4};"),
+    o('@ @ IDENTIFIER = Expression', "$$ = {type: 'ClassAssign',    name: '@@' + $3, expression: $5};"),
+    o('CONSTANT = Expression',       "$$ = {type: 'ConstantAssign', name: $1,        expression: $3};")
+  ],
+
+  VariableRef: [
+    o('@ IDENTIFIER',   "$$ = {type: 'InstanceRef', name: '@' + $2};"),
+    o('@ @ IDENTIFIER', "$$ = {type: 'ClassRef',    name: '@@' + $3};"),
+    o('ConstantRef')
+  ],
+
+  ConstantRef: [
+    o('CONSTANT', "$$ = {type: 'ConstantRef', name: $1};")
   ],
 
   Class: [
@@ -185,8 +191,8 @@ var grammar = {
   ],
 
   ExceptionTypes: [
-    o('Constant',                  "$$ = [$1];"),
-    o('ExceptionTypes , Constant', "$1.push($3);")
+    o('ConstantRef',                  "$$ = [$1];"),
+    o('ExceptionTypes , ConstantRef', "$1.push($3);")
   ],
 
   EnsureBlock: [

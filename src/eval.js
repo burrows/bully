@@ -80,6 +80,22 @@ Bully.Evaluator = {
     return value;
   },
 
+  evaluateInstanceAssign: function(node, ctx) {
+    var value = this.evaluate(node.expression, ctx);
+
+    Bully.ivar_set(ctx.self, node.name, value);
+
+    return value;
+  },
+
+  evaluateConstantRef: function(node, ctx) {
+    return Bully.const_get(ctx.module, node.name);
+  },
+
+  evaluateInstanceRef: function(node, ctx) {
+    return Bully.ivar_get(ctx.self, node.name);
+  },
+
   evaluateSelf: function(node, ctx) {
     return ctx.self;
   },
@@ -96,10 +112,6 @@ Bully.Evaluator = {
     this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
 
     return null;
-  },
-
-  evaluateConstant: function(node, ctx) {
-    return Bully.const_get(ctx.module, node.name);
   },
 
   evaluateStringLiteral: function(node, ctx) {
