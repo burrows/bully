@@ -39,7 +39,7 @@ Bully.Evaluator = {
   },
 
   evaluateCall: function(node, ctx) {
-    var receiver, args, rv;
+    var receiver, args, block, rv;
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && ctx.locals[node.name]) {
@@ -48,9 +48,10 @@ Bully.Evaluator = {
 
     receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self;
     args     = node.args ? this.evaluateArgs(node.args, ctx) : [];
+    block    = node.block ? this.evaluateBlock(node.block, ctx) : null;
 
     try {
-      rv = Bully.dispatch_method(receiver, node.name, args);
+      rv = Bully.dispatch_method(receiver, node.name, args, block);
     }
     catch (e) {
       if (e !== Bully.Evaluator.ReturnException) { throw e; }
@@ -74,8 +75,12 @@ Bully.Evaluator = {
     return rv;
   },
 
+  evaluateBlock: function(node, ctx) {
+    return Bully.make_proc(node, ctx);
+  },
+
   evaluateLocalAssign: function(node, ctx) {
-    var value = this.evaluate(node.expression);
+    var value = this.evaluate(node.expression, ctx);
     ctx.locals[node.name] = value;
     return value;
   },
@@ -221,4 +226,24 @@ Bully.Evaluator.Method.prototype = {
 
 Bully.Evaluator.ReturnException = { value: null };
 
+Bully.make_proc = function(node, ctx) {
+  var proc = Bully.make_object();
 
+  proc.klass   = Bully.Proc;
+  proc.node    = node;
+  proc.context = ctx;
+
+  return proc;
+};
+
+Bully.init_proc = function() {
+  Bully.Proc = Bully.define_class('Proc');
+
+  Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, blk) {
+    return blk;
+  });
+
+  Bully.define_method(Bully.Proc, 'call', function(self, args) {
+    return Bully.Evaluator.evaluateBody(self.node.body, self.context);
+  });
+};

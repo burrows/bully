@@ -44,12 +44,12 @@ Bully.is_immediate = function(obj) {
          obj  === false;
 };
 
-Bully.dispatch_method = function(obj, name, args) {
+Bully.dispatch_method = function(obj, name, args, block) {
   var fn = Bully.find_method(Bully.class_of(obj), name);
 
   // TODO: check if method was actually found, call method_missing if not
 
-  return fn.call(null, obj, args);
+  return fn.call(null, obj, args, block);
 };
 
 Bully.call_super = function(obj, name, args) {
@@ -166,4 +166,5 @@ Bully.init = function() {
   Bully.init_number();
   Bully.init_error();
   Bully.init_array();
+  Bully.init_proc();
 };
