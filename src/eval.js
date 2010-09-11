@@ -61,6 +61,20 @@ Bully.Evaluator = {
     }
   },
 
+  evaluateBlockParamList: function(node, args, ctx) {
+    var args_len = args.length, req_len = node.required.length, i;
+
+    // FIXME: check passed argument length
+
+    for (i = 0; i < req_len; i += 1) {
+      ctx.declare_var(node.required[i], args[i]);
+    }
+
+    if (node.splat) {
+      ctx.declare_var(node.splat, Bully.array_new(args.slice(req_len)));
+    }
+  },
+
   evaluateArgs: function(args, ctx) {
     var list = [], i;
 
@@ -238,6 +252,10 @@ Bully.Evaluator.Context.prototype = {
     return this.current_scope();
   },
 
+  declare_var: function(name, value) {
+    this.current_scope()[name] = value;
+  },
+
   set_var: function(name, value) {
     var scope = this.find_scope(name);
     scope[name] = value;
@@ -267,7 +285,7 @@ Bully.make_proc = function(node, ctx) {
 
     ctx.push_scope();
 
-    //Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx); 
+    Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx); 
     rv = Bully.Evaluator.evaluateBody(node.body, ctx); 
 
     ctx.pop_scope();
@@ -284,6 +302,6 @@ Bully.init_proc = function() {
   });
 
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
-    return self();
+    return self.call(null, args);
   });
 };

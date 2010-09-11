@@ -76,7 +76,9 @@ var grammar = {
 
   Block: [
     o('DO | BlockParamList | Body END', "$$ = {type: 'Block', params: $3, body: $5};"),
-    o('{ | BlockParamList | Body }', "$$ = {type: 'Block', params: $3, body: $5};")
+    o('DO Body END', "$$ = {type: 'Block', params: null, body: $2};"),
+    o('{ | BlockParamList | Body }', "$$ = {type: 'Block', params: $3, body: $5};"),
+    o('{ Body }', "$$ = {type: 'Block', params: null, body: $2};")
   ],
 
   OptBlock: [
@@ -132,8 +134,9 @@ var grammar = {
   ],
 
   BlockParamList: [
-    o('IDENTIFIER',                  "$$ = {type: 'BlockParamList', required: [$1]};"),
-    o('BlockParamList , IDENTIFIER', "$1.required.push($3);")
+    o('',                          "$$ = {type: 'BlockParamList', required: [], splat: null};"),
+    o('ReqParamList',              "$$ = {type: 'BlockParamList', required: $1, splat: null};"),
+    o('ReqParamList , SplatParam', "$$ = {type: 'BlockParamList', required: $1, splat: $3};")
   ],
 
   ParamList: [
