@@ -5,10 +5,11 @@
  * to be a Bully object, otherwise a brand new object is constructed.
  */
 Bully.next_object_id = 0;
-Bully.make_object = function(obj) {
-  obj = obj || {};
+Bully.make_object = function(obj, klass) {
+  obj   = obj || {};
+  klass = klass || null;
 
-  obj.klass  = null;
+  obj.klass  = klass;
   obj.iv_tbl = {};
   obj.id = Bully.next_object_id += 1;
 

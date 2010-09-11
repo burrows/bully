@@ -18,14 +18,47 @@ Bully.Evaluator = {
   },
 
   evaluateDef: function(node, ctx) {
-    var module = node.singleton ? Bully.class_of(ctx.module) : ctx.module,
-        method = new Bully.Evaluator.Method(node.name, node.params, node.body);
+    var module    = node.singleton ? Bully.class_of(ctx.module) : ctx.module;
 
     Bully.define_method(module, node.name, function(receiver, args) {
-      return method.call(receiver, args);
+      var ctx = new Bully.Evaluator.Context(receiver);
+
+      // FIXME: there must be a better way to do this
+      ctx.method_name = node.name;
+
+      if (node.params) {
+        Bully.Evaluator.evaluateParamList(node.params, args, ctx);
+      }
+
+      Bully.Evaluator.evaluateBody(node.body, ctx);
     });
 
     return null;
+  },
+
+  evaluateParamList: function(node, args, ctx) {
+    var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
+
+    // FIXME: check passed argument length
+
+    for (i = 0; i < req_len; i += 1) {
+      ctx.set_var(node.required[i], args[i]);
+    }
+
+    for (i = 0; i < node.optional.length; i += 1) {
+      if (typeof args[req_len + i] === 'undefined') {
+        ctx.set_var(node.optional[i].name,
+          Bully.Evaluator.evaluate(node.optional[i].expression, ctx));
+      }
+      else {
+        opt_len += 1;
+        ctx.set_var(node.optional[i].name, args[req_len + i]);
+      }
+    }
+
+    if (node.splat) {
+      ctx.set_var(node.splat, Bully.array_new(args.slice(req_len + opt_len)));
+    }
   },
 
   evaluateArgs: function(args, ctx) {
@@ -42,8 +75,8 @@ Bully.Evaluator = {
     var receiver, args, block, rv;
 
     // check to see if this is actually a local variable reference
-    if (!node.expression && !node.args && ctx.locals[node.name]) {
-      return ctx.locals[node.name];
+    if (!node.expression && !node.args && ctx.has_var(node.name)) {
+      return ctx.get_var(node.name);
     }
 
     receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self;
@@ -65,7 +98,7 @@ Bully.Evaluator = {
     var args = node.args ? this.evaluateArgs(node.args, ctx) : [], rv;
 
     try {
-      rv = Bully.call_super(ctx.self, ctx.current_method, args);
+      rv = Bully.call_super(ctx.self, ctx.method_name, args);
     }
     catch (e) {
       if (e !== Bully.Evaluator.ReturnException) { throw e; }
@@ -81,7 +114,7 @@ Bully.Evaluator = {
 
   evaluateLocalAssign: function(node, ctx) {
     var value = this.evaluate(node.expression, ctx);
-    ctx.locals[node.name] = value;
+    ctx.set_var(node.name, value);
     return value;
   },
 
@@ -155,7 +188,7 @@ Bully.Evaluator = {
         if (Bully.dispatch_method(captured, 'is_a?', [type])) {
           handled = true;
           if (rescue.name) {
-            ctx.locals[rescue.name] = captured;
+            ctx.set_var(rescue.name, captured);
           }
 
           this.evaluateBody(node.rescues[i].body, ctx);
@@ -175,65 +208,72 @@ Bully.Evaluator = {
 Bully.Evaluator.Context = function(self, module) {
   this.self   = self;
   this.module = module || Bully.class_of(self);
-  this.locals = {};
+  this.scopes = [{}];
 };
 
 Bully.Evaluator.Context.prototype = {
-};
-
-Bully.Evaluator.Method = function(name, params, body) {
-  this.name           = name;
-  this.params         = params;
-  this.body           = body;
-  this.current_method = null;
-
-  return this;
-};
-
-Bully.Evaluator.Method.prototype = {
-  call: function(receiver, args) {
-    var ctx = new Bully.Evaluator.Context(receiver);
-    ctx.current_method = this.name;
-    if (this.params) { this.evaluateParamList(this.params, args, ctx); }
-    return Bully.Evaluator.evaluateBody(this.body, ctx);
+  push_scope: function() {
+    this.scopes.push({});
+    return this;
   },
 
-  evaluateParamList: function(node, args, ctx) {
-    var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
+  pop_scope: function() {
+    this.scopes.pop();
+    return this;
+  },
 
-    // FIXME: check passed argument length
+  current_scope: function() {
+    return this.scopes[this.scopes.length - 1];
+  },
 
-    for (i = 0; i < req_len; i += 1) {
-      ctx.locals[node.required[i]] = args[i];
-    }
+  find_scope: function(name) {
+    var i;
 
-    for (i = 0; i < node.optional.length; i += 1) {
-      if (typeof args[req_len + i] === 'undefined') {
-        ctx.locals[node.optional[i].name] =
-          Bully.Evaluator.evaluate(node.optional[i].expression, ctx);
-      }
-      else {
-        opt_len += 1;
-        ctx.locals[node.optional[i].name] = args[req_len + i];
+    for (i = this.scopes.length - 1; i >= 0; i -= 1) {
+      if (this.scopes[i].hasOwnProperty(name)) {
+        return this.scopes[i];
       }
     }
 
-    if (node.splat) {
-      ctx.locals[node.splat] = Bully.array_new(args.slice(req_len + opt_len));
+    return this.current_scope();
+  },
+
+  set_var: function(name, value) {
+    var scope = this.find_scope(name);
+    scope[name] = value;
+  },
+
+  get_var: function(name) {
+    var scope = this.find_scope(name);
+
+    if (scope.hasOwnProperty(name)) {
+      return scope[name];
     }
+
+    // FIXME: raise NameError exception
+    return undefined;
+  },
+
+  has_var: function(name) {
+    return typeof this.get_var(name) !== 'undefined';
   }
 };
 
 Bully.Evaluator.ReturnException = { value: null };
 
 Bully.make_proc = function(node, ctx) {
-  var proc = Bully.make_object();
+  return Bully.make_object(function(args) {
+    var rv;
 
-  proc.klass   = Bully.Proc;
-  proc.node    = node;
-  proc.context = ctx;
+    ctx.push_scope();
 
-  return proc;
+    //Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx); 
+    rv = Bully.Evaluator.evaluateBody(node.body, ctx); 
+
+    ctx.pop_scope();
+
+    return rv;
+  }, Bully.Proc);
 };
 
 Bully.init_proc = function() {
@@ -244,6 +284,6 @@ Bully.init_proc = function() {
   });
 
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
-    return Bully.Evaluator.evaluateBody(self.node.body, self.context);
+    return self();
   });
 };
