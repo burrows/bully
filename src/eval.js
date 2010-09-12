@@ -193,6 +193,18 @@ Bully.Evaluator = {
     return Bully.str_new(node.value);
   },
 
+  evaluateTrueLiteral: function(node, ctx) {
+    return true;
+  },
+
+  evaluateFalseLiteral: function(node, ctx) {
+    return false;
+  },
+
+  evaluateNilLiteral: function(node, ctx) {
+    return null;
+  },
+
   evaluateNumberLiteral: function(node, ctx) {
     return parseInt(node.value, 10);
   },
@@ -239,6 +251,24 @@ Bully.Evaluator = {
 
     // if none of our rescue blocks matched, then re-raise
     if (!handled) { Bully.raise(captured); }
+  },
+
+  evaluateIf: function(node, ctx) {
+    var i, rv = null, eval_else = true;
+
+    for (i = 0; i < node.conditions.length; i += 1) {
+      if (Bully.test(this.evaluate(node.conditions[i], ctx))) {
+        eval_else = false;
+        rv = this.evaluateBody(node.bodies[i], ctx);
+        break;
+      }
+    }
+
+    if (node.else_body && eval_else) {
+      rv = this.evaluateBody(node.else_body, ctx);
+    }
+
+    return rv;
   }
 };
 
