@@ -123,7 +123,7 @@ Bully.Evaluator = {
     return rv;
   },
 
-  yield: function(block, args) {
+  _yield: function(block, args) {
     var rv;
 
     try {
@@ -142,7 +142,7 @@ Bully.Evaluator = {
     var args = node.args ? this.evaluateArgs(node.args, ctx) : [];
 
     // FIXME: make sure block was given, raise LocalJumpError if not
-    return this.yield(ctx.block, args);
+    return this._yield(ctx.block, args);
   },
 
   evaluateBlock: function(node, ctx) {

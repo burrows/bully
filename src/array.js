@@ -53,7 +53,7 @@ Bully.init_array = function() {
     var i;
 
     for (i = 0; i < self.length; i += 1) {
-      Bully.Evaluator.yield(block, [self[i]]);
+      Bully.Evaluator._yield(block, [self[i]]);
     }
 
     return self;
