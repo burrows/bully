@@ -71,7 +71,9 @@ var grammar = {
     o('Expression [ Expression ]',                       "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3], block: null};"),
     o('Expression [ Expression ] = Expression',          "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6], block: null};"),
     o('SUPER OptBlock',                                  "$$ = {type: 'SuperCall', args: null, block: $2};"),
-    o('SUPER ( ArgList ) OptBlock',                      "$$ = {type: 'SuperCall', args: $3,   block: $5};")
+    o('SUPER ( ArgList ) OptBlock',                      "$$ = {type: 'SuperCall', args: $3,   block: $5};"),
+    o('YIELD',                                           "$$ = {type: 'YieldCall', args: null};"),
+    o('YIELD ( ArgList )',                               "$$ = {type: 'YieldCall', args: $3};")
   ],
 
   Block: [

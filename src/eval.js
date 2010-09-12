@@ -20,11 +20,12 @@ Bully.Evaluator = {
   evaluateDef: function(node, ctx) {
     var module    = node.singleton ? Bully.class_of(ctx.module) : ctx.module;
 
-    Bully.define_method(module, node.name, function(receiver, args) {
+    Bully.define_method(module, node.name, function(receiver, args, block) {
       var ctx = new Bully.Evaluator.Context(receiver);
 
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
+      ctx.block = block;
 
       if (node.params) {
         Bully.Evaluator.evaluateParamList(node.params, args, ctx);
@@ -120,6 +121,28 @@ Bully.Evaluator = {
     }
 
     return rv;
+  },
+
+  yield: function(block, args) {
+    var rv;
+
+    try {
+      // FIXME: make sure block was given, raise LocalJumpError if not
+      block.call(null, args);
+    }
+    catch (e) {
+      if (e !== Bully.Evaluator.ReturnException) { throw e; }
+      else { rv = e.value; }
+    }
+
+    return rv;
+  },
+
+  evaluateYieldCall: function(node, ctx) {
+    var args = node.args ? this.evaluateArgs(node.args, ctx) : [];
+
+    // FIXME: make sure block was given, raise LocalJumpError if not
+    return this.yield(ctx.block, args);
   },
 
   evaluateBlock: function(node, ctx) {
@@ -285,7 +308,10 @@ Bully.make_proc = function(node, ctx) {
 
     ctx.push_scope();
 
-    Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx); 
+    if (node.params) {
+      Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx); 
+    }
+
     rv = Bully.Evaluator.evaluateBody(node.body, ctx); 
 
     ctx.pop_scope();

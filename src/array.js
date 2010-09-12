@@ -1,7 +1,5 @@
 Bully.array_new = function(js_array) {
-  var a = Bully.make_object(js_array);
-  a.klass = Bully.Array;
-  return a;
+  return Bully.make_object(js_array, Bully.Array);
 };
 
 Bully.init_array = function() {
@@ -50,4 +48,15 @@ Bully.init_array = function() {
 
     return Bully.str_new('[' + elems.join(', ') + ']');
   });
+
+  Bully.define_method(Bully.Array, 'each', function(self, args, block) {
+    var i;
+
+    for (i = 0; i < self.length; i += 1) {
+      Bully.Evaluator.yield(block, [self[i]]);
+    }
+
+    return self;
+  });
 };
+
