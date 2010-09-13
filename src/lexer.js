@@ -24,23 +24,49 @@ Bully.Lexer.KEYWORDS = [
 ];
 
 Bully.Lexer.OPERATORS = [
-  '=>'
+  '===',
+  '==',
+  '!=',
+  '<<',
+  '>>',
+  '&&',
+  '||',
+  '=>',
+  '>',
+  '<',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '&',
+  '!',
+  '~'
 ];
+
+Bully.Lexer.regex_escape = function(text) {
+  return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
+};
 
 Bully.Lexer.prototype = {
   tokenize: function(code) {
-    var pos    = 0,  // current character position
-        tokens = [], // list of the parsed tokens, form is: [tag, value]
-        line   = 1,  // the current source line number
-        chunk, match, operatorRegex;
+    var pos     = 0,  // current character position
+        tokens  = [], // list of the parsed tokens, form is: [tag, value, lineno]
+        line    = 1,  // the current source line number
+        opRegex = [],
+        chunk, match, i;
 
-    operatorRegex = new RegExp('^(' + Bully.Lexer.OPERATORS.join('|') + ')');
+    for (i = 0; i < Bully.Lexer.OPERATORS.length; i += 1) {
+      opRegex.push(Bully.Lexer.regex_escape(Bully.Lexer.OPERATORS[i]));
+    }
+
+    opRegex = new RegExp('^(' + opRegex.join('|') + ')');
 
     while (pos < code.length) {
       chunk = code.substr(pos);
 
       // match standard tokens
-      if ((match = chunk.match(/^([a-z]\w*)/))) {
+      if ((match = chunk.match(/^([a-z_]\w*)/))) {
         match = match[1];
         if (Bully.Lexer.KEYWORDS.indexOf(match) !== -1) {
           tokens.push([match.toUpperCase(), match, line]);
@@ -52,7 +78,7 @@ Bully.Lexer.prototype = {
         pos += match.length;
       }
       // match operators
-      else if ((match = chunk.match(operatorRegex))) {
+      else if ((match = chunk.match(opRegex))) {
         match = match[1];
         tokens.push([match, match, line]);
         pos += match.length;
@@ -102,7 +128,7 @@ Bully.Lexer.prototype = {
       }
     }
 
-    return tokens;
+    return (new Bully.Rewriter(tokens)).rewrite();
   }
 };
 

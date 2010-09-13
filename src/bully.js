@@ -1,6 +1,7 @@
 global.Bully = exports.Bully = {};
 
 [ 'lexer',
+  'rewriter',
   'eval',
   'class',
   'variable',

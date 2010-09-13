@@ -76,6 +76,25 @@ var grammar = {
     o('YIELD ( ArgList )',                               "$$ = {type: 'YieldCall', args: $3};")
   ],
 
+  //OperatorCall: [
+  //  o('Expression > Expression'),
+  //  o('Expression < Expression'),
+  //  o('Expression << Expression'),
+  //  o('Expression >> Expression'),
+  //  o('Expression + Expression'),
+  //  o('Expression - Expression'),
+  //  o('Expression * Expression'),
+  //  o('Expression / Expression'),
+  //  o('Expression % Expression'),
+  //  o('Expression && Expression'),
+  //  o('Expression || Expression'),
+  //  o('Expression & Expression'),
+  //  o('Expression | Expression'),
+  //  o('Expression == Expression'),
+  //  o('Expression != Expression'),
+  //  o('Expression === Expression')
+  //],
+
   Block: [
     o('DO | BlockParamList | Body END', "$$ = {type: 'Block', params: $3, body: $5};"),
     o('DO Body END', "$$ = {type: 'Block', params: null, body: $2};"),
