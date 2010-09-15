@@ -175,9 +175,12 @@ Bully.define_module_under = function(outer, name) {
   return mod;
 };
 
-Bully.define_method = function(klass, name, fn) {
+Bully.define_method = function(klass, name, fn, min_args, max_args) {
+  name = '__' + name;
   klass.m_tbl[name] = fn;
   klass.m_tbl[name].klass = klass;
+  klass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  klass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
 Bully.define_module_method = function(klass, name, fn) {
@@ -185,13 +188,20 @@ Bully.define_module_method = function(klass, name, fn) {
   Bully.define_singleton_method(klass, name, fn);
 };
 
-Bully.define_singleton_method = function(obj, name, fn) {
+Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
   var sklass = Bully.singleton_class(obj);
+
+  name = '__' + name;
+
   sklass.m_tbl[name] = fn;
   sklass.m_tbl[name].klass = sklass;
+  sklass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  sklass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
 Bully.find_method = function(klass, name) {
+  name = '__' + name;
+
   while (klass && !klass.m_tbl[name]) {
     klass = klass._super;
   }

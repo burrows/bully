@@ -9,6 +9,6 @@ Bully.init_number = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl.to_s);
+  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl.__to_s);
 };
 

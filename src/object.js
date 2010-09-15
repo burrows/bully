@@ -45,10 +45,42 @@ Bully.is_immediate = function(obj) {
          obj  === false;
 };
 
+Bully.check_method_args = function(name, min, max, args) {
+  var msg = 'wrong number of arguments (', n = args ? args.length : 0;
+
+  if (min === max) {
+    // 0 or more required arguments, no optionals
+    if (n !== min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+  else if (max === -1) {
+    // no limit on args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+  else {
+    // bounded number of args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+    else if (n > max) {
+      msg += n + ' for ' + max + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+};
+
 Bully.dispatch_method = function(obj, name, args, block) {
   var fn = Bully.find_method(Bully.class_of(obj), name);
 
   // TODO: check if method was actually found, call method_missing if not
+
+  Bully.check_method_args(name, fn.min_args, fn.max_args, args);
 
   return fn.call(null, obj, args, block);
 };
@@ -115,7 +147,7 @@ Bully.init = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.to_s);
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.__to_s);
 
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;

@@ -226,21 +226,23 @@ Bully.Evaluator = {
     catch (e) { captured = e; }
 
     // see if any of the rescue blocks match the exception
-    for (i = 0; i < node.rescues.length; i += 1) {
-      rescue = node.rescues[i];
-      types  = rescue.exception_types;
+    if (captured) {
+      for (i = 0; i < node.rescues.length; i += 1) {
+        rescue = node.rescues[i];
+        types  = rescue.exception_types;
 
-      for (j = 0; j < types.length; j += 1) {
-        // FIXME: lookup constant for real
-        type = Bully.const_get(Bully.Object, types[j].name);
+        for (j = 0; j < types.length; j += 1) {
+          // FIXME: lookup constant for real
+          type = Bully.const_get(Bully.Object, types[j].name);
 
-        if (Bully.dispatch_method(captured, 'is_a?', [type])) {
-          handled = true;
-          if (rescue.name) {
-            ctx.set_var(rescue.name, captured);
+          if (Bully.dispatch_method(captured, 'is_a?', [type])) {
+            handled = true;
+            if (rescue.name) {
+              ctx.set_var(rescue.name, captured);
+            }
+
+            this.evaluateBody(node.rescues[i].body, ctx);
           }
-
-          this.evaluateBody(node.rescues[i].body, ctx);
         }
       }
     }
@@ -250,7 +252,7 @@ Bully.Evaluator = {
     }
 
     // if none of our rescue blocks matched, then re-raise
-    if (!handled) { Bully.raise(captured); }
+    if (captured && !handled) { Bully.raise(captured); }
   },
 
   evaluateIf: function(node, ctx) {
