@@ -17,8 +17,25 @@ Bully.Evaluator = {
     return rv;
   },
 
+  calculateArgsRange: function(params) {
+    var min = 0, max = -1;
+
+    if (!params) { return [min, max]; }
+
+    min = params.required.length;
+
+    if (!params.splat) {
+      max = min + params.optional.length;
+    }
+
+    return [min, max];
+  },
+
   evaluateDef: function(node, ctx) {
-    var module    = node.singleton ? Bully.class_of(ctx.module) : ctx.module;
+    var module     = node.singleton ? Bully.class_of(ctx.module) : ctx.module,
+        args_range = this.calculateArgsRange(node.params);
+
+    // FIXME: shouldn't we be using define_singleton_method here if node.singleton is true?
 
     Bully.define_method(module, node.name, function(receiver, args, block) {
       var ctx = new Bully.Evaluator.Context(receiver);
@@ -32,7 +49,7 @@ Bully.Evaluator = {
       }
 
       Bully.Evaluator.evaluateBody(node.body, ctx);
-    });
+    }, args_range[0], args_range[1]);
 
     return null;
   },
