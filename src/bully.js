@@ -7,6 +7,7 @@ global.Bully = exports.Bully = {};
   'variable',
   'object',
   'platform',
+  'symbol',
   'string',
   'error',
   'array',

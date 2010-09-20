@@ -4,14 +4,16 @@
  * If passed an object, that object will be decorated with properties necessary
  * to be a Bully object, otherwise a brand new object is constructed.
  */
-Bully.next_object_id = 0;
+Bully.next_object_id = 8;
 Bully.make_object = function(obj, klass) {
-  obj   = obj || {};
+  obj   = obj   || {};
   klass = klass || null;
 
   obj.klass  = klass;
   obj.iv_tbl = {};
-  obj.id = Bully.next_object_id += 1;
+  obj.id     = Bully.next_object_id;
+
+  Bully.next_object_id += 4;
 
   return obj;
 };
@@ -42,7 +44,7 @@ Bully.is_immediate = function(obj) {
                 obj === false;
 };
 
-Bully.check_method_args = function(name, min, max, args) {
+Bully.check_method_args = function(min, max, args) {
   var msg = 'wrong number of arguments (', n = args ? args.length : 0;
 
   if (min === max) {
@@ -73,17 +75,17 @@ Bully.check_method_args = function(name, min, max, args) {
 };
 
 Bully.dispatch_method = function(obj, name, args, block) {
-  var fn = Bully.find_method(Bully.class_of(obj), name);
+  var fn = Bully.find_method(Bully.class_of(obj), Bully.intern(name));
 
   // TODO: check if method was actually found, call method_missing if not
 
-  Bully.check_method_args(name, fn.min_args, fn.max_args, args);
+  Bully.check_method_args(fn.min_args, fn.max_args, args);
 
   return fn.call(null, obj, args, block);
 };
 
 Bully.call_super = function(obj, name, args) {
-  var fn = Bully.find_method(Bully.class_of(obj)._super, name);
+  var fn = Bully.find_method(Bully.class_of(obj)._super, Bully.intern(name));
 
   // FIXME: check if method was found
   
@@ -91,7 +93,7 @@ Bully.call_super = function(obj, name, args) {
 };
 
 Bully.respond_to = function(obj, name) {
-  return !!Bully.find_method(Bully.class_of(obj), name);
+  return !!Bully.find_method(Bully.class_of(obj), Bully.intern(name));
 };
 
 Bully.init = function() {
@@ -144,7 +146,7 @@ Bully.init = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.__to_s);
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
 
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;
@@ -192,6 +194,7 @@ Bully.init = function() {
     return Bully.str_new('main');
   });
 
+  Bully.init_symbol();
   Bully.init_string();
   Bully.init_fixnum();
   Bully.init_error();

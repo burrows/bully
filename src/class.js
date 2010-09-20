@@ -140,7 +140,7 @@ Bully.include_module = function(klass, module) {
       current = current._super = Bully.make_include_class(module, current._super);
     }
 
-    module  = module._super;
+    module = module._super;
   }
 };
 
@@ -176,11 +176,12 @@ Bully.define_module_under = function(outer, name) {
 };
 
 Bully.define_method = function(klass, name, fn, min_args, max_args) {
-  name = '__' + name;
-  klass.m_tbl[name] = fn;
-  klass.m_tbl[name].klass = klass;
-  klass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  klass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  var id = Bully.intern(name);
+
+  klass.m_tbl[id] = fn;
+  klass.m_tbl[id].klass = klass;
+  klass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  klass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
 Bully.define_module_method = function(klass, name, fn) {
@@ -189,24 +190,20 @@ Bully.define_module_method = function(klass, name, fn) {
 };
 
 Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
-  var sklass = Bully.singleton_class(obj);
+  var id = Bully.intern(name), sklass = Bully.singleton_class(obj);
 
-  name = '__' + name;
-
-  sklass.m_tbl[name] = fn;
-  sklass.m_tbl[name].klass = sklass;
-  sklass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  sklass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  sklass.m_tbl[id] = fn;
+  sklass.m_tbl[id].klass = sklass;
+  sklass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  sklass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
-Bully.find_method = function(klass, name) {
-  name = '__' + name;
-
-  while (klass && !klass.m_tbl[name]) {
+Bully.find_method = function(klass, id) {
+  while (klass && !klass.m_tbl[id]) {
     klass = klass._super;
   }
 
-  return klass ? klass.m_tbl[name] : null;
+  return klass ? klass.m_tbl[id] : null;
 };
 
 Bully.class_of = function(obj) {
