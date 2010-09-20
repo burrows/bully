@@ -223,7 +223,7 @@ Bully.Evaluator = {
   },
 
   evaluateNumberLiteral: function(node, ctx) {
-    return parseInt(node.value, 10);
+    return Bully.int2fix(parseInt(node.value, 10));
   },
 
   evaluateArrayLiteral: function(node, ctx) {

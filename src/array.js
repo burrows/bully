@@ -23,19 +23,19 @@ Bully.init_array = function() {
   });
 
   Bully.define_method(Bully.Array, 'at', function(self, args) {
-    return self[args[0]];
+    return self[Bully.fix2int(args[0])];
   });
 
   // FIXME: properly alias this method
   Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl.__at);
 
   Bully.define_method(Bully.Array, 'insert', function(self, args) {
-    self[args[0]] = args[1];
+    self[Bully.fix2int(args[0])] = args[1];
     return self;
   });
 
   Bully.define_method(Bully.Array, '[]=', function(self, args) {
-    self[args[0]] = args[1];
+    self[Bully.fix2int(args[0])] = args[1];
     return args[1];
   });
 

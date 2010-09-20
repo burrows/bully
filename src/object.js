@@ -26,23 +26,20 @@ Bully.test = function(obj) {
 
 /*
  * Indicates whether or not the given object is an immediate value.  An
- * immediate value is represented by a native javascript object instead of
+ * immediate value is represented by a native javascript value instead of
  * being wrapped in an Object instance.  The following types of objects are
  * immediate objects:
  *   * Symbol
- *   * Number
+ *   * Fixnum
  *   * NilClass
  *   * TrueClass
  *   * FalseClass
  */
 Bully.is_immediate = function(obj) {
-  var type = typeof obj;
-
-  return type === 'string' ||
-         type === 'number' ||
-         obj  === null     ||
-         obj  === true     ||
-         obj  === false;
+  return typeof obj === 'number' ||
+                obj === null     ||
+                obj === true     ||
+                obj === false;
 };
 
 Bully.check_method_args = function(name, min, max, args) {
@@ -196,7 +193,7 @@ Bully.init = function() {
   });
 
   Bully.init_string();
-  Bully.init_number();
+  Bully.init_fixnum();
   Bully.init_error();
   Bully.init_array();
   Bully.init_proc();
