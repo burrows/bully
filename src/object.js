@@ -176,8 +176,23 @@ Bully.init = function() {
     return false;
   });
 
+  Bully.define_method(Bully.Kernel, 'object_id', function(self, args) {
+    if      (typeof self === 'number') { return Bully.int2fix(self); }
+    else if (self === false)           { return Bully.int2fix(0); }
+    else if (self === true)            { return Bully.int2fix(2); }
+    else if (self === null)            { return Bully.int2fix(4); }
+
+    return Bully.int2fix(self.id);
+  }, 0, 0);
+
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);
+
+  // FalseClass
+  Bully.FalseClass = Bully.define_class('FalseClass');
+
+  // TrueClass
+  Bully.TrueClass = Bully.define_class('TrueClass');
 
   // NilClass
   Bully.NilClass = Bully.define_class('NilClass');
