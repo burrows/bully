@@ -58,6 +58,7 @@ var grammar = {
   Literal: [
     o('NUMBER', "$$ = {type: 'NumberLiteral', value: $1};"),
     o('STRING', "$$ = {type: 'StringLiteral', value: $1};"),
+    o('SYMBOL', "$$ = {type: 'SymbolLiteral', value: $1};"),
     o('NIL',    "$$ = {type: 'NilLiteral'};"),
     o('TRUE',   "$$ = {type: 'TrueLiteral'};"),
     o('FALSE',  "$$ = {type: 'FalseLiteral'};")

@@ -210,6 +210,10 @@ Bully.Evaluator = {
     return Bully.str_new(node.value);
   },
 
+  evaluateSymbolLiteral: function(node, ctx) {
+    return Bully.intern(node.value.slice(1));
+  },
+
   evaluateTrueLiteral: function(node, ctx) {
     return true;
   },

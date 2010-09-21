@@ -66,7 +66,7 @@ Bully.Lexer.prototype = {
       chunk = code.substr(pos);
 
       // match standard tokens
-      if ((match = chunk.match(/^([a-z_]\w*)/))) {
+      if ((match = chunk.match(/^([a-z_]\w*[?!]?)/))) {
         match = match[1];
         if (Bully.Lexer.KEYWORDS.indexOf(match) !== -1) {
           tokens.push([match.toUpperCase(), match, line]);
@@ -75,6 +75,12 @@ Bully.Lexer.prototype = {
           tokens.push(['IDENTIFIER', match, line]);
         }
 
+        pos += match.length;
+      }
+      // match symbols
+      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
+        match = match[1];
+        tokens.push(['SYMBOL', match, line]);
         pos += match.length;
       }
       // match operators
