@@ -107,6 +107,10 @@ Bully.init = function() {
   metaclass = Bully.make_metaclass(Bully.Module, metaclass);
   Bully.make_metaclass(Bully.Class, metaclass);
 
+  Bully.define_global_const('Object', Bully.Object);
+  Bully.define_global_const('Module', Bully.Module);
+  Bully.define_global_const('Class', Bully.Class);
+
   // Class
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.make_object();
