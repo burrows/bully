@@ -189,6 +189,9 @@ Bully.init = function() {
     return Bully.int2fix(self.id);
   }, 0, 0);
 
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
+
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);
 
@@ -228,5 +231,6 @@ Bully.init = function() {
   Bully.init_fixnum();
   Bully.init_error();
   Bully.init_array();
+  Bully.init_hash();
   Bully.init_proc();
 };

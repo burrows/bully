@@ -240,6 +240,19 @@ Bully.Evaluator = {
     return Bully.array_new(elems);
   },
 
+  evaluateHashLiteral: function(node, ctx) {
+    var h = Bully.hash_new(), key, val, i;
+
+    for (i = 0; i < node.keys.length; i += 1) {
+      key = this.evaluate(node.keys[i], ctx);
+      val = this.evaluate(node.values[i], ctx);
+
+      Bully.hash_set(h, key, val);
+    }
+
+    return h;
+  },
+
   evaluateBeginBlock: function(node, ctx) {
     var handled = false, captured, rescue, types, type, i, j;
 
