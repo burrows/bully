@@ -1,6 +1,6 @@
 var options = {
   adsafe     : false, // if ADsafe should be enforced
-  bitwise    : true,  // if bitwise operators should not be allowed
+  bitwise    : false, // if bitwise operators should not be allowed
   browser    : false, // if the standard browser globals should be predefined
   cap        : false, // if upper case HTML should be allowed
   css        : false, // if CSS workarounds should be tolerated

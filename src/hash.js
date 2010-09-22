@@ -3,13 +3,13 @@ Bully.hash_new = function(js_obj) {
 };
 
 Bully.hash_set = function(hash, key, value) {
-  var key = Bully.dispatch_method(key, 'hash');
+  key = Bully.dispatch_method(key, 'hash');
   hash[key] = value;
   return value;
 };
 
 Bully.hash_get = function(hash, key) {
-  var key = Bully.dispatch_method(key, 'hash');
+  key = Bully.dispatch_method(key, 'hash');
   return hash[key];
 };
 
