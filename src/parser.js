@@ -113,7 +113,7 @@ case 51:this.$ = {type: 'Call', expression: $$[$0-3+1-1], name: '-',   args: [$$
 break;
 case 52:this.$ = {type: 'Call', expression: $$[$0-3+1-1], name: '<<',  args: [$$[$0-3+3-1]], block: null};
 break;
-case 53:this.$ = {type: 'Call', expression: $$[$0-3+1-1], name: '<<',  args: [$$[$0-3+3-1]], block: null};
+case 53:this.$ = {type: 'Call', expression: $$[$0-3+1-1], name: '>>',  args: [$$[$0-3+3-1]], block: null};
 break;
 case 54:this.$ = {type: 'Call', expression: $$[$0-3+1-1], name: '&',   args: [$$[$0-3+3-1]], block: null};
 break;

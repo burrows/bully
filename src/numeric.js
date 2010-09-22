@@ -17,5 +17,51 @@ Bully.init_fixnum = function() {
 
   // FIXME: properly alias this method
   Bully.define_method(Bully.Fixnum, 'inspect', Bully.Fixnum.m_tbl[Bully.intern('to_s')]);
+
+  Bully.define_method(Bully.Fixnum, '+@', function(self, args) {
+    return self;
+  }, 0, 0);
+
+  Bully.define_method(Bully.Fixnum, '-@', function(self, args) {
+    return Bully.int2fix(-Bully.fix2int(self));
+  }, 0, 0);
+
+  Bully.define_method(Bully.Fixnum, '+', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) + Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '-', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) - Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '*', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) * Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '/', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) / Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '%', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) % Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '<<', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) << Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '>>', function(self, args) {
+    return Bully.int2fix(Bully.fix2int(self) >> Bully.fix2int(args[0]));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '**', function(self, args) {
+    return Bully.int2fix(Math.pow(Bully.fix2int(self), Bully.fix2int(args[0])));
+  }, 1, 1);
+
+  Bully.define_method(Bully.Fixnum, '<=>', function(self, args) {
+    if (self < args[0]) { return  Bully.int2fix(1); }
+    if (self > args[0]) { return Bully.int2fix(-1); }
+    return Bully.int2fix(0);
+  }, 1, 1);
 };
 
