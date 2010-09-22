@@ -41,6 +41,7 @@ var grammar = {
     o('Def'),
     o('Class'),
     o('Call'),
+    o('Operation'),
     o('If'),
     o('Self'),
     o('BeginBlock')
@@ -67,7 +68,7 @@ var grammar = {
   Call: [
     o('IDENTIFIER OptBlock',                             "$$ = {type: 'Call', expression: null, name: $1,    args: null, block: $2};"),
     o('IDENTIFIER ( ArgList ) OptBlock',                 "$$ = {type: 'Call', expression: null, name: $1,    args: $3,   block: $5};"),
-    o('Expression . IDENTIFIER OptBlock',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: [],   block: $4};"),
+    o('Expression . IDENTIFIER OptBlock',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: null, block: $4};"),
     o('Expression . IDENTIFIER ( ArgList ) OptBlock',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5,   block: $7};"),
     o('Expression [ Expression ]',                       "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3], block: null};"),
     o('Expression [ Expression ] = Expression',          "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6], block: null};"),
@@ -77,24 +78,33 @@ var grammar = {
     o('YIELD ( ArgList )',                               "$$ = {type: 'YieldCall', args: $3};")
   ],
 
-  //OperatorCall: [
-  //  o('Expression > Expression'),
-  //  o('Expression < Expression'),
-  //  o('Expression << Expression'),
-  //  o('Expression >> Expression'),
-  //  o('Expression + Expression'),
-  //  o('Expression - Expression'),
-  //  o('Expression * Expression'),
-  //  o('Expression / Expression'),
-  //  o('Expression % Expression'),
-  //  o('Expression && Expression'),
-  //  o('Expression || Expression'),
-  //  o('Expression & Expression'),
-  //  o('Expression | Expression'),
-  //  o('Expression == Expression'),
-  //  o('Expression != Expression'),
-  //  o('Expression === Expression')
-  //],
+  Operation: [
+    o('Expression ** Expression',  "$$ = {type: 'Call', expression: $1, name: '**',  args: [$3], block: null};"),
+    o('! Expression',              "$$ = {type: 'Call', expression: $2, name: '!',   args: null, block: null};"),
+    o('~ Expression',              "$$ = {type: 'Call', expression: $2, name: '~',   args: null, block: null};"),
+    o('+ Expression',              "$$ = {type: 'Call', expression: $2, name: '+@',  args: null, block: null};"),
+    o('- Expression',              "$$ = {type: 'Call', expression: $2, name: '-@',  args: null, block: null};"),
+    o('Expression * Expression',   "$$ = {type: 'Call', expression: $1, name: '*',   args: [$3], block: null};"),
+    o('Expression / Expression',   "$$ = {type: 'Call', expression: $1, name: '/',   args: [$3], block: null};"),
+    o('Expression % Expression',   "$$ = {type: 'Call', expression: $1, name: '%',   args: [$3], block: null};"),
+    o('Expression + Expression',   "$$ = {type: 'Call', expression: $1, name: '+',   args: [$3], block: null};"),
+    o('Expression - Expression',   "$$ = {type: 'Call', expression: $1, name: '-',   args: [$3], block: null};"),
+    o('Expression << Expression',  "$$ = {type: 'Call', expression: $1, name: '<<',  args: [$3], block: null};"),
+    o('Expression >> Expression',  "$$ = {type: 'Call', expression: $1, name: '<<',  args: [$3], block: null};"),
+    o('Expression & Expression',   "$$ = {type: 'Call', expression: $1, name: '&',   args: [$3], block: null};"),
+    o('Expression ^ Expression',   "$$ = {type: 'Call', expression: $1, name: '^',   args: [$3], block: null};"),
+    o('Expression | Expression',   "$$ = {type: 'Call', expression: $1, name: '|',   args: [$3], block: null};"),
+    o('Expression <= Expression',  "$$ = {type: 'Call', expression: $1, name: '<=',  args: [$3], block: null};"),
+    o('Expression < Expression',   "$$ = {type: 'Call', expression: $1, name: '<',   args: [$3], block: null};"),
+    o('Expression > Expression',   "$$ = {type: 'Call', expression: $1, name: '>',   args: [$3], block: null};"),
+    o('Expression >= Expression',  "$$ = {type: 'Call', expression: $1, name: '>=',  args: [$3], block: null};"),
+    o('Expression <=> Expression', "$$ = {type: 'Call', expression: $1, name: '<=>', args: [$3], block: null};"),
+    o('Expression == Expression',  "$$ = {type: 'Call', expression: $1, name: '==',  args: [$3], block: null};"),
+    o('Expression === Expression', "$$ = {type: 'Call', expression: $1, name: '===', args: [$3], block: null};"),
+    o('Expression != Expression',  "$$ = {type: 'Call', expression: $1, name: '!=',  args: [$3], block: null};"),
+    o('Expression =~ Expression',  "$$ = {type: 'Call', expression: $1, name: '=~',  args: [$3], block: null};"),
+    o('Expression !~ Expression',  "$$ = {type: 'Call', expression: $1, name: '!~',  args: [$3], block: null};")
+  ],
 
   Block: [
     o('DO | BlockParamList | Body END', "$$ = {type: 'Block', params: $3, body: $5};"),
@@ -243,11 +253,37 @@ var grammar = {
 };
 
 var operators = [
-  ['left',  '.'],
-  ['left',  '['],
-  ['left',  ']'],
-  ['right', 'CLASS'],
-  ['right', '=']
+  [ 'left',  '[' ],
+  [ 'left',  ']' ],
+
+  [ 'left',  '**' ],
+  [ 'right', '!' ],
+  [ 'right', '~' ],
+  [ 'left',  '*' ],
+  [ 'left',  '/' ],
+  [ 'left',  '%' ],
+  [ 'left',  '+' ],
+  [ 'left',  '-' ],
+  [ 'left',  '<<' ],
+  [ 'left',  '>>' ],
+  [ 'left',  '&' ],
+  [ 'left',  '^' ],
+  [ 'left',  '|' ],
+  [ 'left',  '<=' ],
+  [ 'left',  '<' ],
+  [ 'left',  '>' ],
+  [ 'left',  '>=' ],
+  [ 'left',  '<=>' ],
+  [ 'left',  '==' ],
+  [ 'left',  '===' ],
+  [ 'left',  '!=' ],
+  [ 'left',  '=~' ],
+  [ 'left',  '!~' ],
+
+  [ 'left',  '.' ],
+  [ 'right', 'CLASS' ],
+  [ 'right', '=' ],
+  [ 'right', 'RETURN' ]
 ];
 
 var tokens = [], name, symbols, token, i, j;

@@ -24,24 +24,30 @@ Bully.Lexer.KEYWORDS = [
 ];
 
 Bully.Lexer.OPERATORS = [
-  '===',
-  '==',
-  '!=',
-  '<<',
-  '>>',
-  '&&',
-  '||',
-  '=>',
-  '>',
-  '<',
+  '**',
+  '!',
+  '~',
   '+',
   '-',
   '*',
   '/',
   '%',
+  '<<',
+  '>>',
   '&',
-  '!',
-  '~'
+  '^',
+  '|',
+  '<=',
+  '<',
+  '>',
+  '>=',
+  '<=>',
+  '==',
+  '===',
+  '!=',
+  '=~',
+  '!~',
+  '=>'
 ];
 
 Bully.Lexer.regex_escape = function(text) {
@@ -54,10 +60,16 @@ Bully.Lexer.prototype = {
         tokens  = [], // list of the parsed tokens, form is: [tag, value, lineno]
         line    = 1,  // the current source line number
         opRegex = [],
-        chunk, match, i;
+        sortedOps, chunk, match, i;
 
-    for (i = 0; i < Bully.Lexer.OPERATORS.length; i += 1) {
-      opRegex.push(Bully.Lexer.regex_escape(Bully.Lexer.OPERATORS[i]));
+    sortedOps = Bully.Lexer.OPERATORS.sort(function(a, b) {
+      if      (a.length < b.length) { return 1; }
+      else if (a.length > b.length) { return -1;  }
+      return 0;
+    });
+
+    for (i = 0; i < sortedOps.length; i += 1) {
+      opRegex.push(Bully.Lexer.regex_escape(sortedOps[i]));
     }
 
     opRegex = new RegExp('^(' + opRegex.join('|') + ')');
