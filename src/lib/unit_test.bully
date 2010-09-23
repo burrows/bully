@@ -3,7 +3,8 @@ class UnitTest
   class FailedAssertion < RuntimeError; end
 
   def self.inherited(klass)
-    @classes ||= []
+    # FIXME: use ||= here
+    @classes = @classes || []
     @classes << klass
   end
 
@@ -20,7 +21,8 @@ class UnitTest
   end
 
   def tests
-    self.class.instance_methods.grep(/^test_/)
+    # FIXME: use grep here
+    self.class.instance_methods.select { |m| m.slice(0, 4) == 'test' }
   end
 
   def run
@@ -48,10 +50,11 @@ class UnitTest
   end
 
   def assert(expr, message = "#{expr.inspect} is not true")
-    @current_result[:assertions] += 1
+    # FIXME: use += here
+    @current_result[:assertions] = @current_result[:assertions] + 1
 
     if !expr
-      raise FailedAssertion, message
+      raise(FailedAssertion, message)
     end
   end
 
@@ -63,27 +66,31 @@ class UnitTest
 
     def post_result(result)
       if result[:status] == :pass
-        print '.'
+        print('.')
       elsif result[:status] == :fail
-        print 'F'
+        print('F')
         @messages << "Failure: #{result[:test]}(#{result[:class]}):\n#{result[:message]}"
       elsif result[:status] == :error
-        print 'E'
+        print('E')
         @messages << "Error: #{result[:test]}(#{result[:class]}):\n#{result[:message]}"
       end
 
-      $stdout.flush
+      # FIXME: implement global vars
+      #$stdout.flush
 
-      @totals[result[:status]] += 1
-      @totals[:assertions]     += result[:assertions]
-      @totals[:tests]          += 1
+      # FIXME: use += here
+      @totals[result[:status]] = @totals[result[:status]] + 1
+      @totals[:assertions]     = @totals[:assertions] + result[:assertions]
+      @totals[:tests]          = @totals[:tests] + 1
     end
 
     def finish
-      puts "\n\n" + @messages.join("\n\n") if @messages.any?
-      puts "\n#{@totals[:tests]} tests, #{@totals[:assertions]} assertions, #{@totals[:fail]} failures, #{@totals[:error]} errors"
+      if @messages.any?
+        puts("\n\n" + @messages.join("\n\n"))
+      end
+      puts("\n#{@totals[:tests]} tests, #{@totals[:assertions]} assertions, #{@totals[:fail]} failures, #{@totals[:error]} errors")
 
-      exit @totals[:fail] + @totals[:error]
+      exit(@totals[:fail] + @totals[:error])
     end
   end
 end
@@ -109,7 +116,7 @@ class MyTest < UnitTest
 
   def test_baz
     assert(true)
-    raise "ugh"
+    raise("ugh")
   end
 end
 
