@@ -65,7 +65,7 @@ Bully.Rewriter.prototype = {
 
     while ((t1 = this.next()) && (t2 = this.peak())) {
       if ((t1[0] === '.' || t1[0] === 'DEF') &&
-          Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) != -1) {
+          Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
         t2[0] = 'IDENTIFIER';
       }
     }
