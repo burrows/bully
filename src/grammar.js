@@ -42,6 +42,7 @@ var grammar = {
     o('Class'),
     o('Call'),
     o('Operation'),
+    o('Logical'),
     o('If'),
     o('Self'),
     o('BeginBlock')
@@ -104,6 +105,11 @@ var grammar = {
     o('Expression != Expression',  "$$ = {type: 'Call', expression: $1, name: '!=',  args: [$3], block: null};"),
     o('Expression =~ Expression',  "$$ = {type: 'Call', expression: $1, name: '=~',  args: [$3], block: null};"),
     o('Expression !~ Expression',  "$$ = {type: 'Call', expression: $1, name: '!~',  args: [$3], block: null};")
+  ],
+
+  Logical: [
+    o('Expression && Expression', "$$ = {type: 'Logical', operator: '&&', expressions: [$1, $3]};"),
+    o('Expression || Expression', "$$ = {type: 'Logical', operator: '||', expressions: [$1, $3]};")
   ],
 
   Block: [
@@ -279,6 +285,8 @@ var operators = [
   [ 'left',  '!=' ],
   [ 'left',  '=~' ],
   [ 'left',  '!~' ],
+  [ 'left',  '&&' ],
+  [ 'left',  '||' ],
 
   [ 'left',  '.' ],
   [ 'right', 'CLASS' ],

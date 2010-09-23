@@ -48,7 +48,7 @@ Bully.Evaluator = {
         Bully.Evaluator.evaluateParamList(node.params, args, ctx);
       }
 
-      Bully.Evaluator.evaluateBody(node.body, ctx);
+      return Bully.Evaluator.evaluateBody(node.body, ctx);
     }, args_range[0], args_range[1]);
 
     return null;
@@ -160,6 +160,12 @@ Bully.Evaluator = {
 
     // FIXME: make sure block was given, raise LocalJumpError if not
     return this._yield(ctx.block, args);
+  },
+
+  evaluateLogical: function(node, ctx) {
+    return node.operator === '&&' ?
+      Bully.test(this.evaluate(node.expressions[0], ctx)) && Bully.test(this.evaluate(node.expressions[1], ctx)) :
+      Bully.test(this.evaluate(node.expressions[0], ctx)) || Bully.test(this.evaluate(node.expressions[1], ctx));
   },
 
   evaluateBlock: function(node, ctx) {
