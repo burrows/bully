@@ -1,7 +1,6 @@
 var sys = require('sys');
 
 Bully.platform = {
-  puts: function(str) {
-    sys.puts(str);
-  }
+  puts: sys.puts,
+  exit: process.exit
 };

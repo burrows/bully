@@ -25,4 +25,9 @@ Bully.id2str = function(id) {
 
 Bully.init_symbol = function() {
   Bully.Symbol = Bully.define_class('Symbol');
+
+  Bully.define_method(Bully.Symbol, 'inspect', function(self, args) {
+    return Bully.str_new(':' + Bully.id2str(self));
+  }, 0, 0);
 };
+

@@ -1,7 +1,21 @@
 
 Bully.Evaluator = {
-  evaluate: function(node, ctx) {
-    ctx = ctx || new Bully.Evaluator.Context(Bully.main);
+  evaluate: function(node) {
+    var rv = 0;
+
+    try {
+      this['evaluate' + node.type](node, new Bully.Evaluator.Context(Bully.main));
+    }
+    catch (e) {
+      Bully.platform.puts(Bully.dispatch_method(e, 'inspect').data);
+      rv = 1;
+    }
+
+    return rv;
+  },
+
+  _evaluate: function(node, ctx) {
+    if (!ctx) { throw new Error("_evaluate called without a context"); }
 
     return this['evaluate' + node.type](node, ctx);
   },
@@ -11,7 +25,7 @@ Bully.Evaluator = {
 
     for (i = 0; i < node.lines.length; i += 1) {
       line = node.lines[i];
-      rv = this.evaluate(line, ctx);
+      rv = this._evaluate(line, ctx);
     }
 
     return rv;
@@ -66,7 +80,7 @@ Bully.Evaluator = {
     for (i = 0; i < node.optional.length; i += 1) {
       if (typeof args[req_len + i] === 'undefined') {
         ctx.set_var(node.optional[i].name,
-          Bully.Evaluator.evaluate(node.optional[i].expression, ctx));
+          Bully.Evaluator._evaluate(node.optional[i].expression, ctx));
       }
       else {
         opt_len += 1;
@@ -97,7 +111,7 @@ Bully.Evaluator = {
     var list = [], i;
 
     for (i = 0; i < args.length; i += 1) {
-      list.push(this.evaluate(args[i], ctx));
+      list.push(this._evaluate(args[i], ctx));
     }
 
     return list;
@@ -111,7 +125,7 @@ Bully.Evaluator = {
       return ctx.get_var(node.name);
     }
 
-    receiver = node.expression ? this.evaluate(node.expression, ctx) : ctx.self;
+    receiver = node.expression ? this._evaluate(node.expression, ctx) : ctx.self;
     args     = node.args ? this.evaluateArgs(node.args, ctx) : [];
     block    = node.block ? this.evaluateBlock(node.block, ctx) : null;
 
@@ -164,8 +178,8 @@ Bully.Evaluator = {
 
   evaluateLogical: function(node, ctx) {
     return node.operator === '&&' ?
-      Bully.test(this.evaluate(node.expressions[0], ctx)) && Bully.test(this.evaluate(node.expressions[1], ctx)) :
-      Bully.test(this.evaluate(node.expressions[0], ctx)) || Bully.test(this.evaluate(node.expressions[1], ctx));
+      Bully.test(this._evaluate(node.expressions[0], ctx)) && Bully.test(this._evaluate(node.expressions[1], ctx)) :
+      Bully.test(this._evaluate(node.expressions[0], ctx)) || Bully.test(this._evaluate(node.expressions[1], ctx));
   },
 
   evaluateBlock: function(node, ctx) {
@@ -173,13 +187,13 @@ Bully.Evaluator = {
   },
 
   evaluateLocalAssign: function(node, ctx) {
-    var value = this.evaluate(node.expression, ctx);
+    var value = this._evaluate(node.expression, ctx);
     ctx.set_var(node.name, value);
     return value;
   },
 
   evaluateInstanceAssign: function(node, ctx) {
-    var value = this.evaluate(node.expression, ctx);
+    var value = this._evaluate(node.expression, ctx);
 
     Bully.ivar_set(ctx.self, node.name, value);
 
@@ -199,12 +213,12 @@ Bully.Evaluator = {
   },
 
   evaluateReturn: function(node, ctx) {
-    Bully.Evaluator.ReturnException.value = node.expression ? this.evaluate(node.expression, ctx) : null;
+    Bully.Evaluator.ReturnException.value = node.expression ? this._evaluate(node.expression, ctx) : null;
     throw Bully.Evaluator.ReturnException;
   },
 
   evaluateClass: function(node, ctx) {
-    var _super = node.super_expr ? this.evaluate(node.super_expr, ctx) : null,
+    var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
         klass  = Bully.define_class(node.name, _super);
 
     this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
@@ -240,7 +254,7 @@ Bully.Evaluator = {
     var elems = [], i;
 
     for (i = 0; i < node.expressions.length; i += 1) {
-      elems.push(this.evaluate(node.expressions[i], ctx));
+      elems.push(this._evaluate(node.expressions[i], ctx));
     }
 
     return Bully.array_new(elems);
@@ -250,8 +264,8 @@ Bully.Evaluator = {
     var h = Bully.hash_new(), key, val, i;
 
     for (i = 0; i < node.keys.length; i += 1) {
-      key = this.evaluate(node.keys[i], ctx);
-      val = this.evaluate(node.values[i], ctx);
+      key = this._evaluate(node.keys[i], ctx);
+      val = this._evaluate(node.values[i], ctx);
 
       Bully.hash_set(h, key, val);
     }
@@ -299,7 +313,7 @@ Bully.Evaluator = {
     var i, rv = null, eval_else = true;
 
     for (i = 0; i < node.conditions.length; i += 1) {
-      if (Bully.test(this.evaluate(node.conditions[i], ctx))) {
+      if (Bully.test(this._evaluate(node.conditions[i], ctx))) {
         eval_else = false;
         rv = this.evaluateBody(node.bodies[i], ctx);
         break;

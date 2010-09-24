@@ -75,9 +75,12 @@ Bully.check_method_args = function(min, max, args) {
 };
 
 Bully.dispatch_method = function(obj, name, args, block) {
-  var fn = Bully.find_method(Bully.class_of(obj), Bully.intern(name));
+  var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
 
-  // TODO: check if method was actually found, call method_missing if not
+  if (!fn) {
+    args.unshift(id);
+    return Bully.dispatch_method(obj, 'method_missing', args, block);
+  }
 
   Bully.check_method_args(fn.min_args, fn.max_args, args);
 
@@ -211,6 +214,10 @@ Bully.init = function() {
 
   // FIXME: properly alias this method
   Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
+
+  Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
+    Bully.raise(Bully.NoMethodError, Bully.id2str(args[0]));
+  }, 1, -1);
 
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);

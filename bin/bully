@@ -39,7 +39,7 @@ function printParseTree(file) {
 
 function evaluate(file) {
   var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
-  Bully.Evaluator.evaluate(ast);
+  Bully.platform.exit(Bully.Evaluator.evaluate(ast));
 };
 
 opts.parse(options);
