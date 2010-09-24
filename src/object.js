@@ -131,6 +131,26 @@ Bully.init = function() {
     return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
   });
 
+  // FIXME: properly alias these methods
+  Bully.define_method(Bully.Class, 'to_s', Bully.Class.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Class, 'inspect', Bully.Class.m_tbl[Bully.intern('name')]);
+
+  Bully.define_method(Bully.Class, 'instance_methods', function(self, args) {
+    var methods       = [],
+        klass         = self,
+        include_super = args.length > 0 ?args[0] : true, id;
+
+    do {
+      for (id in klass.m_tbl) {
+        methods.push(Bully.str_new(Bully.id2str(id)));
+      }
+
+      klass = klass._super;
+    } while (klass && include_super);
+
+    return Bully.array_new(methods);
+  }, 0, 1);
+
   // Kernel
   Bully.Kernel = Bully.define_module('Kernel');
 
