@@ -180,7 +180,7 @@ var grammar = {
   ParamList: [
     o('',                                         "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
     o('ReqParamList',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: null};"),
-    o('OptParamList',                             "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
+    o('OptParamList',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: null};"),
     o('SplatParam',                               "$$ = {type: 'ParamList', required: [], optional: [], splat: $1};"),
     o('ReqParamList , OptParamList',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null};"),
     o('ReqParamList , OptParamList , SplatParam', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5};"),

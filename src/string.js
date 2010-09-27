@@ -26,6 +26,15 @@ Bully.str_hash = function(str) {
   return key;
 };
 
+Bully.str_slice = function(str, args) {
+  var s = str.data, i1 = Bully.fix2int(args[0]), i2 = Bully.fix2int(args[1]);
+
+  return Bully.str_new(s.slice(i1, i2));
+};
+
+Bully.str_equals = function(str, args) {
+  return str.data === args[0].data;
+};
 
 Bully.init_string = function() {
   Bully.String = Bully.define_class('String');
@@ -49,6 +58,11 @@ Bully.init_string = function() {
     return self;
   });
 
-  Bully.define_method(Bully.String, 'hash', Bully.str_hash);
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.String, '+', Bully.String.m_tbl[Bully.intern('<<')]);
+
+  Bully.define_method(Bully.String, 'hash', Bully.str_hash, 0, 0);
+  Bully.define_method(Bully.String, 'slice', Bully.str_slice, 2, 2);
+  Bully.define_method(Bully.String, '==', Bully.str_equals, 1, 1);
 };
 

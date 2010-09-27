@@ -23,11 +23,17 @@ Bully.id2str = function(id) {
   return Bully.id2str_tbl[id];
 };
 
+Bully.sym_equals = function(id, args) {
+  return id === args[0];
+};
+
 Bully.init_symbol = function() {
   Bully.Symbol = Bully.define_class('Symbol');
 
   Bully.define_method(Bully.Symbol, 'inspect', function(self, args) {
     return Bully.str_new(':' + Bully.id2str(self));
   }, 0, 0);
+
+  Bully.define_method(Bully.Symbol, '==', Bully.sym_equals, 1, 1);
 };
 

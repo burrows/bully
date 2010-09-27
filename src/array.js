@@ -20,6 +20,9 @@ Bully.init_array = function() {
     return self;
   });
 
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Array, '<<', Bully.Array.m_tbl[Bully.intern('push')]);
+
   Bully.define_method(Bully.Array, 'pop', function(self, args) {
     return self.pop();
   });
