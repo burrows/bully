@@ -183,9 +183,18 @@ Bully.Evaluator = {
   },
 
   evaluateLogical: function(node, ctx) {
-    return node.operator === '&&' ?
-      Bully.test(this._evaluate(node.expressions[0], ctx)) && Bully.test(this._evaluate(node.expressions[1], ctx)) :
-      Bully.test(this._evaluate(node.expressions[0], ctx)) || Bully.test(this._evaluate(node.expressions[1], ctx));
+    var left = this._evaluate(node.expressions[0], ctx);
+
+    switch (node.operator) {
+      case '&&':
+        return Bully.test(left) ? this._evaluate(node.expressions[1], ctx) : left;
+        break;
+      case '||':
+        return Bully.test(left) ? left : this._evaluate(node.expressions[1], ctx);
+        break;
+      default:
+        throw "invalid logial operator: " + node.operator;
+    }
   },
 
   evaluateBlock: function(node, ctx) {

@@ -248,6 +248,12 @@ Bully.init = function() {
   Bully.define_method(Bully.NilClass, 'nil?', function() {
     return true;
   });
+  Bully.define_method(Bully.NilClass, 'to_s', function() {
+    return Bully.str_new('');
+  });
+  Bully.define_method(Bully.NilClass, 'inspect', function() {
+    return Bully.str_new('nil');
+  });
 
   // main (top level self)
   Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
