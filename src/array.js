@@ -5,6 +5,8 @@ Bully.array_new = function(js_array) {
 Bully.init_array = function() {
   Bully.Array = Bully.define_class('Array');
 
+  Bully.include_module(Bully.Array, Bully.Enumerable);
+
   Bully.define_singleton_method(Bully.Array, 'new', function(self, args) {
     return Bully.array_new([]);
   });

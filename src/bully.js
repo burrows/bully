@@ -12,7 +12,8 @@ global.Bully = exports.Bully = {};
   'error',
   'array',
   'hash',
-  'numeric'
+  'numeric',
+  'enumerable'
 ].forEach(function(name) { require('./' + name); });
 
 Bully.parser = require('./parser').parser;

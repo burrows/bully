@@ -7,7 +7,13 @@ Bully.Evaluator = {
       this['evaluate' + node.type](node, new Bully.Evaluator.Context(Bully.main));
     }
     catch (e) {
-      Bully.platform.puts(Bully.dispatch_method(e, 'inspect').data);
+      if (Bully.respond_to(e, 'inspect')) {
+        Bully.platform.puts(Bully.dispatch_method(e, 'inspect').data);
+      }
+      else {
+        Bully.platform.puts(e);
+      }
+
       rv = 1;
     }
 
@@ -159,7 +165,7 @@ Bully.Evaluator = {
 
     try {
       // FIXME: make sure block was given, raise LocalJumpError if not
-      block.call(null, args);
+      rv = block.call(null, args);
     }
     catch (e) {
       if (e !== Bully.Evaluator.ReturnException) { throw e; }

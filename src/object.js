@@ -45,7 +45,7 @@ Bully.is_immediate = function(obj) {
 };
 
 Bully.check_method_args = function(min, max, args) {
-  var msg = 'wrong number of arguments (', n = args ? args.length : 0;
+  var msg = 'wrong number of arguments (', n = args.length;
 
   if (min === max) {
     // 0 or more required arguments, no optionals
@@ -76,6 +76,8 @@ Bully.check_method_args = function(min, max, args) {
 
 Bully.dispatch_method = function(obj, name, args, block) {
   var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
+
+  args = args || [];
 
   if (!fn) {
     args.unshift(id);
@@ -257,6 +259,7 @@ Bully.init = function() {
   Bully.init_string();
   Bully.init_fixnum();
   Bully.init_error();
+  Bully.init_enumerable();
   Bully.init_array();
   Bully.init_hash();
   Bully.init_proc();
