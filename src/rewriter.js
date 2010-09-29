@@ -1,7 +1,7 @@
 
 Bully.Rewriter = function(tokens) {
   this.tokens = tokens;
-  this.index  = 0;
+  this.index  = -1;
   return this;
 };
 
@@ -10,22 +10,38 @@ Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
 Bully.Rewriter.prototype = {
   rewrite: function() {
     this.remove_extra_newlines();
-    this.convert_keyword_method_calls();
+    this.rewrite_keyword_method_calls();
     return this.tokens;
   },
 
   next: function() {
-    var t = this.tokens[this.index];
     this.index += 1;
-    return t;
-  },
-
-  peak: function() {
     return this.tokens[this.index];
   },
 
+  prev: function() {
+    this.index -= 1;
+    return this.tokens[this.index];
+  },
+
+  peak: function() {
+    return this.tokens[this.index + 1];
+  },
+
   reset: function() {
-    this.index = 0;
+    this.index = -1;
+  },
+
+  insert_before: function(token) {
+    this.tokens.splice(this.index, 0, token);
+  },
+
+  insert_after: function(token) {
+    this.tokens.splice(this.index + 1, 0, token);
+  },
+
+  remove: function() {
+    this.tokens.splice(this.index, 1);
   },
 
   remove_next_of_type: function(type) {
@@ -46,21 +62,23 @@ Bully.Rewriter.prototype = {
 
     while ((token = this.next())) {
       if (token[0] === '{' || token[0] === '[') {
-        this.remove_next_of_type('NEWLINE');
+        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
       }
       else if (token[0] === '}' || token[0] === ']') {
-        this.remove_prev_of_type('NEWLINE');
+        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        this.next();
       }
       else if (token[0] === ',') {
-        this.remove_prev_of_type('NEWLINE');
-        this.remove_next_of_type('NEWLINE');
+        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        this.next();
+        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
       }
     }
 
     this.reset();
   },
 
-  convert_keyword_method_calls: function() {
+  rewrite_keyword_method_calls: function() {
     var t1, t2;
 
     while ((t1 = this.next()) && (t2 = this.peak())) {
@@ -69,6 +87,8 @@ Bully.Rewriter.prototype = {
         t2[0] = 'IDENTIFIER';
       }
     }
+
+    this.reset();
   }
 };
 
