@@ -259,8 +259,6 @@ var grammar = {
 };
 
 var operators = [
-  ['left', '.'],
-
   [ 'left',  '**' ],
   [ 'right', '!' ],
   [ 'right', '~' ],
@@ -286,11 +284,7 @@ var operators = [
   [ 'left',  '!~' ],
   [ 'left',  '&&' ],
   [ 'left',  '||' ],
-
-  [ 'left',  '.' ],
-  [ 'right', 'CLASS' ],
-  [ 'right', '=' ],
-  [ 'right', 'RETURN' ]
+  [ 'right', '=' ]
 ];
 
 var tokens = [], name, symbols, token, i, j;
