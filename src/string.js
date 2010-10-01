@@ -58,6 +58,10 @@ Bully.init_string = function() {
     return self;
   });
 
+  Bully.define_method(Bully.String, 'to_sym', function(self, args) {
+    return Bully.intern(self.data);
+  }, 0, 0);
+
   // FIXME: properly alias this method
   Bully.define_method(Bully.String, '+', Bully.String.m_tbl[Bully.intern('<<')]);
 

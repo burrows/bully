@@ -63,5 +63,20 @@ Bully.init_array = function() {
 
     return self;
   });
+
+  // FIXME: make this take a block
+  Bully.define_method(Bully.Array, 'any?', function(self, args, block) {
+    return self.length > 0;
+  });
+
+  Bully.define_method(Bully.Array, 'join', function(self, args, block) {
+    var strings = [], elem, i;
+
+    for (i = 0; i < self.length; i++) {
+      strings.push(Bully.dispatch_method(self[i], 'to_s').data);
+    }
+
+    return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
+  });
 };
 

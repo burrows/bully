@@ -177,6 +177,16 @@ Bully.init = function() {
   // FIXME: properly alias this method
   Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
 
+  Bully.define_method(Bully.Kernel, 'send', function(self, args) {
+    var id = args[0], args = args.slice(1);
+
+    return Bully.dispatch_method(self, Bully.id2str(id), args);
+  }, 1, -1);
+
+  Bully.define_method(Bully.Kernel, '!', function(self, args) {
+    return !Bully.test(self);
+  }, 0, 0);
+
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'to_s').data;
     Bully.platform.puts(str);
@@ -189,6 +199,11 @@ Bully.init = function() {
     return null;
   });
 
+  Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
+    var code = args[0] ? Bully.fix2int(args[0]) : 0;
+    Bully.platform.exit(code);
+  });
+
   Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'inspect').data;
     Bully.platform.puts(str);
@@ -196,7 +211,7 @@ Bully.init = function() {
   });
 
   Bully.define_module_method(Bully.Kernel, 'raise', function(self, args) {
-    Bully.raise(args[0]);
+    Bully.raise(args[0], args[1].data);
   });
 
   Bully.define_method(Bully.Kernel, 'is_a?', function(self, args) {

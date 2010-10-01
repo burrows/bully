@@ -242,7 +242,8 @@ Bully.Evaluator = {
   },
 
   evaluateStringLiteral: function(node, ctx) {
-    return Bully.str_new(node.value);
+    var s = node.value.replace(/\\n/g, "\n");
+    return Bully.str_new(s);
   },
 
   evaluateSymbolLiteral: function(node, ctx) {
@@ -300,7 +301,7 @@ Bully.Evaluator = {
         rescue = node.rescues[i];
         types  = rescue.exception_types;
 
-        for (j = 0; j < types.length; j += 1) {
+        for (j = 0; j < types.length && !handled; j += 1) {
           // FIXME: lookup constant for real
           type = Bully.const_get(Bully.Object, types[j].name);
 

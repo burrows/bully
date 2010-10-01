@@ -22,7 +22,7 @@ class UnitTest
 
   def tests
     # FIXME: use grep here
-    self.class.instance_methods.select { |m| m.slice(0, 4) == 'test' }
+    self.class.instance_methods.select { |m| m.slice(0, 5) == 'test_' }
   end
 
   def run
@@ -36,7 +36,7 @@ class UnitTest
       }
 
       begin
-        self.send(test)
+        self.send(test.to_sym)
       rescue FailedAssertion => e
         @current_result[:status]  = :fail
         @current_result[:message] = e.message
@@ -49,7 +49,7 @@ class UnitTest
     end
   end
 
-  def assert(expr, message = "#{expr.inspect} is not true")
+  def assert(expr, message = expr.inspect + ' is not true')
     # FIXME: use += here
     @current_result[:assertions] = @current_result[:assertions] + 1
 
@@ -69,10 +69,10 @@ class UnitTest
         print('.')
       elsif result[:status] == :fail
         print('F')
-        @messages << "Failure: #{result[:test]}(#{result[:class]}):\n#{result[:message]}"
+        @messages << 'Failure: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
       elsif result[:status] == :error
         print('E')
-        @messages << "Error: #{result[:test]}(#{result[:class]}):\n#{result[:message]}"
+        @messages << 'Error: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
       end
 
       # FIXME: implement global vars
@@ -88,7 +88,8 @@ class UnitTest
       if @messages.any?
         puts("\n\n" + @messages.join("\n\n"))
       end
-      puts("\n#{@totals[:tests]} tests, #{@totals[:assertions]} assertions, #{@totals[:fail]} failures, #{@totals[:error]} errors")
+
+      puts("\n" + @totals[:tests].to_s + ' tests, ' + @totals[:assertions].to_s + ' assertions, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors')
 
       exit(@totals[:fail] + @totals[:error])
     end
@@ -116,7 +117,7 @@ class MyTest < UnitTest
 
   def test_baz
     assert(true)
-    raise("ugh")
+    raise(Exception, "ugh")
   end
 end
 

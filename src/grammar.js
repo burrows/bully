@@ -259,6 +259,8 @@ var grammar = {
 };
 
 var operators = [
+  ['left', '.'],
+
   [ 'left',  '**' ],
   [ 'right', '!' ],
   [ 'right', '~' ],
