@@ -188,10 +188,8 @@ Bully.Evaluator = {
     switch (node.operator) {
       case '&&':
         return Bully.test(left) ? this._evaluate(node.expressions[1], ctx) : left;
-        break;
       case '||':
         return Bully.test(left) ? left : this._evaluate(node.expressions[1], ctx);
-        break;
       default:
         throw "invalid logial operator: " + node.operator;
     }

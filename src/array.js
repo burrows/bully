@@ -72,7 +72,7 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, 'join', function(self, args, block) {
     var strings = [], elem, i;
 
-    for (i = 0; i < self.length; i++) {
+    for (i = 0; i < self.length; i += 1) {
       strings.push(Bully.dispatch_method(self[i], 'to_s').data);
     }
 

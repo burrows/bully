@@ -178,7 +178,9 @@ Bully.init = function() {
   Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
 
   Bully.define_method(Bully.Kernel, 'send', function(self, args) {
-    var id = args[0], args = args.slice(1);
+    var id = args[0];
+    
+    args = args.slice(1);
 
     return Bully.dispatch_method(self, Bully.id2str(id), args);
   }, 1, -1);

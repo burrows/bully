@@ -41,7 +41,7 @@ Bully.init_hash = function() {
   Bully.define_method(Bully.Hash, 'values', function(self, args) {
     var keys = Bully.ivar_get(self, '__keys__'), values = [], i;
 
-    for (i = 0; i < keys.length; i++) {
+    for (i = 0; i < keys.length; i += 1) {
       values.push(Bully.hash_get(self, keys[i]));
     }
 
@@ -51,7 +51,7 @@ Bully.init_hash = function() {
   Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
     var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
 
-    for (i = 0; i < keys.length; i++) {
+    for (i = 0; i < keys.length; i += 1) {
       s = Bully.dispatch_method(keys[i], 'inspect').data + ' => ';
       s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect').data;
       elems.push(s);
