@@ -78,5 +78,17 @@ Bully.init_array = function() {
 
     return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
   });
+
+  Bully.define_method(Bully.Array, 'include?', function(self, args) {
+    var i;
+
+    for (i = 0; i < self.length; i++) {
+      if (Bully.dispatch_method(self[i], '==', [args[0]])) {
+        return true;
+      }
+    }
+
+    return false;
+  }, 1, 1);
 };
 

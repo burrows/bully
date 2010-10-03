@@ -1,0 +1,20 @@
+require('unit_test')
+
+class ArrayTest < UnitTest
+  def test_include_should_return_true_if_array_contains_argument
+    a = [4, 'foo', :stuff, false]
+    assert_equal(true, a.include?(4))
+    assert_equal(true, a.include?('foo'))
+    assert_equal(true, a.include?(:stuff))
+    assert_equal(true, a.include?(false))
+  end
+
+  def test_include_should_return_false_if_array_does_not_contain_argument
+    a = [4, 'foo', :stuff, false]
+    assert_equal(false, a.include?(9))
+    assert_equal(false, a.include?('bar'))
+    assert_equal(false, a.include?(:things))
+    assert_equal(false, a.include?(true))
+  end
+end
+
