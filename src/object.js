@@ -248,7 +248,7 @@ Bully.init = function() {
     }
 
     return false;
-  });
+  }, 1, 1);
 
   Bully.define_method(Bully.Kernel, 'object_id', function(self, args) {
     if      (typeof self === 'number') { return Bully.int2fix(self); }

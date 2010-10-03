@@ -1,0 +1,44 @@
+require('unit_test')
+
+class TestClass1
+  def method1; end
+  def method2; end
+end
+
+class ClassTest < UnitTest
+  def test_class_of_Class_is_Class
+    assert_equal(Class, Class.class)
+  end
+
+  def test_superclass_of_Class_is_Module
+    assert_equal(Module, Class.superclass)
+  end
+
+  def test_name_method_should_return_name_of_class
+    assert_equal('TestClass1', TestClass1.name)
+  end
+
+  def test_to_s_method_should_return_name_of_class
+    assert_equal('TestClass1', TestClass1.to_s)
+  end
+
+  def test_inspect_method_should_return_name_of_class
+    assert_equal('TestClass1', TestClass1.inspect)
+  end
+
+  def test_instance_methods_method_should_return_a_list_of_all_instance_methods_when_passed_true
+    methods = TestClass1.instance_methods(true)
+    ['to_s', 'inspect', 'class', 'respond_to?', 'send', 'object_id', 'hash', 'method1', 'method2'].each do |m|
+      assert(methods.include?(m))
+    end
+  end
+
+  def test_instance_methods_method_should_return_a_list_of_all_instance_methods_define_directly_on_the_class_when_passed_false
+    assert_equal(['method1', 'method2'], TestClass1.instance_methods(false))
+  end
+
+  def test_instance_methods_method_should_return_a_list_of_all_instance_methods_when_given_no_args
+    assert_equal(TestClass1.instance_methods(true), TestClass1.instance_methods)
+  end
+end
+
