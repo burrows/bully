@@ -37,9 +37,15 @@ function printParseTree(file) {
   sys.puts(sys.inspect(ast, false, null));
 };
 
-function evaluate(file) {
-  var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
-  Bully.platform.exit(Bully.Evaluator.evaluate(ast));
+function evaluate(files) {
+  var i, ast, exit_code = 0;
+
+  for (i = 0; i < files.length && exit_code === 0; i++) {
+    ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(files[i], 'ascii')));
+    exit_code = Bully.Evaluator.evaluate(ast);
+  }
+
+  Bully.dispatch_method(Bully.main, 'exit', exit_code);
 };
 
 opts.parse(options);
@@ -47,5 +53,5 @@ opts.parse(options);
 if (selectedOpts.help)         { opts.help();                    }
 else if (selectedOpts.tokens)  { printTokens(opts.args()[0]);    }
 else if (selectedOpts.nodes)   { printParseTree(opts.args()[0]); }
-else                           { evaluate(opts.args()[0]);       }
+else                           { evaluate(opts.args());          }
 

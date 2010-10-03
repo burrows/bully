@@ -42,7 +42,7 @@ class UnitTest
         @current_result[:message] = e.message
       rescue Exception => e
         @current_result[:status]  = :error
-        @current_result[:message] = e.message
+        @current_result[:message] = e.to_s
       end
 
       @runner.post_result(@current_result)
@@ -56,6 +56,13 @@ class UnitTest
     if !expr
       raise(FailedAssertion, message)
     end
+  end
+
+  def assert_equal(expected, expr, message = nil)
+    if !message
+      message = 'expected ' + expected.inspect + ' but got ' + expr.inspect + ' instead'
+    end
+    assert(expected == expr, message)
   end
 
   class ConsoleRunner
@@ -96,40 +103,5 @@ class UnitTest
   end
 end
 
-class MyTest < UnitTest
-  def setup
-  end
-
-  def teardown
-  end
-
-  def test_foo
-    assert(true)
-    assert(true)
-    assert(true)
-    assert(true)
-    assert(false, 'i failed')
-  end
-
-  def test_bar
-    assert(true)
-  end
-
-  def test_baz
-    assert(true)
-    raise(Exception, "ugh")
-  end
-end
-
-class MyOtherTest < UnitTest
-  def test_a
-    assert(9)
-  end
-
-  def test_b
-    assert(nil)
-  end
-end
-
-UnitTest.run
+at_exit { UnitTest.run }
 

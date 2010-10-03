@@ -1,7 +1,7 @@
 
 task :test do
-  files = FileList['test/**/*.js']
-  sh "node vendor/nodeunit/lib/testrunner.js #{files.join(' ')}"
+  files = FileList['test/**/*.bully']
+  sh "./bin/bully #{files.join(' ')}"
 end
 
 task :lint do

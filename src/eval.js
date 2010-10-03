@@ -1,3 +1,24 @@
+Bully.load = function(path) {
+  var source = Bully.platform.read_file(path),
+      ast    = Bully.parser.parse((new Bully.Lexer()).tokenize(source));
+    
+  Bully.Evaluator.evaluateBody(ast, new Bully.Evaluator.Context(Bully.main));
+  return true;
+};
+
+Bully.requires = [];
+
+Bully.require = function(lib) {
+  var path = Bully.platform.locate_lib(lib);
+
+  if (Bully.requires.indexOf(path) === -1) {
+    Bully.requires.push(path);
+    Bully.load(path);
+    return true;
+  }
+
+  return false;
+};
 
 Bully.Evaluator = {
   evaluate: function(node) {

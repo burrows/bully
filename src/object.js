@@ -156,6 +156,16 @@ Bully.init = function() {
     return Bully.array_new(methods);
   }, 0, 1);
 
+  Bully.define_method(Bully.Class, 'superclass', function(self, args) {
+    var klass = self._super;
+
+    while (klass && klass.is_include_class) {
+      klass = klass._super;
+    }
+
+    return klass || null;
+  });
+
   // Kernel
   Bully.Kernel = Bully.define_module('Kernel');
 
@@ -201,10 +211,22 @@ Bully.init = function() {
     return null;
   });
 
+  Bully.define_module_method(Bully.Kernel, 'at_exit', function(self, args, block) {
+    Bully.at_exit = block;
+  }, 0, 0);
+
   Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
-    var code = args[0] ? Bully.fix2int(args[0]) : 0;
+    var code = args[0] ? Bully.fix2int(args[0]) : 0,
+        at_exit = Bully.at_exit;
+
+    Bully.at_exit = null;
+
+    if (at_exit) {
+      Bully.dispatch_method(at_exit, 'call');
+    }
+
     Bully.platform.exit(code);
-  });
+  }, 0, 1);
 
   Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
     var str = Bully.dispatch_method(args[0], 'inspect').data;
@@ -237,11 +259,21 @@ Bully.init = function() {
     return Bully.int2fix(self.id);
   }, 0, 0);
 
+  Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
+    return Bully.require(args[0].data);
+  }, 1, 1);
+
   // FIXME: properly alias this method
   Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
 
+  Bully.define_module_method(Bully.Kernel, '==', function(self, args) {
+    return self === args[0];
+  }, 1, 1);
+
   Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
-    Bully.raise(Bully.NoMethodError, Bully.id2str(args[0]));
+    var name = Bully.id2str(args[0]),
+        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect').data;
+    Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
 
   // Object

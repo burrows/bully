@@ -1,0 +1,12 @@
+require('unit_test')
+
+class ModuleTest < UnitTest
+  def test_class_of_Module_is_Class
+    assert_equal(Class, Module.class)
+  end
+
+  def test_superclass_of_Module_is_Object
+    assert_equal(nil, Object.superclass)
+  end
+end
+

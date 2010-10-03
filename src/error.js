@@ -20,7 +20,10 @@ Bully.init_error = function() {
   });
 
   Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
-    return Bully.dispatch_method(self, 'message');
+    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'),
+        message = Bully.dispatch_method(self, 'message');
+
+    return Bully.str_new(name.data + ': ' + message.data);
   });
 
   Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
