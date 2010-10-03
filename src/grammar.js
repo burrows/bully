@@ -226,7 +226,7 @@ var grammar = {
   ],
 
   Module: [
-    o('MODULE CONSTANT Terminator Body END', "$$ = {type: 'Module', name: $2, body: $4};"),
+    o('MODULE CONSTANT Terminator Body END', "$$ = {type: 'Module', name: $2, body: $4};")
   ],
 
   BeginBlock: [

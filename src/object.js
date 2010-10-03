@@ -121,7 +121,7 @@ Bully.init = function() {
   }, 0, 0);
 
   Bully.define_method(Bully.Module, 'ancestors', function(self, args) {
-    var a = [self], _super = self._super;;
+    var a = [self], _super = self._super;
 
     while (_super) {
       if (_super.is_include_class) {
