@@ -82,13 +82,26 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, 'include?', function(self, args) {
     var i;
 
-    for (i = 0; i < self.length; i++) {
+    for (i = 0; i < self.length; i += 1) {
       if (Bully.dispatch_method(self[i], '==', [args[0]])) {
         return true;
       }
     }
 
     return false;
+  }, 1, 1);
+
+  Bully.define_method(Bully.Array, '==', function(self, args) {
+    var other = args[0], i;
+
+    if (!Bully.dispatch_method(other, 'is_a?', [Bully.Array])) { return false; }
+    if (self.length !== other.length) { return false; }
+
+    for (i = 0; i < self.length; i += 1) {
+      if (!Bully.dispatch_method(self[i], '==', [other[i]])) { return false; }
+    }
+
+    return true;
   }, 1, 1);
 };
 
