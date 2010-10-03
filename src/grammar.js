@@ -40,6 +40,7 @@ var grammar = {
     o('VariableRef'),
     o('Def'),
     o('Class'),
+    o('Module'),
     o('Call'),
     o('Operation'),
     o('Logical'),
@@ -222,6 +223,10 @@ var grammar = {
   Class: [
     o('CLASS CONSTANT Terminator Body END',              "$$ = {type: 'Class', name: $2, super_expr: null, body: $4};"),
     o('CLASS CONSTANT < Expression Terminator Body END', "$$ = {type: 'Class', name: $2, super_expr: $4, body: $6};")
+  ],
+
+  Module: [
+    o('MODULE CONSTANT Terminator Body END', "$$ = {type: 'Module', name: $2, body: $4};"),
   ],
 
   BeginBlock: [

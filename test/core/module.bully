@@ -1,5 +1,8 @@
 require('unit_test')
 
+module TestModule1
+end
+
 class ModuleTest < UnitTest
   def test_class_of_Module_is_Class
     assert_equal(Class, Module.class)
@@ -8,5 +11,25 @@ class ModuleTest < UnitTest
   def test_superclass_of_Module_is_Object
     assert_equal(nil, Object.superclass)
   end
+
+  def test_name_method_should_return_name_of_module
+    assert_equal('TestModule1', TestModule1.name)
+  end
+
+  def test_to_s_method_should_return_name_of_module
+    assert_equal('TestModule1', TestModule1.to_s)
+  end
+
+  def test_inspect_method_should_return_name_of_module
+    assert_equal('TestModule1', TestModule1.inspect)
+  end
+
+  def test_ancestors_method_should_return_modules_inheritance_chain
+    assert_equal([Object, Kernel], Object.ancestors)
+    assert_equal([Module, Object, Kernel], Module.ancestors)
+    assert_equal([Class, Module, Object, Kernel], Class.ancestors)
+    assert_equal([Kernel], Kernel.ancestors)
+  end
+
 end
 

@@ -5,6 +5,7 @@ Bully.Lexer.KEYWORDS = [
   'def',
   'do',
   'class',
+  'module',
   'end',
   'true',
   'false',

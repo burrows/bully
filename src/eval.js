@@ -260,6 +260,14 @@ Bully.Evaluator = {
     return null;
   },
 
+  evaluateModule: function(node, ctx) {
+    var mod = Bully.define_module(node.name);
+
+    this.evaluateBody(node.body, new Bully.Evaluator.Context(mod, mod));
+
+    return null;
+  },
+
   evaluateStringLiteral: function(node, ctx) {
     var s = node.value.replace(/\\n/g, "\n");
     return Bully.str_new(s);

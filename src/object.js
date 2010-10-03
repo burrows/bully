@@ -116,6 +116,35 @@ Bully.init = function() {
   Bully.define_global_const('Module', Bully.Module);
   Bully.define_global_const('Class', Bully.Class);
 
+  // Module
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+  }, 0, 0);
+
+  Bully.define_method(Bully.Module, 'ancestors', function(self, args) {
+    var a = [self], _super = self._super;;
+
+    while (_super) {
+      if (_super.is_include_class) {
+        a.push(_super.klass);
+      }
+      else {
+        a.push(_super);
+      }
+
+      _super = _super._super;
+    }
+
+    return Bully.array_new(a);
+  }, 0, 0);
+
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
+  });
+
+  // FIXME: properly alias these methods
+  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl[Bully.intern('name')]);
+
   // Class
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.make_object();
@@ -131,14 +160,6 @@ Bully.init = function() {
 
     return o;
   });
-
-  Bully.define_method(Bully.Class, 'name', function(self, args) {
-    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
-  });
-
-  // FIXME: properly alias these methods
-  Bully.define_method(Bully.Class, 'to_s', Bully.Class.m_tbl[Bully.intern('name')]);
-  Bully.define_method(Bully.Class, 'inspect', Bully.Class.m_tbl[Bully.intern('name')]);
 
   Bully.define_method(Bully.Class, 'instance_methods', function(self, args) {
     var methods       = [],

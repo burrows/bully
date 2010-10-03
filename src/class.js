@@ -148,8 +148,8 @@ Bully.module_new = function() {
   var mod = Bully.make_object();
 
   mod.klass  = Bully.Module;
-  mod._super  = null;
-  mod.iv_tbl = null;
+  mod._super = null;
+  mod.iv_tbl = {};
   mod.m_tbl  = {};
 
   return mod;
@@ -161,6 +161,7 @@ Bully.define_module = function(name) {
   // TODO: check for existance of module
 
   Bully.define_global_const(name, mod);
+  Bully.ivar_set(mod, '__classpath__', name);
 
   return mod;
 };
