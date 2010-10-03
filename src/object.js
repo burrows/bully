@@ -161,7 +161,7 @@ Bully.init = function() {
     return o;
   });
 
-  Bully.define_method(Bully.Class, 'instance_methods', function(self, args) {
+  Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
     var methods       = [],
         klass         = self,
         include_super = args.length > 0 ?args[0] : true, id;

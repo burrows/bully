@@ -1,6 +1,8 @@
 require('unit_test')
 
 module TestModule1
+  def mod_method1; end
+  def mod_method2; end
 end
 
 class ModuleTest < UnitTest
@@ -31,5 +33,10 @@ class ModuleTest < UnitTest
     assert_equal([Kernel], Kernel.ancestors)
   end
 
+  def test_instance_methods_method_should_return_a_list_of_all_instance_methods_define_directly_on_the_module
+    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(false))
+    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(true))
+    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods)
+  end
 end
 
