@@ -21,6 +21,13 @@ var options = [
     callback    : function() { selectedOpts.nodes = true; }
   },
   {
+    short       : 'e',
+    long        : 'eval',
+    description : 'Evaluate the given Bully code',
+    value       : true,
+    callback    : function(code) { selectedOpts.eval = code; }
+  },
+  {
     short       : 'h',
     long        : 'help',
     description : 'Show this help message',
@@ -37,8 +44,17 @@ function printParseTree(file) {
   sys.puts(sys.inspect(ast, false, null));
 };
 
-function evaluate(files) {
-  var i, ast, exit_code = 0;
+function evaluateCode(code) {
+  var exit_code = 0, ast;
+
+  ast = Bully.parser.parse((new Bully.Lexer()).tokenize(code));
+  exit_code = Bully.Evaluator.evaluate(ast);
+
+  Bully.dispatch_method(Bully.main, 'exit', exit_code);
+};
+
+function evaluateFiles(files) {
+  var exit_code = 0, i, ast;
 
   for (i = 0; i < files.length && exit_code === 0; i++) {
     ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(files[i], 'ascii')));
@@ -50,8 +66,9 @@ function evaluate(files) {
 
 opts.parse(options);
 
-if (selectedOpts.help)         { opts.help();                    }
-else if (selectedOpts.tokens)  { printTokens(opts.args()[0]);    }
-else if (selectedOpts.nodes)   { printParseTree(opts.args()[0]); }
-else                           { evaluate(opts.args());          }
+if (selectedOpts.help)         { opts.help();                     }
+else if (selectedOpts.tokens)  { printTokens(opts.args()[0]);     }
+else if (selectedOpts.nodes)   { printParseTree(opts.args()[0]);  }
+else if (selectedOpts.eval)    { evaluateCode(selectedOpts.eval); }
+else                           { evaluateFiles(opts.args());      }
 
