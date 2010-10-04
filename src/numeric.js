@@ -69,11 +69,21 @@ Bully.init_fixnum = function() {
   });
 
   Bully.define_method(Bully.Fixnum, '>', function(self, args) {
-    return Bully.int2fix(self) > Bully.int2fix(args[0]);
+    return self > args[0];
   });
 
   Bully.define_method(Bully.Fixnum, '<', function(self, args) {
-    return Bully.int2fix(self) < Bully.int2fix(args[0]);
+    return self < args[0];
   });
+
+  Bully.define_method(Bully.Fixnum, 'times', function(self, args, block) {
+    var n = Bully.fix2int(self), i;
+
+    for (i = 0; i < n; i += 1) {
+      Bully.Evaluator._yield(block, [Bully.int2fix(i)]);
+    }
+
+    return self;
+  }, 0, 0);
 };
 

@@ -86,5 +86,20 @@ class FixnumTest < UnitTest
     assert_equal(true, 187 < 212)
     assert_equal(false, 88 < 19)
   end
+
+  def test_times_should_yield_to_block_n_times
+    n = 0
+
+    10.times { n = n + 1 }
+
+    assert_equal(10, n)
+  end
+
+  def test_times_should_yield_the_current_index_to_the_block
+    x = []
+    5.times { |i| x << i }
+    assert_equal([0,1,2,3,4], x)
+  end
+    
 end
 
