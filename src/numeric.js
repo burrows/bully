@@ -67,5 +67,13 @@ Bully.init_fixnum = function() {
   Bully.define_method(Bully.Fixnum, '==', function(self, args) {
     return self === args[0];
   });
+
+  Bully.define_method(Bully.Fixnum, '>', function(self, args) {
+    return Bully.int2fix(self) > Bully.int2fix(args[0]);
+  });
+
+  Bully.define_method(Bully.Fixnum, '<', function(self, args) {
+    return Bully.int2fix(self) < Bully.int2fix(args[0]);
+  });
 };
 
