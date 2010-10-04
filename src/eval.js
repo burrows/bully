@@ -73,10 +73,8 @@ Bully.Evaluator = {
   },
 
   evaluateDef: function(node, ctx) {
-    var module     = node.singleton ? Bully.class_of(ctx.module) : ctx.module,
+    var module     = ctx.module,
         args_range = this.calculateArgsRange(node.params);
-
-    // FIXME: shouldn't we be using define_singleton_method here if node.singleton is true?
 
     Bully.define_method(module, node.name, function(receiver, args, block) {
       var ctx = new Bully.Evaluator.Context(receiver);
@@ -95,10 +93,29 @@ Bully.Evaluator = {
     return null;
   },
 
+  evaluateSingletonDef: function(node, ctx) {
+    var object     = node.object === 'self' ? ctx.self : ctx.get_var(node.object),
+        args_range = this.calculateArgsRange(node.params);
+
+    Bully.define_singleton_method(object, node.name, function(receiver, args, block) {
+      var ctx = new Bully.Evaluator.Context(receiver);
+
+      // FIXME: there must be a better way to do this
+      ctx.method_name = node.name;
+      ctx.block = block;
+
+      if (node.params) {
+        Bully.Evaluator.evaluateParamList(node.params, args, ctx);
+      }
+
+      return Bully.Evaluator.evaluateBody(node.body, ctx);
+    }, args_range[0], args_range[1]);
+
+    return null;
+  },
+
   evaluateParamList: function(node, args, ctx) {
     var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
-
-    // FIXME: check passed argument length
 
     for (i = 0; i < req_len; i += 1) {
       ctx.set_var(node.required[i], args[i]);

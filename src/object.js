@@ -98,7 +98,8 @@ Bully.call_super = function(obj, name, args) {
 };
 
 Bully.respond_to = function(obj, name) {
-  return !!Bully.find_method(Bully.class_of(obj), Bully.intern(name));
+  name = typeof name === 'string' ? Bully.intern(name) : name;
+  return !!Bully.find_method(Bully.class_of(obj), name);
 };
 
 Bully.init = function() {

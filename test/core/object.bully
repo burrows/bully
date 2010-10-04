@@ -1,5 +1,12 @@
 require('unit_test')
 
+class ObjectTestClass1
+  def foo; end
+end
+
+class ObjectTestClass2 < ObjectTestClass1
+end
+
 class ObjectTest < UnitTest
   def test_class_of_Object_is_Class
     assert_equal(Class, Object.class)
@@ -7,6 +14,49 @@ class ObjectTest < UnitTest
 
   def test_superclass_of_Object_is_nil
     assert_equal(nil, Object.superclass)
+  end
+
+  def test_object_instances_should_have_unique_incrementing_object_ids
+    id1 = Object.new.object_id
+
+    assert(id1.is_a?(Fixnum))
+
+    10.times do
+      id2 = Object.new.object_id
+      assert(id2 > id1)
+      id1 = id2
+    end
+  end
+
+  def test_to_s_method_should_return_a_string_containing_class_name_and_object_id
+    o1 = Object.new
+    o2 = ObjectTestClass1.new
+
+    assert_equal('#<Object:' + o1.object_id + '>', o1.to_s)
+    assert_equal('#<ObjectTestClass1:' + o2.object_id + '>', o2.to_s)
+  end
+
+  def test_respond_to_method_should_return_false_if_the_given_method_is_nowhere_in_the_super_chain
+    assert_equal(false, ObjectTestClass1.new.respond_to?(:notdefined))
+  end
+
+  def test_respond_to_method_should_return_true_if_the_given_method_is_defined_directly_on_the_class
+    assert_equal(true, ObjectTestClass1.new.respond_to?(:foo))
+  end
+
+  def test_respond_to_method_should_return_true_if_the_given_method_is_defined_in_a_super_class
+    assert_equal(true, ObjectTestClass1.new.respond_to?(:to_s))
+    assert_equal(true, ObjectTestClass2.new.respond_to?(:foo))
+  end
+
+  def test_respond_to_method_should_return_true_if_the_given_method_is_defined_in_the_singleton_class
+    o = ObjectTestClass1.new
+
+    assert_equal(false, o.respond_to?(:stuff))
+
+    def o.stuff; end
+
+    assert_equal(true, o.respond_to?(:stuff))
   end
 end
 
