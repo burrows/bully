@@ -1,7 +1,8 @@
 require('unit_test')
 
 class ObjectTestClass1
-  def foo; end
+  def foo; 'ObjectTestClass1#foo'; end
+  def bar(*args); args; end
 end
 
 class ObjectTestClass2 < ObjectTestClass1
@@ -57,6 +58,19 @@ class ObjectTest < UnitTest
     def o.stuff; end
 
     assert_equal(true, o.respond_to?(:stuff))
+  end
+
+  def test_send_method_should_invoke_the_method_with_the_given_name
+    assert_equal('ObjectTestClass1#foo', ObjectTestClass1.new.send(:foo))
+  end
+
+  def test_send_method_should_pass_given_args_to_the_method
+    assert_equal([1,2,3], ObjectTestClass1.new.send(:bar, 1, 2, 3))
+  end
+
+  def test_calling_a_method_that_does_not_exist_should_raise_a_NoMethodError
+    assert_raise(NoMethodError) { Object.new.doesnotexit }
+    assert_raise(NoMethodError) { Object.new.send(:doesnotexist) }
   end
 end
 

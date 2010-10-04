@@ -49,12 +49,16 @@ class UnitTest
     end
   end
 
+  def fail(message)
+    raise(FailedAssertion, message)
+  end
+
   def assert(expr, message = expr.inspect + ' is not true')
     # FIXME: use += here
     @current_result[:assertions] = @current_result[:assertions] + 1
 
     if !expr
-      raise(FailedAssertion, message)
+      fail(message)
     end
   end
 
@@ -63,6 +67,22 @@ class UnitTest
       message = 'expected ' + expected.inspect + ' but got ' + expr.inspect + ' instead'
     end
     assert(expected == expr, message)
+  end
+
+  def assert_raise(type)
+    exception = nil
+
+    begin
+      yield
+    rescue Exception => e
+      exception = e
+    end
+
+    if exception
+      assert(exception.is_a?(type), 'expected ' + type.inspect + ' to be raised but got ' + exception.inspect + ' instead')
+    else
+      fail('expected ' + type.inspect + ' to be raised but got nothing')
+    end
   end
 
   class ConsoleRunner
