@@ -1,0 +1,33 @@
+require('unit_test')
+
+class BooleanTest < UnitTest
+  def test_superclass_of_TrueClass_should_be_Object
+    assert_equal(Object, TrueClass.superclass)
+  end
+
+  def test_superclass_of_FalseClass_should_be_Object
+    assert_equal(Object, FalseClass.superclass)
+  end
+
+  def test_to_s_method_should_return_string_representation
+    assert_equal('false', false.to_s)
+    assert_equal('true', true.to_s)
+  end
+
+  def test_inspect_method_should_return_string_representation
+    assert_equal('false', false.inspect)
+    assert_equal('true', true.inspect)
+  end
+
+  def test_false_and_nil_should_be_the_only_falsy_values
+    assert_equal(false, !!false)
+    assert_equal(false, !!nil)
+    assert_equal(true,  !!true)
+    assert_equal(true,  !!12)
+    assert_equal(true,  !!:hey)
+    assert_equal(true,  !![])
+    assert_equal(true,  !!{})
+    assert_equal(true,  !!Object.new)
+  end
+end
+

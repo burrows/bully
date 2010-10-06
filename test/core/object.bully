@@ -72,5 +72,12 @@ class ObjectTest < UnitTest
     assert_raise(NoMethodError) { Object.new.doesnotexit }
     assert_raise(NoMethodError) { Object.new.send(:doesnotexist) }
   end
+
+  def test_double_equal_should_return_true_only_if_both_objects_are_identical
+    o1 = Object.new
+    o2 = Object.new
+    assert_equal(true, o1 == o1)
+    assert_equal(false, o1 == o2)
+  end
 end
 
