@@ -36,6 +36,10 @@ class UnitTest
       }
 
       begin
+        if self.respond_to?(:setup)
+          self.setup
+        end
+
         self.send(test.to_sym)
       rescue FailedAssertion => e
         @current_result[:status]  = :fail

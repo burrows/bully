@@ -1,0 +1,106 @@
+require('unit_test')
+
+class ParamsTestClass
+  def required_only(req1, req2)
+    {:req1 => req1, :req2 => req2}
+  end
+
+  def optional_only(opt1='opt1', opt2=:opt2)
+    {:opt1 => opt1, :opt2 => opt2}
+  end
+
+  def splat_only(*splat)
+    splat
+  end
+
+  def req_and_opt(req1, req2, opt1='opt1', opt2='opt2')
+    {:req1 => req1, :req2 => req2, :opt1 => opt1, :opt2 => opt2}
+  end
+
+  def req_opt_and_splat(req1, req2, opt1='opt1', opt2='opt2', *splat)
+    {:req1 => req1, :req2 => req2, :opt1 => opt1, :opt2 => opt2, :splat => splat}
+  end
+end
+
+class ParamsTest < UnitTest
+  def setup
+    @params_test = ParamsTestClass.new
+  end
+
+  def test_required_params_are_available_in_method_body
+    results = @params_test.required_only(1,'a')
+    assert_equal(1, results[:req1])
+    assert_equal('a', results[:req2])
+  end
+
+  def test_optional_params_are_available_in_method_body
+    results = @params_test.optional_only(1,2)
+    assert_equal(1, results[:opt1])
+    assert_equal(2, results[:opt2])
+  end
+
+  def test_optional_params_should_be_set_to_default_when_not_passed
+    results = @params_test.optional_only(1)
+    assert_equal(1, results[:opt1])
+    assert_equal(:opt2, results[:opt2])
+    results = @params_test.optional_only
+    assert_equal('opt1', results[:opt1])
+    assert_equal(:opt2, results[:opt2])
+  end
+
+  def test_splat_param_should_gather_all_remaining_arguments_into_an_array
+    assert_equal([1,2,3], @params_test.splat_only(1,2,3))
+    assert_equal([:one, :two, 333, 'four'], @params_test.splat_only(:one, :two, 333, 'four'))
+  end
+
+  def test_required_and_optional_should_properly_assign_variables
+    results = @params_test.req_and_opt('a', 'b')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('opt1', results[:opt1])
+    assert_equal('opt2', results[:opt2])
+
+    results = @params_test.req_and_opt('a', 'b', 'foo')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('foo', results[:opt1])
+    assert_equal('opt2', results[:opt2])
+
+    results = @params_test.req_and_opt('a', 'b', 'foo', 'bar')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('foo', results[:opt1])
+    assert_equal('bar', results[:opt2])
+  end
+
+  def test_required_optional_and_splat_should_properly_assign_variables
+    results = @params_test.req_opt_and_splat('a', 'b')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('opt1', results[:opt1])
+    assert_equal('opt2', results[:opt2])
+    assert_equal([], results[:splat])
+
+    results = @params_test.req_opt_and_splat('a', 'b', 'foo')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('foo', results[:opt1])
+    assert_equal('opt2', results[:opt2])
+    assert_equal([], results[:splat])
+
+    results = @params_test.req_opt_and_splat('a', 'b', 'foo', 'bar')
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('foo', results[:opt1])
+    assert_equal('bar', results[:opt2])
+    assert_equal([], results[:splat])
+
+    results = @params_test.req_opt_and_splat('a', 'b', 'foo', 'bar', 1, 2, 3)
+    assert_equal('a', results[:req1])
+    assert_equal('b', results[:req2])
+    assert_equal('foo', results[:opt1])
+    assert_equal('bar', results[:opt2])
+    assert_equal([1, 2 ,3], results[:splat])
+  end
+end
+
