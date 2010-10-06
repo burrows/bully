@@ -73,7 +73,7 @@ class UnitTest
     assert(expected == expr, message)
   end
 
-  def assert_raise(type)
+  def assert_raise(type, message = nil)
     exception = nil
 
     begin
@@ -84,9 +84,25 @@ class UnitTest
 
     if exception
       assert(exception.is_a?(type), 'expected ' + type.inspect + ' to be raised but got ' + exception.inspect + ' instead')
+
+      if message
+        assert_equal(message, exception.message)
+      end
     else
-      fail('expected ' + type.inspect + ' to be raised but got nothing')
+      fail('expected ' + type.inspect + ' to be raised but none was thrown')
     end
+  end
+
+  def assert_nothing_raised
+    exception = nil
+
+    begin
+      yield
+    rescue Exception => e
+      exception = e
+    end
+
+    assert_equal(nil, exception, 'expected nothing to be raise but ' + exception.inspect + ' was raised instead')
   end
 
   class ConsoleRunner
