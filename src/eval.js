@@ -142,8 +142,13 @@ Bully.Evaluator = {
 
     // FIXME: check passed argument length
 
-    for (i = 0; i < req_len; i += 1) {
+    for (i = 0; i < args_len; i += 1) {
       ctx.declare_var(node.required[i], args[i]);
+    }
+
+    // fill remaining params with nil
+    for (i = args_len; i < req_len; i += 1) {
+      ctx.declare_var(node.required[i], null);
     }
 
     if (node.splat) {
@@ -470,6 +475,7 @@ Bully.init_proc = function() {
   Bully.Proc = Bully.define_class('Proc');
 
   Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, blk) {
+    if (!blk) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
     return blk;
   });
 
