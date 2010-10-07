@@ -188,6 +188,19 @@ Bully.init = function() {
     return klass || null;
   });
 
+  Bully.define_method(Bully.Class, 'include', function(self, args) {
+    var mod = args[0], name;
+
+    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
+      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class'), 'name');
+      Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
+    }
+
+    Bully.include_module(self, args[0]);
+
+    return self;
+  }, 1, 1);
+
   // Kernel
   Bully.Kernel = Bully.define_module('Kernel');
 

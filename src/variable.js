@@ -60,7 +60,7 @@ Bully.define_global_const = function(name, val) {
  *
  * TODO: reference the method/class in the compiler
  */
-Bully.const_get = function(klass, name) {
+Bully.lookup_const = function(klass, name) {
   do {
     if (klass.iv_tbl.hasOwnProperty(name)) {
       return klass.iv_tbl[name];
@@ -70,6 +70,16 @@ Bully.const_get = function(klass, name) {
     }
   } while (klass);
 
-  throw "NameError: uninitialized constant " + name;
+  return null;
+};
+
+Bully.const_get = function(klass, name) {
+  var c = Bully.lookup_const(klass, name);
+
+  if (!c) {
+    Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+  }
+
+  return c;
 };
 

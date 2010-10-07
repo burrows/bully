@@ -5,6 +5,24 @@ module TestModule1
   def mod_method2; end
 end
 
+module TestModule2
+  def mod_method3; end
+end
+
+module TestModule3
+  def mod_method4; end
+end
+
+class TestModuleClass1
+  include(TestModule1)
+end
+
+class TestModuleClass2
+end
+
+class TestModuleClass3
+end
+
 class ModuleTest < UnitTest
   def test_class_of_Module_is_Class
     assert_equal(Class, Module.class)
@@ -37,6 +55,49 @@ class ModuleTest < UnitTest
     assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(false))
     assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(true))
     assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods)
+  end
+
+  def test_including_a_module_into_a_class_makes_methods_defined_on_the_module_available_to_the_class
+    x = TestModuleClass1.new
+    assert_equal(true, x.respond_to?(:mod_method1))
+    assert_equal(true, x.respond_to?(:mod_method2))
+  end
+
+  def test_including_a_module_should_insert_itself_into_the_ancestor_chain_of_the_class
+    assert_equal([TestModuleClass2, Object, Kernel], TestModuleClass2.ancestors)
+
+    class TestModuleClass2
+      include(TestModule1)
+      include(TestModule2)
+    end
+    assert_equal([TestModuleClass2, TestModule2, TestModule1, Object, Kernel],
+                 TestModuleClass2.ancestors)
+
+    class TestModuleClass2; include(TestModule3); end
+    assert_equal([TestModuleClass2, TestModule3, TestModule2, TestModule1, Object, Kernel],
+                 TestModuleClass2.ancestors)
+  end
+
+  def test_modules_should_not_be_included_twice
+    class TestModuleClass3; include(TestModule1); end
+    assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
+                 TestModuleClass3.ancestors)
+    class TestModuleClass3; include(TestModule1); end
+    assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
+                 TestModuleClass3.ancestors)
+  end
+
+  def test_include_should_return_the_value_of_self
+    x = class TestModuleClass10001; end
+    assert_equal(nil, x)
+    x = class TestModuleClass10001; include(TestModule1); end
+    assert_equal(TestModuleClass10001, x)
+  end
+
+  def test_include_must_be_passed_a_module_object
+    assert_raise(TypeError, 'wrong argument type Fixnum (expected Module)') do
+      class TestModuleClass1; include(9); end
+    end
   end
 end
 

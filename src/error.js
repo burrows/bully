@@ -34,4 +34,6 @@ Bully.init_error = function() {
   Bully.RuntimeError  = Bully.define_class('RuntimeError', Bully.Exception);
   Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.Exception);
   Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.Exception);
+  Bully.NameError     = Bully.define_class('NameError', Bully.Exception);
+  Bully.TypeError     = Bully.define_class('TypeError', Bully.Exception);
 };

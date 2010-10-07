@@ -48,7 +48,7 @@ Bully.Evaluator = {
   },
 
   evaluateBody: function(node, ctx) {
-    var i, line, rv;
+    var i, line, rv = null;
 
     for (i = 0; i < node.lines.length; i += 1) {
       line = node.lines[i];
@@ -275,19 +275,16 @@ Bully.Evaluator = {
 
   evaluateClass: function(node, ctx) {
     var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
-        klass  = Bully.define_class(node.name, _super);
+        klass  = Bully.lookup_const(Bully.Object, node.name) ||
+                 Bully.define_class(node.name, _super);
 
-    this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
-
-    return null;
+    return this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
   },
 
   evaluateModule: function(node, ctx) {
     var mod = Bully.define_module(node.name);
 
-    this.evaluateBody(node.body, new Bully.Evaluator.Context(mod, mod));
-
-    return null;
+    return this.evaluateBody(node.body, new Bully.Evaluator.Context(mod, mod));
   },
 
   evaluateStringLiteral: function(node, ctx) {
