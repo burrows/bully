@@ -1,0 +1,124 @@
+require('unit_test')
+
+class ControlTest < UnitTest
+  def test_if_should_evaluate_then_body_only_if_expression_is_truthy
+    then_body = false
+    if true
+      then_body = true
+    end
+
+    assert_equal(true, then_body)
+
+    then_body = false
+
+    if false
+      then_body = true
+    end
+
+    assert_equal(false, then_body)
+  end
+
+  def test_if_should_evaluate_else_body_only_if_expression_is_falsy
+    then_body = false
+    else_body = false
+
+    if true
+      then_body = true
+    else
+      else_body = true
+    end
+
+    assert_equal(true, then_body)
+    assert_equal(false, else_body)
+
+    then_body = false
+    else_body = false
+
+    if false
+      then_body = true
+    else
+      else_body = true
+    end
+
+    assert_equal(false, then_body)
+    assert_equal(true, else_body)
+  end
+
+  def test_if_should_evaluate_first_elseif_body_with_a_truthy_expression
+    then_body   = false
+    elsif1_body = false
+    elsif2_body = false
+    elsif3_body = false
+
+    if nil
+      then_body = true
+    elsif false
+      elsif1_body = true
+    elsif true
+      elsif2_body = true
+    elsif false
+      elsif3_body = true
+    end
+
+    assert_equal(false, then_body)
+    assert_equal(false, elsif1_body)
+    assert_equal(true, elsif2_body)
+    assert_equal(false, elsif3_body)
+  end
+
+  def test_if_with_elsifs_should_evaluate_else_body_when_no_expressions_are_truthy
+    then_body   = false
+    elsif1_body = false
+    elsif2_body = false
+    elsif3_body = false
+    else_body   = false
+
+    if nil
+      then_body = true
+    elsif false
+      elsif1_body = true
+    elsif !true
+      elsif2_body = true
+    elsif false
+      elsif3_body = true
+    else
+      else_body = true
+    end
+
+    assert_equal(false, then_body)
+    assert_equal(false, elsif1_body)
+    assert_equal(false, elsif2_body)
+    assert_equal(false, elsif3_body)
+    assert_equal(true, else_body)
+  end
+
+  def test_if_expression_should_yield_the_last_expression_it_evaluates
+    result = if true
+               'then body'
+             else
+               'else body'
+             end
+
+    assert_equal('then body', result)
+
+    result = if false
+               'then body'
+             else
+               1 + 2
+               'else body'
+             end
+
+    assert_equal('else body', result)
+
+    result = if false
+               'then body'
+             elsif true
+               'elsif body'
+             else
+               1 + 2
+               'else body'
+             end
+
+    assert_equal('elsif body', result)
+  end
+end
