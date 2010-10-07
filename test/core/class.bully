@@ -1,8 +1,38 @@
 require('unit_test')
 
 class TestClass1
-  def method1; end
-  def method2; end
+  def self.class_method1
+    :class_method1
+  end
+
+  def instance_method1
+    :instance_method1
+  end
+
+  def instance_method2
+    :instance_method2
+  end
+end
+
+class TestParentClass
+  @subclasses = []
+
+  def self.inherited(klass)
+    @subclasses.push(klass)
+  end
+
+  def self.subclasses
+    @subclasses
+  end
+
+  def initialize(arg)
+    @arg = arg
+  end
+
+  def arg; @arg; end
+end
+
+class TestChildClass < TestParentClass
 end
 
 class ClassTest < UnitTest
@@ -28,17 +58,37 @@ class ClassTest < UnitTest
 
   def test_instance_methods_method_should_return_a_list_of_all_instance_methods_when_passed_true
     methods = TestClass1.instance_methods(true)
-    ['to_s', 'inspect', 'class', 'respond_to?', 'send', 'object_id', 'hash', 'method1', 'method2'].each do |m|
+    ['to_s', 'inspect', 'class', 'respond_to?', 'send', 'object_id', 'hash', 'instance_method1', 'instance_method2'].each do |m|
       assert(methods.include?(m))
     end
   end
 
   def test_instance_methods_method_should_return_a_list_of_all_instance_methods_define_directly_on_the_class_when_passed_false
-    assert_equal(['method1', 'method2'], TestClass1.instance_methods(false))
+    assert_equal(['instance_method1', 'instance_method2'], TestClass1.instance_methods(false))
   end
 
   def test_instance_methods_method_should_return_a_list_of_all_instance_methods_when_given_no_args
     assert_equal(TestClass1.instance_methods(true), TestClass1.instance_methods)
+  end
+
+  def test_class_methods_can_be_called_on_class_object
+    assert(TestClass1.respond_to?(:class_method1))
+    assert_equal(:class_method1, TestClass1.class_method1)
+  end
+
+  def test_instance_methods_can_be_called_on_instances_of_a_class
+    instance = TestClass1.new
+    assert(instance.respond_to?(:instance_method1))
+    assert_equal(:instance_method1, instance.instance_method1)
+  end
+
+  def test_inherited_method_should_be_called_on_parent_class_when_subclass_and_pass_subclass
+    assert_equal([TestChildClass], TestParentClass.subclasses)
+  end
+
+  def test_initialize_method_should_be_called_when_instance_is_created
+    assert_equal(:foo, TestParentClass.new(:foo).arg)
+    assert_equal(9, TestParentClass.new(9).arg)
   end
 end
 
