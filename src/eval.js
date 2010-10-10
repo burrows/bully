@@ -343,6 +343,8 @@ Bully.Evaluator = {
 
     // see if any of the rescue blocks match the exception
     if (captured) {
+      Bully.current_exception = captured;
+
       for (i = 0; i < node.rescues.length; i += 1) {
         rescue = node.rescues[i];
         types  = rescue.exception_types;
@@ -358,6 +360,7 @@ Bully.Evaluator = {
             }
 
             this.evaluateBody(node.rescues[i].body, ctx);
+            Bully.current_exception = null;
           }
         }
       }
@@ -369,6 +372,8 @@ Bully.Evaluator = {
 
     // if none of our rescue blocks matched, then re-raise
     if (captured && !handled) { Bully.raise(captured); }
+
+    Bully.current_exception = null;
   },
 
   evaluateIf: function(node, ctx) {

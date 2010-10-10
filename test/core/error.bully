@@ -13,6 +13,18 @@ require('unit_test')
 # * raise with string arg should create a RuntimeError setting its message to the string
 # * raise with Exception class
 # * raise with Exception class and string arg
+# * raise with Exception instance
+# * raise with object instance that responds to #exception
+# * raise with object instance that does not respond to #exception
+
+class ErrorTestException1 < StandardError; end
+class ErrorTestException2 < StandardError; end
+
+class ErrorTestFoo
+  def exception(message = nil)
+    ErrorTestException2.new(message)
+  end
+end
 
 class ErrorTest < UnitTest
   def test_superclass_of_Exception_should_be_Object
@@ -82,7 +94,113 @@ class ErrorTest < UnitTest
     end
   end
 
-  def test_raise_should_stop_execution_of_the_current_body_of_code
+  def test_raise_with_no_arguments_and_no_current_exception_should_raise_RuntimeError_exception
+    exception = nil
+    begin
+      raise
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal(RuntimeError, e.class)
+  end
+
+  def test_raise_with_no_arguments_and_a_current_exception_should_raise_the_current_exception
+    exception = nil
+    reraise = false
+
+    begin
+      begin
+        raise(ErrorTestException1, 'hello from inner begin block')
+      rescue ErrorTestException1
+        reraise = true
+        raise
+      end
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception, 'no exception rescued')
+    assert(reraise, 'raise never called')
+    assert_equal(ErrorTestException1, exception.class)
+    assert_equal('hello from inner begin block', exception.message)
+  end
+
+  def test_raise_with_a_string_argument_should_create_a_RuntimeError_with_the_given_string_as_the_message
+    exception = nil
+    begin
+      raise("foo bar baz")
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal(RuntimeError, e.class)
+    assert_equal("foo bar baz", e.message)
+  end
+
+  def test_raise_with_an_Exception_class_argument_should_raise_and_instance_of_the_class
+    exception = nil
+    begin
+      raise(ErrorTestException1)
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal(ErrorTestException1, e.class)
+  end
+
+  def test_raise_with_an_Exception_class_and_string_arguments_should_raise_and_instance_of_the_class_with_the_given_message
+    exception = nil
+    begin
+      raise(ErrorTestException1, 'this is the message')
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal(ErrorTestException1, e.class)
+    assert_equal('this is the message', e.message)
+  end
+
+  def test_raise_with_an_object_that_responds_to_the_exception_method_should_raise_the_result_of_the_exception_method
+    exception = nil
+    begin
+      raise(ErrorTestFoo.new)
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal(ErrorTestException2, e.class)
+    assert_equal('ErrorTestException2', e.message)
+  end
+
+  def test_raise_with_an_object_that_responds_to_the_exception_method_and_a_second_argument_should_pass_the_second_argument_to_the_exception_method
+    exception = nil
+    begin
+      raise(ErrorTestFoo.new, 'some message')
+    rescue Exception => e
+      exception = e
+    end
+
+    assert(exception)
+    assert_equal('some message', e.message)
+  end
+
+  def test_raise_with_an_object_that_does_not_respond_to_the_exception_method_should_raise_TypeError_exception
+    assert_raise(TypeError, 'exception class/object expected') do
+      raise(Object.new)
+    end
+
+    assert_raise(TypeError, 'exception class/object expected') do
+      raise(Object.new, 'message')
+    end
+  end
+
+  def test_raise_should_stop_execution_of_the_current_begin_block
     a = false
     b = false
 

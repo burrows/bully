@@ -1,6 +1,8 @@
 Bully.raise = function(exception, message) {
-  var args = message ? [Bully.str_new(message)] : [];
+  var args;
+
   if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
+    args      = message ? [Bully.str_new(message)] : [];
     exception = Bully.dispatch_method(exception, 'new', args);
   }
 

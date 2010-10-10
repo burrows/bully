@@ -269,9 +269,45 @@ Bully.init = function() {
     return null;
   });
 
+  // raise can be called in the following ways:
+  //
+  //   raise
+  //     - Raises current exception if there is one or StandardError
+  //   raise(string)
+  //     - creates RuntimeError instance with string as message and raises it
+  //   raise(object)
+  //     - calls #exception on object and raises result
+  //   raise(object, message)
+  //     - calls #exception on object, passing it message and raises result
   Bully.define_module_method(Bully.Kernel, 'raise', function(self, args) {
-    Bully.raise(args[0], args[1].data);
-  });
+    var exception;
+
+    if (args.length === 0) {
+      exception = Bully.current_exception ||
+        Bully.dispatch_method(Bully.RuntimeError, 'new');
+    }
+    else if (args.length === 1) {
+      if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
+        exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
+      }
+      else if (Bully.respond_to(args[0], 'exception')) {
+        exception = Bully.dispatch_method(args[0], 'exception');
+      }
+      else {
+        Bully.raise(Bully.TypeError, 'exception class/object expected');
+      }
+    }
+    else {
+      if (Bully.respond_to(args[0], 'exception')) {
+        exception = Bully.dispatch_method(args[0], 'exception', [args[1]]);
+      }
+      else {
+        Bully.raise(Bully.TypeError, 'exception class/object expected');
+      }
+    }
+
+    Bully.raise(exception);
+  }, 0, 2);
 
   Bully.define_method(Bully.Kernel, 'is_a?', function(self, args) {
     var test_klass = args[0], klass = Bully.class_of(self);
