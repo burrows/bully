@@ -13,7 +13,11 @@ Bully.init_error = function() {
   Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
     Bully.ivar_set(self, '@message', args[0] ||
       Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'));
-  });
+  }, 0, 1);
+
+  Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
+    return Bully.dispatch_method(self, 'new', args);
+  }, 0, 1);
 
   Bully.define_method(Bully.Exception, 'message', function(self, args) {
     return Bully.ivar_get(self, '@message');
@@ -31,9 +35,10 @@ Bully.init_error = function() {
     return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message').data + '>');
   });
 
-  Bully.RuntimeError  = Bully.define_class('RuntimeError', Bully.Exception);
-  Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.Exception);
-  Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.Exception);
-  Bully.NameError     = Bully.define_class('NameError', Bully.Exception);
-  Bully.TypeError     = Bully.define_class('TypeError', Bully.Exception);
+  Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
+  Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
+  Bully.RuntimeError  = Bully.define_class('RuntimeError', Bully.StandardError);
+  Bully.NameError     = Bully.define_class('NameError', Bully.StandardError);
+  Bully.TypeError     = Bully.define_class('TypeError', Bully.StandardError);
+  Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.NameError);
 };

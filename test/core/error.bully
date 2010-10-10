@@ -1,0 +1,99 @@
+require('unit_test')
+
+# x exception class hierarchy
+# x Exception.exception method
+# * raise with no arguments should re-raise exception
+# * multiple exception types on a rescue block
+# * multiple rescue clauses
+# * rescue clause with no parameter list defaults to StandardError
+# * ensure clauses
+# * else clause
+# * retry should re-run block
+# * raise with no args should raise the current exception or RuntimeError if there is no current exception
+# * raise with string arg should create a RuntimeError setting its message to the string
+# * raise with Exception class
+# * raise with Exception class and string arg
+
+class ErrorTest < UnitTest
+  def test_superclass_of_Exception_should_be_Object
+    assert_equal(Object, Exception.superclass)
+  end
+
+  def test_superclass_of_StandardError_should_be_Exception
+    assert_equal(Exception, StandardError.superclass)
+  end
+
+  def test_superclass_of_ArgumentError_should_be_StandardError
+    assert_equal(StandardError, ArgumentError.superclass)
+  end
+
+  def test_superclass_of_RuntimeError_should_be_StandardError
+    assert_equal(StandardError, RuntimeError.superclass)
+  end
+
+  def test_superclass_of_NameError_should_be_StandardError
+    assert_equal(StandardError, NameError.superclass)
+  end
+
+  def test_superclass_of_TypeError_should_be_StandardError
+    assert_equal(StandardError, TypeError.superclass)
+  end
+
+  def test_superclass_of_NoMethodError_should_be_NameError
+    assert_equal(NameError, NoMethodError.superclass)
+  end
+
+  def test_Exception_constructor_with_no_arguments_should_set_message_to_class_name
+    assert_equal('Exception', Exception.new.message)
+    assert_equal('NoMethodError', NoMethodError.new.message)
+  end
+
+  def test_Exception_constructor_with_one_argument_should_set_the_argument_as_the_message
+    assert_equal('my message', Exception.new('my message').message)
+    assert_equal(12, Exception.new(12).message)
+  end
+
+  def test_Exception_constructor_with_more_than_one_argument_should_raise_ArgumentError_exception
+    assert_raise(ArgumentError, 'wrong number of arguments (2 for 1)') do
+      Exception.new(1,2)
+    end
+  end
+
+  def test_Exception_exception_method_with_no_arguments_should_return_an_instance_of_the_class
+    e1 = Exception.exception
+    e2 = NameError.exception
+
+    assert_equal(Exception, e1.class)
+    assert_equal('Exception', e1.message)
+    assert_equal(NameError, e2.class)
+    assert_equal('NameError', e2.message)
+  end
+
+  def test_Exception_exception_method_with_one_arguments_should_return_an_instance_of_the_class_with_message_set_to_argument
+    e = Exception.exception('foo')
+
+    assert_equal(Exception, e.class)
+    assert_equal('foo', e.message)
+  end
+
+  def test_Exception_exception_method_with_more_than_one_argument_should_raise_ArgumentError_exception
+    assert_raise(ArgumentError, 'wrong number of arguments (2 for 1)') do
+      Exception.exception(1,2)
+    end
+  end
+
+  def test_raise_should_stop_execution_of_the_current_body_of_code
+    a = false
+    b = false
+
+    begin
+      a = true
+      raise(Exception, 'foo')
+      b = true
+    rescue Exception => e
+    end
+
+    assert_equal(true, a)
+    assert_equal(false, b)
+  end
+end
