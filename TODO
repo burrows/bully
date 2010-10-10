@@ -1,25 +1,12 @@
-* runtime:
-  * constants
-    * global
-    * nested
-  * class names
-  * create Symbol class
-  * create Number class
-  * create Array class
-  * create Hash class
-  * create Proc class
-  * create IO class
-  * implement inherited callback
-  * implement Class#instance_methods
-  * implement Object#send
-  * $stdout and $stderr global vars
-* compiler:
-  * lexical constant lookup
-  * global methods
-  * global variables
-  * instance, class, and constant assignment
-  * Array and Hash literals
-  * operators
-  * blocks
-  * overall command improvements
-
+* finish tests
+* better constant support
+* global variables
+* Class.new does not work properly
+* runtime API cleanup
+* better parse error messages
+* lexer improvements
+* regex support
+* convert evaluator to VM
+* better ruby 1.9 compatibility
+* browser support
+* javascript integration
