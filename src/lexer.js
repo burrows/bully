@@ -138,8 +138,8 @@ Bully.Lexer.prototype = {
         pos += 1;
       }
       // ignore comments
-      else if ((match = chunk.match(/^(#.*)$/m))) {
-        pos += match[0].length + 1;
+      else if ((match = chunk.match(/^#.*\n/))) {
+        pos += match[0].length;
         line += 1;
       }
       // treat all other single characters as a token
