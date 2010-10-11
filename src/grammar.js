@@ -236,10 +236,12 @@ var grammar = {
   ],
 
   BeginBlock: [
-    o('BEGIN Body RescueBlocks EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: $4};"),
-    o('BEGIN Body EnsureBlock END',              "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: $3};"),
-    o('BEGIN Body RescueBlocks END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, ensure: null};"),
-    o('BEGIN Body END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], ensure: null};")
+    o('BEGIN Body RescueBlocks EnsureBlock END',           "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: null, ensure: $4};"),
+    o('BEGIN Body EnsureBlock END',                        "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: $3};"),
+    o('BEGIN Body RescueBlocks END',                       "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: null, ensure: null};"),
+    o('BEGIN Body RescueBlocks ElseBlock END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: null};"),
+    o('BEGIN Body RescueBlocks ElseBlock EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: $5};"),
+    o('BEGIN Body END',                                    "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: null};")
   ],
 
   RescueBlocks: [
@@ -248,14 +250,18 @@ var grammar = {
   ],
 
   RescueBlock: [
-    o('RESCUE Do Body',                              "$$ = {type: 'RescueBlock', exception_types: [], name: null, body: $3};"),
-    o('RESCUE ExceptionTypes Do Body',               "$$ = {type: 'RescueBlock', exception_types: $2, name: null, body: $4};"),
-    o('RESCUE ExceptionTypes => IDENTIFIER Do Body', "$$ = {type: 'RescueBlock', exception_types: $2, name: $4,   body: $6};")
+    o('RESCUE Do Body',                              "$$ = {type: 'RescueBlock', exception_types: null, name: null, body: $3};"),
+    o('RESCUE ExceptionTypes Do Body',               "$$ = {type: 'RescueBlock', exception_types: $2,   name: null, body: $4};"),
+    o('RESCUE ExceptionTypes => IDENTIFIER Do Body', "$$ = {type: 'RescueBlock', exception_types: $2,   name: $4,   body: $6};")
   ],
 
   ExceptionTypes: [
     o('ConstantRef',                  "$$ = [$1];"),
     o('ExceptionTypes , ConstantRef', "$1.push($3);")
+  ],
+
+  ElseBlock: [
+    o('ELSE Body', "$$ = {type: 'ElseBlock', body: $2};")
   ],
 
   EnsureBlock: [

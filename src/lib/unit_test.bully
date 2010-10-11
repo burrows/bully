@@ -73,7 +73,7 @@ class UnitTest
     assert(expected == expr, message)
   end
 
-  def assert_raise(type, message = nil)
+  def assert_raise(type = Exception, message = nil)
     exception = nil
 
     begin

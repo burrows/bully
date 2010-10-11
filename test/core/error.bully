@@ -1,22 +1,5 @@
 require('unit_test')
 
-# x exception class hierarchy
-# x Exception.exception method
-# * raise with no arguments should re-raise exception
-# * multiple exception types on a rescue block
-# * multiple rescue clauses
-# * rescue clause with no parameter list defaults to StandardError
-# * ensure clauses
-# * else clause
-# * retry should re-run block
-# * raise with no args should raise the current exception or RuntimeError if there is no current exception
-# * raise with string arg should create a RuntimeError setting its message to the string
-# * raise with Exception class
-# * raise with Exception class and string arg
-# * raise with Exception instance
-# * raise with object instance that responds to #exception
-# * raise with object instance that does not respond to #exception
-
 class ErrorTestException1 < StandardError; end
 class ErrorTestException2 < StandardError; end
 
@@ -214,4 +197,164 @@ class ErrorTest < UnitTest
     assert_equal(true, a)
     assert_equal(false, b)
   end
+
+  def test_rescue_with_no_parameter_list_should_capture_exceptions_of_type_StandardError
+    standard_rescued = false
+    exception_rescued = false
+
+    assert_nothing_raised do
+      begin
+        raise(StandardError)
+      rescue
+        standard_rescued = true
+      end
+    end
+    assert(standard_rescued, 'StandardError not rescued')
+
+    assert_raise(Exception) do
+      begin
+        raise(Exception)
+      rescue
+        exception_rescued = true
+      end
+    end
+    assert(!exception_rescued, 'Exception was rescued')
+  end
+
+  def test_begin_block_with_multiple_rescues_should_choose_first_rescue_clause_with_matching_exception_type
+    first = false
+    second = false
+    third = false
+
+    assert_nothing_raised do
+      begin
+        raise(ErrorTestException2)
+      rescue ErrorTestException1
+        first = true
+      rescue ErrorTestException2
+        second = true
+      rescue Exception
+        third = true
+      end
+    end
+
+    assert(!first, 'first rescue block invoked')
+    assert(second, 'second rescue block not invoked')
+    assert(!third, 'third rescue block invoked')
+  end
+
+  def test_rescue_clause_with_multiple_exception_types_should_match_exceptions_that_match_any_of_the_types
+    rescued1 = false
+    rescued2 = false
+
+    assert_nothing_raised do
+      begin
+        raise(ErrorTestException1)
+      rescue ErrorTestException1, ErrorTestException2
+        rescued1 = true
+      end
+    end
+
+    assert(rescued1, 'exception1 not rescued')
+
+    assert_nothing_raised do
+      begin
+        raise(ErrorTestException2)
+      rescue ErrorTestException1, ErrorTestException2
+        rescued2 = true
+      end
+    end
+
+    assert(rescued2, 'exception2 not rescued')
+  end
+
+  def test_ensure_clause_should_be_evaluated_when_no_exceptions_are_raised
+    ensured = false
+
+    begin
+      1 + 1
+    ensure
+      ensured = true
+    end
+
+    assert(ensured, 'ensure clause not evaluated')
+  end
+
+  def test_ensure_clause_should_be_evaluated_when_an_exception_is_raised_and_rescued
+    ensured = false
+    rescued = false
+
+    begin
+      raise
+    rescue Exception
+      rescued = true
+    ensure
+      ensured = true
+    end
+
+    assert(rescued, 'rescue clause not evaluated')
+    assert(ensured, 'ensure clause not evaluated')
+  end
+
+  def test_ensure_clause_should_be_evaluated_when_an_exception_is_raised_and_not_rescued
+    ensured = false
+
+    assert_raise do
+      begin
+        raise
+      ensure
+        ensured = true
+      end
+    end
+
+    assert(ensured, 'ensure clause not evaluated')
+  end
+
+  def test_else_clause_should_not_be_evaluated_when_no_exceptions_are_raised
+    else_evaluated = false
+
+    begin
+      :foo
+    rescue
+    else
+      else_evaluated = true
+    end
+
+    assert(!else_evaluated, 'else was evaluated')
+  end
+
+  def test_else_clause_should_not_be_evaluated_when_exception_is_raised_and_rescued
+    else_evaluated = false
+    rescue_evaluated = false
+
+    begin
+      raise(ErrorTestException1)
+    rescue ErrorTestException1
+      rescue_evaluated = true
+    else
+      else_evaluated = true
+    end
+
+    assert(rescue_evaluated, 'rescue was not evaluated')
+    assert(!else_evaluated, 'else was evaluated')
+  end
+
+  def test_else_clause_should_be_evaluated_when_exception_is_raised_and_not_rescued
+    else_evaluated = false
+    rescue_evaluated = false
+
+    assert_raise do
+      begin
+        raise(ErrorTestException1)
+      rescue ErrorTestException2
+        rescue_evaluated = true
+      else
+        else_evaluated = true
+      end
+    end
+
+    assert(!rescue_evaluated, 'rescue was evaluated')
+    assert(else_evaluated, 'else was not evaluated')
+  end
 end
+

@@ -345,9 +345,9 @@ Bully.Evaluator = {
     if (captured) {
       Bully.current_exception = captured;
 
-      for (i = 0; i < node.rescues.length; i += 1) {
+      for (i = 0; i < node.rescues.length && !handled; i += 1) {
         rescue = node.rescues[i];
-        types  = rescue.exception_types;
+        types  = rescue.exception_types || [{type: 'ConstantRef', name: 'StandardError'}];
 
         for (j = 0; j < types.length && !handled; j += 1) {
           // FIXME: lookup constant for real
@@ -363,6 +363,10 @@ Bully.Evaluator = {
             Bully.current_exception = null;
           }
         }
+      }
+
+      if (!handled && node.else_body) {
+        this.evaluateBody(node.else_body.body, ctx);
       }
     }
 
