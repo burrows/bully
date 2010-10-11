@@ -1,0 +1,57 @@
+require('unit_test')
+
+class HashTest < UnitTest
+  def test_hash_assignment_and_retrieval
+    h = {}
+    o1 = Object.new
+    o2 = Object.new
+    h[:foo] = 'bar'
+    h['stuff'] = 12
+    h[2] = 3
+    h[o1] = o2
+
+    assert_equal('bar', h[:foo])
+    assert_equal(12, h['stuff'])
+    assert_equal(3, h[2])
+    assert_equal(o2, h[o1])
+  end
+
+  def test_hash_retrieval_with_unknown_key_should_return_nil
+    h = {}
+    assert_equal(nil, h[:unknown])
+  end
+
+  def test_keys_method_should_return_an_array_of_all_keys_in_the_hash
+    h = {}
+    o1 = Object.new
+    o2 = Object.new
+    h[:foo] = 'bar'
+    h['stuff'] = 12
+    h[2] = 3
+    h[o1] = o2
+
+    assert_equal([:foo, 'stuff', 2, o1], h.keys)
+  end
+
+  def test_values_method_should_return_an_array_of_all_values_in_the_hash
+    h = {}
+    o1 = Object.new
+    o2 = Object.new
+    h[:foo] = 'bar'
+    h['stuff'] = 12
+    h[2] = 3
+    h[o1] = o2
+
+    assert_equal(['bar', 12, 3, o2], h.values)
+  end
+
+  def test_inspect_should_return_a_string_representation_of_the_hash
+    h = {
+      :foo => 1,
+      'bar' => 2,
+      9 => 'qux'
+    }
+
+    assert_equal('{:foo => 1, "bar" => 2, 9 => "qux"}', h.inspect)
+  end
+end

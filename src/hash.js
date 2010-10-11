@@ -16,7 +16,8 @@ Bully.hash_set = function(hash, key, value) {
 
 Bully.hash_get = function(hash, key) {
   key = Bully.dispatch_method(key, 'hash');
-  return hash[key];
+
+  return hash.hasOwnProperty(key) ? hash[key] : null;
 };
 
 Bully.init_hash = function() {
