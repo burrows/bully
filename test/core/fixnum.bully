@@ -82,6 +82,11 @@ class FixnumTest < UnitTest
     assert_equal(false, 9 == 10)
   end
 
+  def test_not_equal
+    assert_equal(false, 9 != 9)
+    assert_equal(true, 9 != 10)
+  end
+
   def test_less_than
     assert_equal(true, 187 < 212)
     assert_equal(false, 88 < 19)
