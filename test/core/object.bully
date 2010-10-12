@@ -6,6 +6,9 @@ class ObjectTestClass1
 end
 
 class ObjectTestClass2 < ObjectTestClass1
+  def method_missing(*args)
+    args
+  end
 end
 
 class ObjectTest < UnitTest
@@ -68,9 +71,17 @@ class ObjectTest < UnitTest
     assert_equal([1,2,3], ObjectTestClass1.new.send(:bar, 1, 2, 3))
   end
 
-  def test_calling_a_method_that_does_not_exist_should_raise_a_NoMethodError
+  def test_calling_an_unknown_method_should_raise_a_NoMethodError
     assert_raise(NoMethodError) { Object.new.doesnotexit }
     assert_raise(NoMethodError) { Object.new.send(:doesnotexist) }
+  end
+
+  def test_calling_an_unknown_method_on_an_object_whose_class_implements_method_missing_should_call_method_missing
+    assert_nothing_raised do
+      ObjectTestClass2.new.whatsit
+    end
+
+    assert_equal([:idontexist, 1, 2, 3], ObjectTestClass2.new.idontexist(1,2,3))
   end
 
   def test_double_equal_should_return_true_only_if_both_objects_are_identical
