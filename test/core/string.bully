@@ -1,0 +1,73 @@
+require('unit_test')
+
+class StringTest < UnitTest
+  def test_superclass_of_String_should_be_Object
+    assert_equal(Object, String.superclass)
+  end
+
+  def test_class_of_a_string_literal_should_be_String
+    assert_equal(String, "string".class)
+  end
+
+  def test_to_s_method_should_return_self
+    assert_equal('foo', 'foo'.to_s)
+    assert_equal('1 2 3', '1 2 3'.to_s)
+  end
+
+  def test_inspect_method_should_return_quoted_string_representation_of_string
+    assert_equal('"foo"', 'foo'.inspect)
+    assert_equal('"1 2 3"', '1 2 3'.inspect)
+  end
+
+  def test_append_operator_should_concatenate_right_side_string_to_left_side_string
+    s = "hello"
+    s << " world!"
+    assert_equal("hello world!", s)
+  end
+  
+  def test_to_sym_method_should_convert_receiver_to_a_Symbol_object
+    assert_equal(:symbol, "symbol".to_sym)
+  end
+
+  def test_hash_method_should_return_an_interger_hashed_from_the_receiver_string
+    i1 = "some string".hash
+    i2 = "some string".hash
+    i3 = "some string2".hash
+    assert_equal(Fixnum, i1.class)
+    assert_equal(Fixnum, i2.class)
+    assert_equal(Fixnum, i3.class)
+    assert(i1 == i2, "same strings don't hash to same value")
+    assert(i1 != i3, "different strings hash to same value")
+  end
+
+  def test_double_equals_method_should_return_true_for_identical_string_references
+    s1 = "a"
+    s2 = s1
+
+    assert_equal(true, s1 == s2)
+  end
+
+  def test_double_equals_method_should_return_true_for_different_string_references_with_the_same_value
+    s1 = "str"
+    s2 = "str"
+    assert_equal(true, s1 == s2)
+  end
+
+  def test_double_equals_method_should_return_false_for_different_strings
+    s1 = "s1"
+    s2 = "s2"
+    assert_equal(false, s1 == s2)
+  end
+
+  def test_slice_method_should_return_new_string_starting_at_index_of_first_argument_with_length_of_second_argument
+    assert_equal("the test string", "the test string".slice(0, 15))
+    assert_equal("the test string", "the test string".slice(0, 16))
+    assert_equal("the", "the test string".slice(0, 3))
+    assert_equal("", "the test string".slice(4, 0))
+    assert_equal("t", "the test string".slice(4, 1))
+    assert_equal("te", "the test string".slice(4, 2))
+    assert_equal("tes", "the test string".slice(4, 3))
+    assert_equal("test", "the test string".slice(4, 4))
+  end
+end
+

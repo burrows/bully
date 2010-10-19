@@ -23,13 +23,13 @@ Bully.str_hash = function(str) {
   key ^= (key >> 11);
   key += (key << 15);
 
-  return key;
+  return Bully.int2fix(key);
 };
 
 Bully.str_slice = function(str, args) {
   var s = str.data, i1 = Bully.fix2int(args[0]), i2 = Bully.fix2int(args[1]);
 
-  return Bully.str_new(s.slice(i1, i2));
+  return Bully.str_new(s.slice(i1, i1 + i2));
 };
 
 Bully.str_equals = function(str, args) {
@@ -47,16 +47,16 @@ Bully.init_string = function() {
 
   Bully.define_method(Bully.String, 'to_s', function(self, args) {
     return self;
-  });
+  }, 0, 0);
 
   Bully.define_method(Bully.String, 'inspect', function(self, args) {
     return Bully.str_new('"' + self.data + '"');
-  });
+  }, 0, 0);
 
   Bully.define_method(Bully.String, '<<', function(self, args) {
     Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s').data);
     return self;
-  });
+  }, 1, 1);
 
   Bully.define_method(Bully.String, 'to_sym', function(self, args) {
     return Bully.intern(self.data);
