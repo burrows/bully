@@ -1,0 +1,33 @@
+require('unit_test')
+
+class SymbolTest < UnitTest
+  def test_superclass_of_Symbol_should_be_Object
+    assert_equal(Object, Symbol.superclass)
+  end
+
+  def test_class_of_a_symbol_should_be_Symbol
+    assert_equal(Symbol, :abc.class)
+    assert_equal(Symbol, "xyz".to_sym.class)
+  end
+
+  def test_inspect_method_should_return_string_representation_of_symbol
+    assert_equal(':foo', :foo.inspect)
+    assert_equal(':bar', :bar.inspect)
+  end
+
+  def test_double_equals_method_should_retun_true_if_symbols_are_the_same_and_false_otherwise
+    assert_equal(true, :foo == :foo)
+    assert_equal(false, :foo == :bar)
+  end
+
+  def test_object_id_method_should_return_the_same_value_for_different_references_to_the_same_symbol
+    assert_equal(:hello.object_id, :hello.object_id)
+    assert_equal(:bully.object_id, "bully".to_sym.object_id)
+  end
+
+  def test_to_s_method_should_return_string_value_of_the_symbol
+    assert_equal('symbol', :symbol.to_s)
+    assert_equal('hello world', 'hello world'.to_sym.to_s)
+  end
+end
+

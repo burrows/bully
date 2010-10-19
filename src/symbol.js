@@ -35,5 +35,9 @@ Bully.init_symbol = function() {
   }, 0, 0);
 
   Bully.define_method(Bully.Symbol, '==', Bully.sym_equals, 1, 1);
+
+  Bully.define_method(Bully.Symbol, 'to_s', function(self) {
+    return Bully.str_new(Bully.id2str(self));
+  }, 0, 0);
 };
 
