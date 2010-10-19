@@ -90,5 +90,32 @@ class ObjectTest < UnitTest
     assert_equal(true, o1 == o1)
     assert_equal(false, o1 == o2)
   end
+
+  def test_class_method_should_return_Fixnum_for_integers
+    assert_equal(Fixnum, 1.class)
+    assert_equal(Fixnum, 123456789.class)
+  end
+
+  def test_class_method_should_return_Symbol_for_symbols
+    assert_equal(Symbol, :foo.class)
+    assert_equal(Symbol, :bar.class)
+  end
+
+  def test_class_method_should_return_NilClass_for_nil
+    assert_equal(NilClass, nil.class)
+  end
+
+  def test_class_method_should_return_TrueClass_for_true
+    assert_equal(TrueClass, true.class)
+  end
+
+  def test_class_method_should_return_FalseClass_for_false
+    assert_equal(FalseClass, false.class)
+  end
+
+  def test_class_method_should_return_objects_class_for_non_immediate_objects
+    assert_equal(Object, Object.new.class)
+    assert_equal(ObjectTestClass2, ObjectTestClass2.new.class)
+  end
 end
 
