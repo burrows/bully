@@ -32,13 +32,14 @@ Bully.test = function(obj) {
  * being wrapped in an Object instance.  The following types of objects are
  * immediate objects:
  *   * Symbol
- *   * Fixnum
+ *   * Number
  *   * NilClass
  *   * TrueClass
  *   * FalseClass
  */
 Bully.is_immediate = function(obj) {
   return typeof obj === 'number' ||
+                obj === 'string' ||
                 obj === null     ||
                 obj === true     ||
                 obj === false;
@@ -165,11 +166,11 @@ Bully.init = function() {
   Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
     var methods       = [],
         klass         = self,
-        include_super = args.length > 0 ?args[0] : true, id;
+        include_super = args.length > 0 ?args[0] : true, symbol;
 
     do {
-      for (id in klass.m_tbl) {
-        methods.push(Bully.str_new(Bully.id2str(id)));
+      for (symbol in klass.m_tbl) {
+        methods.push(Bully.str_new(symbol));
       }
 
       klass = klass._super;
@@ -209,10 +210,11 @@ Bully.init = function() {
   });
 
   Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
-    var klass = Bully.real_class_of(self),
-        name  = Bully.dispatch_method(klass, 'name').data;
+    var klass     = Bully.real_class_of(self),
+        name      = Bully.dispatch_method(klass, 'name').data,
+        object_id = Bully.dispatch_method(self, 'object_id');
 
-    return Bully.str_new('#<' + name + ':' + self.id + '>');
+    return Bully.str_new('#<' + name + ':' + object_id + '>');
   });
 
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
@@ -223,11 +225,11 @@ Bully.init = function() {
   Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
 
   Bully.define_method(Bully.Kernel, 'send', function(self, args) {
-    var id = args[0];
+    var name = args[0];
     
     args = args.slice(1);
 
-    return Bully.dispatch_method(self, Bully.id2str(id), args);
+    return Bully.dispatch_method(self, name, args);
   }, 1, -1);
 
   Bully.define_method(Bully.Kernel, '!', function(self, args) {
@@ -251,8 +253,7 @@ Bully.init = function() {
   }, 0, 0);
 
   Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
-    var code = args[0] ? Bully.fix2int(args[0]) : 0,
-        at_exit = Bully.at_exit;
+    var code = args[0] || 0, at_exit = Bully.at_exit;
 
     Bully.at_exit = null;
 
@@ -322,12 +323,13 @@ Bully.init = function() {
   }, 1, 1);
 
   Bully.define_method(Bully.Kernel, 'object_id', function(self, args) {
-    if      (typeof self === 'number') { return Bully.int2fix(self); }
-    else if (self === false)           { return Bully.int2fix(0); }
-    else if (self === true)            { return Bully.int2fix(2); }
-    else if (self === null)            { return Bully.int2fix(4); }
+    if      (typeof self === 'number') { return 'number-' + self.toString(); }
+    else if (typeof self === 'string') { return 'symbol-' + self; }
+    else if (self === false)           { return 'boolean-false'; }
+    else if (self === true)            { return 'boolean-true'; }
+    else if (self === null)            { return 'nil-nil'; }
 
-    return Bully.int2fix(self.id);
+    return 'object' + self.id;
   }, 0, 0);
 
   Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
@@ -342,7 +344,7 @@ Bully.init = function() {
   }, 1, 1);
 
   Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
-    var name = Bully.id2str(args[0]),
+    var name = args[0],
         message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect').data;
     Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
@@ -389,7 +391,7 @@ Bully.init = function() {
 
   Bully.init_symbol();
   Bully.init_string();
-  Bully.init_fixnum();
+  Bully.init_number();
   Bully.init_error();
   Bully.init_enumerable();
   Bully.init_array();

@@ -208,10 +208,11 @@ Bully.find_method = function(klass, id) {
 };
 
 Bully.class_of = function(obj) {
-  if (typeof obj === 'number') { return (obj & 1) ? Bully.Fixnum : Bully.Symbol; }
-  else if (obj === null)       { return Bully.NilClass; }
-  else if (obj === true)       { return Bully.TrueClass; }
-  else if (obj === false)      { return Bully.FalseClass; }
+  if (typeof obj === 'number')      { return Bully.Number; }
+  else if (typeof obj === 'string') { return Bully.Symbol; }
+  else if (obj === null)            { return Bully.NilClass; }
+  else if (obj === true)            { return Bully.TrueClass; }
+  else if (obj === false)           { return Bully.FalseClass; }
 
   return obj.klass;
 };

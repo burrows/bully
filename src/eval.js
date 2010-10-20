@@ -293,7 +293,7 @@ Bully.Evaluator = {
   },
 
   evaluateSymbolLiteral: function(node, ctx) {
-    return Bully.intern(node.value.slice(1));
+    return node.value.slice(1);
   },
 
   evaluateTrueLiteral: function(node, ctx) {
@@ -309,7 +309,7 @@ Bully.Evaluator = {
   },
 
   evaluateNumberLiteral: function(node, ctx) {
-    return Bully.int2fix(parseInt(node.value, 10));
+    return parseFloat(node.value);
   },
 
   evaluateArrayLiteral: function(node, ctx) {

@@ -20,17 +20,7 @@ class ObjectTest < UnitTest
     assert_equal(nil, Object.superclass)
   end
 
-  def test_object_instances_should_have_unique_incrementing_object_ids
-    id1 = Object.new.object_id
-
-    assert(id1.is_a?(Fixnum))
-
-    10.times do
-      id2 = Object.new.object_id
-      assert(id2 > id1)
-      id1 = id2
-    end
-  end
+  # FIXME: add object_id tests
 
   def test_to_s_method_should_return_a_string_containing_class_name_and_object_id
     o1 = Object.new
@@ -91,9 +81,14 @@ class ObjectTest < UnitTest
     assert_equal(false, o1 == o2)
   end
 
-  def test_class_method_should_return_Fixnum_for_integers
-    assert_equal(Fixnum, 1.class)
-    assert_equal(Fixnum, 123456789.class)
+  def test_class_method_should_return_Number_for_integers
+    assert_equal(Number, 1.class)
+    assert_equal(Number, 123456789.class)
+  end
+
+  def test_class_method_should_return_Number_for_floats
+    assert_equal(Number, 1.1.class)
+    assert_equal(Number, 3.1415.class)
   end
 
   def test_class_method_should_return_Symbol_for_symbols

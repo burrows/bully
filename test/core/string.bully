@@ -33,9 +33,9 @@ class StringTest < UnitTest
     i1 = "some string".hash
     i2 = "some string".hash
     i3 = "some string2".hash
-    assert_equal(Fixnum, i1.class)
-    assert_equal(Fixnum, i2.class)
-    assert_equal(Fixnum, i3.class)
+    assert_equal(Number, i1.class)
+    assert_equal(Number, i2.class)
+    assert_equal(Number, i3.class)
     assert(i1 == i2, "same strings don't hash to same value")
     assert(i1 != i3, "different strings hash to same value")
   end

@@ -110,9 +110,9 @@ Bully.Lexer.prototype = {
         tokens.push(['CONSTANT', match, line]);
         pos += match.length;
       }
-      else if ((match = chunk.match(/^([0-9]+)/))) {
+      else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
         match = match[1];
-        tokens.push(['NUMBER', parseInt(match, 10), line]);
+        tokens.push(['NUMBER', parseFloat(match), line]);
         pos += match.length;
       }
       // double quoted strings

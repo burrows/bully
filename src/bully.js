@@ -12,7 +12,7 @@ global.Bully = exports.Bully = {};
   'error',
   'array',
   'hash',
-  'numeric',
+  'number',
   'enumerable'
 ].forEach(function(name) { require('./' + name); });
 

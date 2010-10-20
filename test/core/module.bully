@@ -95,7 +95,7 @@ class ModuleTest < UnitTest
   end
 
   def test_include_must_be_passed_a_module_object
-    assert_raise(TypeError, 'wrong argument type Fixnum (expected Module)') do
+    assert_raise(TypeError, 'wrong argument type Number (expected Module)') do
       class TestModuleClass1; include(9); end
     end
   end

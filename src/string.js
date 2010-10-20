@@ -23,11 +23,11 @@ Bully.str_hash = function(str) {
   key ^= (key >> 11);
   key += (key << 15);
 
-  return Bully.int2fix(key);
+  return key;
 };
 
 Bully.str_slice = function(str, args) {
-  var s = str.data, i1 = Bully.fix2int(args[0]), i2 = Bully.fix2int(args[1]);
+  var s = str.data, i1 = args[0], i2 = args[1];
 
   return Bully.str_new(s.slice(i1, i1 + i2));
 };

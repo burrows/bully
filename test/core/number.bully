@@ -1,6 +1,6 @@
 require('unit_test')
 
-class FixnumTest < UnitTest
+class NumberTest < UnitTest
   def test_to_s_method_should_return_string_represention_of_number
     assert_equal('9', 9.to_s)
     assert_equal('112', 112.to_s)
@@ -44,7 +44,7 @@ class FixnumTest < UnitTest
 
   def test_division
     assert_equal(22, 88 / 4)
-    assert_equal(4, 9 / 2)
+    assert_equal(4.5, 9 / 2)
   end
 
   def test_modulus
