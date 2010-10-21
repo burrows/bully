@@ -3,4 +3,4 @@
 	url = http://github.com/zaach/jison.git
 [submodule "vendor/nodelint"]
 	path = vendor/nodelint
-	url = http://github.com/tav/nodelint.js.git
+	url = http://github.com/tav/nodelint.git

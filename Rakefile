@@ -6,7 +6,7 @@ end
 
 task :lint do
   files = ENV['FILES'] ? ENV['FILES'].split(/\s+/) : FileList['src/**/*.js'] - ['src/parser.js']
-  sh "node vendor/nodelint/nodelint.js #{files.join(' ')} --config config/lint.js"
+  sh "node vendor/nodelint/nodelint #{files.join(' ')} --config config/lint.js"
 end
 
 namespace :build do
