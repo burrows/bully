@@ -2,9 +2,6 @@ require.paths.unshift('vendor/jison/lib');
 
 var Parser = require('jison').Parser;
 
-// FIXME: Jison trys to use the deprecated global puts method
-global.puts = require('sys').puts;
-
 function o(rule, action) {
   return [rule, action || '$$ = $1;'];
 }
