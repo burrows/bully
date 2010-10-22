@@ -1,5 +1,5 @@
 /* Jison generated parser */
-var parser = (function(){
+Bully.parser = (function(){
 var parser = {trace: function trace() { },
 yy: {},
 symbols_: {"error":2,"Root":3,"Body":4,"Expression":5,"Statement":6,"Terminator":7,";":8,"NEWLINE":9,"Return":10,"Literal":11,"ArrayLiteral":12,"HashLiteral":13,"Assignment":14,"VariableRef":15,"Def":16,"Class":17,"Module":18,"Call":19,"Operation":20,"Logical":21,"If":22,"Self":23,"BeginBlock":24,"SELF":25,"RETURN":26,"NUMBER":27,"STRING":28,"SYMBOL":29,"NIL":30,"TRUE":31,"FALSE":32,"IDENTIFIER":33,"OptBlock":34,"(":35,"ArgList":36,")":37,".":38,"[":39,"]":40,"=":41,"SUPER":42,"YIELD":43,"**":44,"!":45,"~":46,"+":47,"-":48,"*":49,"/":50,"%":51,"<<":52,">>":53,"&":54,"^":55,"|":56,"<=":57,"<":58,">":59,">=":60,"<=>":61,"==":62,"===":63,"!=":64,"=~":65,"!~":66,"&&":67,"||":68,"Block":69,"DO":70,"BlockParamList":71,"END":72,"{":73,"}":74,"IfStart":75,"ELSE":76,"IF":77,"Then":78,"ElsIf":79,"ELSIF":80,"THEN":81,",":82,"AssocList":83,"=>":84,"DEF":85,"ParamList":86,"SingletonDef":87,"ReqParamList":88,"SplatParam":89,"OptParamList":90,"@":91,"CONSTANT":92,"ConstantRef":93,"CLASS":94,"MODULE":95,"BEGIN":96,"RescueBlocks":97,"EnsureBlock":98,"ElseBlock":99,"RescueBlock":100,"RESCUE":101,"Do":102,"ExceptionTypes":103,"ENSURE":104,"$accept":0,"$end":1},
@@ -309,7 +309,7 @@ parse: function parse(input) {
         stack = [0],
         vstack = [null], // semantic value stack
         table = this.table,
-        yytext = '',
+        yytext = "",
         yylineno = 0,
         yyleng = 0,
         shifts = 0,
@@ -480,8 +480,8 @@ parse: function parse(input) {
 return parser;
 })();
 if (typeof require !== 'undefined') {
-exports.parser = parser;
-exports.parse = function () { return parser.parse.apply(parser, arguments); }
+exports.parser = Bully.parser;
+exports.parse = function () { return Bully.parser.parse.apply(Bully.parser, arguments); }
 exports.main = function commonjsMain(args) {
     if (!args[1])
         throw new Error('Usage: '+args[0]+' FILE');
@@ -493,7 +493,7 @@ exports.main = function commonjsMain(args) {
     }
     return exports.parser.parse(source);
 }
-if (require.main === module) {
+if (typeof module !== 'undefined' && require.main === module) {
   exports.main(typeof process !== 'undefined' ? process.argv.slice(1) : require("system").args);
 }
 }

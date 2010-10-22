@@ -41,7 +41,7 @@ Bully.init_string = function() {
 
   Bully.define_singleton_method(Bully.String, 'allocate', function(self, args) {
     var o = Bully.make_object();
-    o.data = '';
+    o.data = "";
     return o;
   });
 

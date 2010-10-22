@@ -1,5 +1,5 @@
 
-task :test => :lint do
+task :test do
   files = FileList['test/**/*.bully']
   sh "./bin/bully #{files.join(' ')}"
 end
@@ -10,10 +10,19 @@ task :lint do
 end
 
 namespace :build do
+  desc 'Generate the parser'
   task :parser do
     sh "node bin/build_parser.js"
   end
+
+  desc 'Preprocess javascript files'
+  task :preprocess do
+    sh "clang -x c -E -P -undef -Wundef -nostdinc -Wtrigraphs -fdollars-in-identifiers -C src/bully.js.pre >src/bully.js"
+  end
 end
+
+desc 'Build the project'
+task :build => ['build:parser', 'build:preprocess']
 
 task :default => :test
 

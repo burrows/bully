@@ -1,0 +1,36 @@
+exports.Bully = Bully = {};
+
+#include "lexer.js"
+#include "rewriter.js"
+#include "eval.js"
+#include "class.js"
+#include "variable.js"
+#include "object.js"
+#include "platform/node.js"
+#include "symbol.js"
+#include "string.js"
+#include "error.js"
+#include "array.js"
+#include "hash.js"
+#include "number.js"
+#include "enumerable.js"
+#include "parser.js"
+
+Bully.parser.lexer = {
+  lex: function() {
+    var token = this.tokens[this.pos] || [""];
+    this.pos = this.pos + 1;
+    this.yylineno = token[2];
+    this.yytext = token[1];
+    return token[0];
+  },
+  setInput: function(tokens) {
+    this.tokens = tokens;
+    this.pos = 0;
+  },
+  upcomingInput: function() { return ""; },
+  showPosition: function() { return this.pos; }
+};
+
+Bully.init();
+

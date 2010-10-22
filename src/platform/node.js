@@ -8,7 +8,7 @@ Bully.platform = {
   exit: process.exit,
   locate_lib: function(lib) {
     // FIXME: don't hardcode lib path
-    return path.join('./src/lib', lib) + '.bully';
+    return path.join('./lib', lib) + '.bully';
   },
   read_file: function(path) {
     return fs.readFileSync(path, 'ascii');
