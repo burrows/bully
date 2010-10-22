@@ -153,7 +153,7 @@ Bully.init = function() {
   });
 
   Bully.define_method(Bully.Class, 'new', function(self, args) {
-    var o = Bully.dispatch_method(self, 'allocate');
+    var o = send(self, 'allocate');
     o.klass = self;
 
     if (Bully.respond_to(o, 'initialize')) {
@@ -192,8 +192,8 @@ Bully.init = function() {
   Bully.define_method(Bully.Class, 'include', function(self, args) {
     var mod = args[0], name;
 
-    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
-      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class'), 'name');
+    if (!send(mod, 'is_a?', Bully.Module)) {
+      name = send(send(mod, 'class'), 'name');
       Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
     }
 
@@ -211,8 +211,8 @@ Bully.init = function() {
 
   Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
     var klass     = Bully.real_class_of(self),
-        name      = Bully.dispatch_method(klass, 'name').data,
-        object_id = Bully.dispatch_method(self, 'object_id');
+        name      = send(klass, 'name').data,
+        object_id = send(self, 'object_id');
 
     return Bully.str_new('#<' + name + ':' + object_id + '>');
   });
@@ -237,13 +237,13 @@ Bully.init = function() {
   }, 0, 0);
 
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s').data;
+    var str = send(args[0], 'to_s').data;
     Bully.platform.puts(str);
     return null;
   });
 
   Bully.define_module_method(Bully.Kernel, 'print', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s').data;
+    var str = send(args[0], 'to_s').data;
     Bully.platform.print(str);
     return null;
   });
@@ -258,14 +258,14 @@ Bully.init = function() {
     Bully.at_exit = null;
 
     if (at_exit) {
-      Bully.dispatch_method(at_exit, 'call');
+      send(at_exit, 'call');
     }
 
     Bully.platform.exit(code);
   }, 0, 1);
 
   Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'inspect').data;
+    var str = send(args[0], 'inspect').data;
     Bully.platform.puts(str);
     return null;
   });
@@ -285,14 +285,14 @@ Bully.init = function() {
 
     if (args.length === 0) {
       exception = Bully.current_exception ||
-        Bully.dispatch_method(Bully.RuntimeError, 'new');
+        send(Bully.RuntimeError, 'new');
     }
     else if (args.length === 1) {
-      if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
-        exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
+      if (send(args[0], 'is_a?', Bully.String)) {
+        exception = send(Bully.RuntimeError, 'new', args[0]);
       }
       else if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception');
+        exception = send(args[0], 'exception');
       }
       else {
         Bully.raise(Bully.TypeError, 'exception class/object expected');
@@ -300,7 +300,7 @@ Bully.init = function() {
     }
     else {
       if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception', [args[1]]);
+        exception = send(args[0], 'exception', args[1]);
       }
       else {
         Bully.raise(Bully.TypeError, 'exception class/object expected');
@@ -345,7 +345,7 @@ Bully.init = function() {
 
   Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
     var name = args[0],
-        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect').data;
+        message = "undefined method '" + name + "' for " + send(self, 'inspect').data;
     Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
 
@@ -384,7 +384,7 @@ Bully.init = function() {
   });
 
   // main (top level self)
-  Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
+  Bully.main = send(Bully.Object, 'new');
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.str_new('main');
   });

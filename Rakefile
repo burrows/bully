@@ -1,5 +1,5 @@
 
-task :test do
+task :test => 'build:preprocess' do
   files = FileList['test/**/*.bully']
   sh "./bin/bully #{files.join(' ')}"
 end

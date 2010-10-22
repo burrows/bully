@@ -1,6 +1,6 @@
 
 Bully.str_new = function(js_str) {
-  var s = Bully.dispatch_method(Bully.String, 'new');
+  var s = send(Bully.String, 'new');
   s.data = js_str;
   return s;
 };
@@ -54,7 +54,7 @@ Bully.init_string = function() {
   }, 0, 0);
 
   Bully.define_method(Bully.String, '<<', function(self, args) {
-    Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s').data);
+    Bully.str_cat(self, send(args[0], 'to_s').data);
     return self;
   }, 1, 1);
 

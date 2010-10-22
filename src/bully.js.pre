@@ -1,5 +1,7 @@
 exports.Bully = Bully = {};
 
+#define send(obj, name, ...) Bully.dispatch_method(obj, name, [__VA_ARGS__])
+
 #include "lexer.js"
 #include "rewriter.js"
 #include "eval.js"

@@ -29,7 +29,7 @@ Bully.Evaluator = {
     }
     catch (e) {
       if (Bully.respond_to(e, 'inspect')) {
-        Bully.platform.puts(Bully.dispatch_method(e, 'inspect').data);
+        Bully.platform.puts(send(e, 'inspect').data);
       }
       else {
         Bully.platform.puts(e);
@@ -353,7 +353,7 @@ Bully.Evaluator = {
           // FIXME: lookup constant for real
           type = Bully.const_get(Bully.Object, types[j].name);
 
-          if (Bully.dispatch_method(captured, 'is_a?', [type])) {
+          if (send(captured, 'is_a?', type)) {
             handled = true;
             if (rescue.name) {
               ctx.set_var(rescue.name, captured);

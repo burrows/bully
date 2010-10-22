@@ -9,13 +9,13 @@ Bully.hash_set = function(hash, key, value) {
 
   if (keys.indexOf(key) === -1) { keys.push(key); }
 
-  key = Bully.dispatch_method(key, 'hash');
+  key = send(key, 'hash');
   hash[key] = value;
   return value;
 };
 
 Bully.hash_get = function(hash, key) {
-  key = Bully.dispatch_method(key, 'hash');
+  key = send(key, 'hash');
 
   return hash.hasOwnProperty(key) ? hash[key] : null;
 };
@@ -53,8 +53,8 @@ Bully.init_hash = function() {
     var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
 
     for (i = 0; i < keys.length; i += 1) {
-      s = Bully.dispatch_method(keys[i], 'inspect').data + ' => ';
-      s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect').data;
+      s = send(keys[i], 'inspect').data + ' => ';
+      s += send(Bully.hash_get(self, keys[i]), 'inspect').data;
       elems.push(s);
     }
 

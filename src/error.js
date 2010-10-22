@@ -1,7 +1,7 @@
 Bully.raise = function(exception, message) {
   var args;
 
-  if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
+  if (send(exception, 'is_a?', Bully.Class)) {
     args      = message ? [Bully.str_new(message)] : [];
     exception = Bully.dispatch_method(exception, 'new', args);
   }
@@ -14,7 +14,7 @@ Bully.init_error = function() {
 
   Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
     Bully.ivar_set(self, '@message', args[0] ||
-      Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'));
+      send(send(self, 'class'), 'name'));
   }, 0, 1);
 
   Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
@@ -26,15 +26,15 @@ Bully.init_error = function() {
   });
 
   Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'),
-        message = Bully.dispatch_method(self, 'message');
+    var name = send(send(self, 'class'), 'name'),
+        message = send(self, 'message');
 
     return Bully.str_new(name.data + ': ' + message.data);
   });
 
   Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name');
-    return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message').data + '>');
+    var name = send(send(self, 'class'), 'name');
+    return Bully.str_new('#<' + name.data + ': ' + send(self, 'message').data + '>');
   });
 
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);

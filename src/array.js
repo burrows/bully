@@ -48,7 +48,7 @@ Bully.init_array = function() {
     var i = 0, elems = [];
 
     for (i = 0; i < self.length; i += 1) {
-      elems.push(Bully.dispatch_method(self[i], 'inspect').data);
+      elems.push(send(self[i], 'inspect').data);
     }
 
     return Bully.str_new('[' + elems.join(', ') + ']');
@@ -73,7 +73,7 @@ Bully.init_array = function() {
     var strings = [], elem, i;
 
     for (i = 0; i < self.length; i += 1) {
-      strings.push(Bully.dispatch_method(self[i], 'to_s').data);
+      strings.push(send(self[i], 'to_s').data);
     }
 
     return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
@@ -83,7 +83,7 @@ Bully.init_array = function() {
     var i;
 
     for (i = 0; i < self.length; i += 1) {
-      if (Bully.dispatch_method(self[i], '==', [args[0]])) {
+      if (send(self[i], '==', args[0])) {
         return true;
       }
     }
@@ -94,11 +94,11 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, '==', function(self, args) {
     var other = args[0], i;
 
-    if (!Bully.dispatch_method(other, 'is_a?', [Bully.Array])) { return false; }
+    if (!send(other, 'is_a?', Bully.Array)) { return false; }
     if (self.length !== other.length) { return false; }
 
     for (i = 0; i < self.length; i += 1) {
-      if (!Bully.dispatch_method(self[i], '==', [other[i]])) { return false; }
+      if (!send(self[i], '==', other[i])) { return false; }
     }
 
     return true;

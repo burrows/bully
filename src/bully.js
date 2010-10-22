@@ -240,7 +240,7 @@ Bully.Evaluator = {
     }
     catch (e) {
       if (Bully.respond_to(e, 'inspect')) {
-        Bully.platform.puts(Bully.dispatch_method(e, 'inspect').data);
+        Bully.platform.puts(Bully.dispatch_method(e, 'inspect', []).data);
       }
       else {
         Bully.platform.puts(e);
@@ -953,7 +953,7 @@ Bully.init = function() {
     return Bully.make_object();
   });
   Bully.define_method(Bully.Class, 'new', function(self, args) {
-    var o = Bully.dispatch_method(self, 'allocate');
+    var o = Bully.dispatch_method(self, 'allocate', []);
     o.klass = self;
     if (Bully.respond_to(o, 'initialize')) {
       Bully.dispatch_method(o, 'initialize', args);
@@ -982,7 +982,7 @@ Bully.init = function() {
   Bully.define_method(Bully.Class, 'include', function(self, args) {
     var mod = args[0], name;
     if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
-      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class'), 'name');
+      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class', []), 'name', []);
       Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
     }
     Bully.include_module(self, args[0]);
@@ -995,8 +995,8 @@ Bully.init = function() {
   });
   Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
     var klass = Bully.real_class_of(self),
-        name = Bully.dispatch_method(klass, 'name').data,
-        object_id = Bully.dispatch_method(self, 'object_id');
+        name = Bully.dispatch_method(klass, 'name', []).data,
+        object_id = Bully.dispatch_method(self, 'object_id', []);
     return Bully.str_new('#<' + name + ':' + object_id + '>');
   });
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
@@ -1013,12 +1013,12 @@ Bully.init = function() {
     return !Bully.test(self);
   }, 0, 0);
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s').data;
+    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
     Bully.platform.puts(str);
     return null;
   });
   Bully.define_module_method(Bully.Kernel, 'print', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s').data;
+    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
     Bully.platform.print(str);
     return null;
   });
@@ -1029,12 +1029,12 @@ Bully.init = function() {
     var code = args[0] || 0, at_exit = Bully.at_exit;
     Bully.at_exit = null;
     if (at_exit) {
-      Bully.dispatch_method(at_exit, 'call');
+      Bully.dispatch_method(at_exit, 'call', []);
     }
     Bully.platform.exit(code);
   }, 0, 1);
   Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'inspect').data;
+    var str = Bully.dispatch_method(args[0], 'inspect', []).data;
     Bully.platform.puts(str);
     return null;
   });
@@ -1052,14 +1052,14 @@ Bully.init = function() {
     var exception;
     if (args.length === 0) {
       exception = Bully.current_exception ||
-        Bully.dispatch_method(Bully.RuntimeError, 'new');
+        Bully.dispatch_method(Bully.RuntimeError, 'new', []);
     }
     else if (args.length === 1) {
       if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
         exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
       }
       else if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception');
+        exception = Bully.dispatch_method(args[0], 'exception', []);
       }
       else {
         Bully.raise(Bully.TypeError, 'exception class/object expected');
@@ -1101,7 +1101,7 @@ Bully.init = function() {
   }, 1, 1);
   Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
     var name = args[0],
-        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect').data;
+        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect', []).data;
     Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
   // Object
@@ -1179,7 +1179,7 @@ Bully.init_symbol = function() {
   }, 0, 0);
 };
 Bully.str_new = function(js_str) {
-  var s = Bully.dispatch_method(Bully.String, 'new');
+  var s = Bully.dispatch_method(Bully.String, 'new', []);
   s.data = js_str;
   return s;
 };
@@ -1220,7 +1220,7 @@ Bully.init_string = function() {
     return Bully.str_new('"' + self.data + '"');
   }, 0, 0);
   Bully.define_method(Bully.String, '<<', function(self, args) {
-    Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s').data);
+    Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s', []).data);
     return self;
   }, 1, 1);
   Bully.define_method(Bully.String, 'to_sym', function(self, args) {
@@ -1243,7 +1243,7 @@ Bully.init_error = function() {
   Bully.Exception = Bully.define_class('Exception');
   Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
     Bully.ivar_set(self, '@message', args[0] ||
-      Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'));
+      Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []));
   }, 0, 1);
   Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
     return Bully.dispatch_method(self, 'new', args);
@@ -1252,13 +1252,13 @@ Bully.init_error = function() {
     return Bully.ivar_get(self, '@message');
   });
   Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name'),
-        message = Bully.dispatch_method(self, 'message');
+    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []),
+        message = Bully.dispatch_method(self, 'message', []);
     return Bully.str_new(name.data + ': ' + message.data);
   });
   Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class'), 'name');
-    return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message').data + '>');
+    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
+    return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
   });
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
   Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
@@ -1303,7 +1303,7 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, 'inspect', function(self, args) {
     var i = 0, elems = [];
     for (i = 0; i < self.length; i += 1) {
-      elems.push(Bully.dispatch_method(self[i], 'inspect').data);
+      elems.push(Bully.dispatch_method(self[i], 'inspect', []).data);
     }
     return Bully.str_new('[' + elems.join(', ') + ']');
   });
@@ -1321,7 +1321,7 @@ Bully.init_array = function() {
   Bully.define_method(Bully.Array, 'join', function(self, args, block) {
     var strings = [], elem, i;
     for (i = 0; i < self.length; i += 1) {
-      strings.push(Bully.dispatch_method(self[i], 'to_s').data);
+      strings.push(Bully.dispatch_method(self[i], 'to_s', []).data);
     }
     return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
   });
@@ -1351,12 +1351,12 @@ Bully.init_array = function() {
 Bully.hash_set = function(hash, key, value) {
   var keys = Bully.ivar_get(hash, '__keys__');
   if (keys.indexOf(key) === -1) { keys.push(key); }
-  key = Bully.dispatch_method(key, 'hash');
+  key = Bully.dispatch_method(key, 'hash', []);
   hash[key] = value;
   return value;
 };
 Bully.hash_get = function(hash, key) {
-  key = Bully.dispatch_method(key, 'hash');
+  key = Bully.dispatch_method(key, 'hash', []);
   return hash.hasOwnProperty(key) ? hash[key] : null;
 };
 Bully.init_hash = function() {
@@ -1383,8 +1383,8 @@ Bully.init_hash = function() {
   Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
     var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
     for (i = 0; i < keys.length; i += 1) {
-      s = Bully.dispatch_method(keys[i], 'inspect').data + ' => ';
-      s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect').data;
+      s = Bully.dispatch_method(keys[i], 'inspect', []).data + ' => ';
+      s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect', []).data;
       elems.push(s);
     }
     return Bully.str_new('{' + elems.join(', ') + '}');

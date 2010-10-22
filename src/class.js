@@ -93,7 +93,7 @@ Bully.define_class = function(name, _super) {
   Bully.ivar_set(klass, '__classpath__', name);
 
   if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
+    send(_super, 'inherited', klass);
   }
 
   return klass;
@@ -111,7 +111,7 @@ Bully.define_class_under = function(outer, name, _super) {
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
   if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
+    send(_super, 'inherited', klass);
   }
 
   return klass;
