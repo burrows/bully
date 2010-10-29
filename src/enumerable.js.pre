@@ -12,6 +12,6 @@ Bully.init_enumerable = function() {
       }
     });
 
-    return Bully.array_new(results);
+    return Bully.Array.make(results);
   }, 0, 0);
 };

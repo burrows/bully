@@ -133,7 +133,7 @@ Bully.Evaluator = {
     }
 
     if (node.splat) {
-      ctx.set_var(node.splat, Bully.array_new(args.slice(req_len + opt_len)));
+      ctx.set_var(node.splat, Bully.Array.make(args.slice(req_len + opt_len)));
     }
   },
 
@@ -152,7 +152,7 @@ Bully.Evaluator = {
     }
 
     if (node.splat) {
-      ctx.declare_var(node.splat, Bully.array_new(args.slice(req_len)));
+      ctx.declare_var(node.splat, Bully.Array.make(args.slice(req_len)));
     }
   },
 
@@ -289,7 +289,7 @@ Bully.Evaluator = {
 
   evaluateStringLiteral: function(node, ctx) {
     var s = node.value.replace(/\\n/g, "\n");
-    return Bully.str_new(s);
+    return Bully.String.make(s);
   },
 
   evaluateSymbolLiteral: function(node, ctx) {
@@ -319,17 +319,17 @@ Bully.Evaluator = {
       elems.push(this._evaluate(node.expressions[i], ctx));
     }
 
-    return Bully.array_new(elems);
+    return Bully.Array.make(elems);
   },
 
   evaluateHashLiteral: function(node, ctx) {
-    var h = Bully.hash_new(), key, val, i;
+    var h = Bully.Hash.make(), key, val, i;
 
     for (i = 0; i < node.keys.length; i += 1) {
       key = this._evaluate(node.keys[i], ctx);
       val = this._evaluate(node.values[i], ctx);
 
-      Bully.hash_set(h, key, val);
+      Bully.Hash.set(h, key, val);
     }
 
     return h;

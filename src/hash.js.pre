@@ -1,52 +1,52 @@
-Bully.hash_new = function() {
-  var h = Bully.make_object({}, Bully.Hash);
-  Bully.ivar_set(h, '__keys__', []);
-  return h;
-};
-
-Bully.hash_set = function(hash, key, value) {
-  var keys = Bully.ivar_get(hash, '__keys__');
-
-  if (keys.indexOf(key) === -1) { keys.push(key); }
-
-  key = send(key, 'hash');
-  hash[key] = value;
-  return value;
-};
-
-Bully.hash_get = function(hash, key) {
-  key = send(key, 'hash');
-
-  return hash.hasOwnProperty(key) ? hash[key] : null;
-};
-
 Bully.init_hash = function() {
   Bully.Hash = Bully.define_class('Hash');
 
+  Bully.Hash.make = function() {
+    var h = Bully.make_object({}, Bully.Hash);
+    Bully.ivar_set(h, '__keys__', []);
+    return h;
+  };
+
+  Bully.Hash.set = function(hash, key, value) {
+    var keys = Bully.ivar_get(hash, '__keys__');
+
+    if (keys.indexOf(key) === -1) { keys.push(key); }
+
+    key = send(key, 'hash');
+    hash[key] = value;
+    return value;
+  };
+
+  Bully.Hash.get = function(hash, key) {
+    key = send(key, 'hash');
+
+    return hash.hasOwnProperty(key) ? hash[key] : null;
+  };
+
   Bully.define_singleton_method(Bully.Hash, 'new', function(self, args) {
-    return Bully.hash_new();
+    return Bully.Hash.make();
   });
 
   Bully.define_method(Bully.Hash, '[]=', function(self, args) {
-    return Bully.hash_set(self, args[0], args[1]);
+    return Bully.Hash.set(self, args[0], args[1]);
   }, 2, 2);
 
   Bully.define_method(Bully.Hash, '[]', function(self, args) {
-    return Bully.hash_get(self, args[0]);
+    return Bully.Hash.get(self, args[0]);
   }, 1, 1);
 
   Bully.define_method(Bully.Hash, 'keys', function(self, args) {
-    return Bully.array_new(Bully.ivar_get(self, '__keys__'));
+    return Bully.Array.make(Bully.ivar_get(self, '__keys__'));
   });
 
   Bully.define_method(Bully.Hash, 'values', function(self, args) {
     var keys = Bully.ivar_get(self, '__keys__'), values = [], i;
 
     for (i = 0; i < keys.length; i += 1) {
-      values.push(Bully.hash_get(self, keys[i]));
+      values.push(Bully.Hash.get(self, keys[i]));
     }
 
-    return Bully.array_new(values);
+    return Bully.Array.make(values);
   });
 
   Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
@@ -54,10 +54,10 @@ Bully.init_hash = function() {
 
     for (i = 0; i < keys.length; i += 1) {
       s = send(keys[i], 'inspect').data + ' => ';
-      s += send(Bully.hash_get(self, keys[i]), 'inspect').data;
+      s += send(Bully.Hash.get(self, keys[i]), 'inspect').data;
       elems.push(s);
     }
 
-    return Bully.str_new('{' + elems.join(', ') + '}');
+    return Bully.String.make('{' + elems.join(', ') + '}');
   });
 };

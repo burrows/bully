@@ -4,11 +4,11 @@ Bully.init_number = function() {
   // FIXME: undefine new method for Number
 
   Bully.define_method(Bully.Number, 'to_s', function(self, args) {
-    return Bully.str_new(self.toString());
+    return Bully.String.make(self.toString());
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl[Bully.intern('to_s')]);
+  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl.to_s);
 
   Bully.define_method(Bully.Number, '+@', function(self, args) {
     return self;

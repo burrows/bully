@@ -1,14 +1,14 @@
-Bully.array_new = function(js_array) {
-  return Bully.make_object(js_array, Bully.Array);
-};
-
 Bully.init_array = function() {
   Bully.Array = Bully.define_class('Array');
+
+  Bully.Array.make = function(js_array) {
+    return Bully.make_object(js_array, Bully.Array);
+  };
 
   Bully.include_module(Bully.Array, Bully.Enumerable);
 
   Bully.define_singleton_method(Bully.Array, 'new', function(self, args) {
-    return Bully.array_new([]);
+    return Bully.Array.make([]);
   });
 
   Bully.define_method(Bully.Array, 'size', function(self, args) {
@@ -21,7 +21,7 @@ Bully.init_array = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Array, '<<', Bully.Array.m_tbl[Bully.intern('push')]);
+  Bully.define_method(Bully.Array, '<<', Bully.Array.m_tbl.push);
 
   Bully.define_method(Bully.Array, 'pop', function(self, args) {
     return self.pop();
@@ -32,7 +32,7 @@ Bully.init_array = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl[Bully.intern('at')]);
+  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl.at);
 
   Bully.define_method(Bully.Array, 'insert', function(self, args) {
     self[args[0]] = args[1];
@@ -51,7 +51,7 @@ Bully.init_array = function() {
       elems.push(send(self[i], 'inspect').data);
     }
 
-    return Bully.str_new('[' + elems.join(', ') + ']');
+    return Bully.String.make('[' + elems.join(', ') + ']');
   });
 
   Bully.define_method(Bully.Array, 'each', function(self, args, block) {
@@ -76,7 +76,7 @@ Bully.init_array = function() {
       strings.push(send(self[i], 'to_s').data);
     }
 
-    return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
+    return Bully.String.make(strings.join(args[0] ? args[0].data : ' '));
   });
 
   Bully.define_method(Bully.Array, 'include?', function(self, args) {

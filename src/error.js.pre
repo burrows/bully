@@ -1,14 +1,3 @@
-Bully.raise = function(exception, message) {
-  var args;
-
-  if (send(exception, 'is_a?', Bully.Class)) {
-    args      = message ? [Bully.str_new(message)] : [];
-    exception = Bully.dispatch_method(exception, 'new', args);
-  }
-
-  throw exception;
-};
-
 Bully.init_error = function() {
   Bully.Exception = Bully.define_class('Exception');
 
@@ -29,12 +18,12 @@ Bully.init_error = function() {
     var name = send(send(self, 'class'), 'name'),
         message = send(self, 'message');
 
-    return Bully.str_new(name.data + ': ' + message.data);
+    return Bully.String.make(name.data + ': ' + message.data);
   });
 
   Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
     var name = send(send(self, 'class'), 'name');
-    return Bully.str_new('#<' + name.data + ': ' + send(self, 'message').data + '>');
+    return Bully.String.make('#<' + name.data + ': ' + send(self, 'message').data + '>');
   });
 
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);

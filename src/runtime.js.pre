@@ -76,12 +76,12 @@ Bully.check_method_args = function(min, max, args) {
 };
 
 Bully.dispatch_method = function(obj, name, args, block) {
-  var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
+  var fn = Bully.find_method(Bully.class_of(obj), name);
 
   args = args || [];
 
   if (!fn) {
-    args.unshift(id);
+    args.unshift(name);
     return Bully.dispatch_method(obj, 'method_missing', args, block);
   }
 
@@ -91,7 +91,7 @@ Bully.dispatch_method = function(obj, name, args, block) {
 };
 
 Bully.call_super = function(obj, name, args) {
-  var fn = Bully.find_method(Bully.class_of(obj)._super, Bully.intern(name));
+  var fn = Bully.find_method(Bully.class_of(obj)._super, name);
 
   // FIXME: check if method was found
   
@@ -99,7 +99,6 @@ Bully.call_super = function(obj, name, args) {
 };
 
 Bully.respond_to = function(obj, name) {
-  name = typeof name === 'string' ? Bully.intern(name) : name;
   return !!Bully.find_method(Bully.class_of(obj), name);
 };
 
@@ -282,12 +281,10 @@ Bully.define_module_under = function(outer, name) {
 };
 
 Bully.define_method = function(klass, name, fn, min_args, max_args) {
-  var id = Bully.intern(name);
-
-  klass.m_tbl[id] = fn;
-  klass.m_tbl[id].klass = klass;
-  klass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  klass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  klass.m_tbl[name] = fn;
+  klass.m_tbl[name].klass = klass;
+  klass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  klass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
 Bully.define_module_method = function(klass, name, fn) {
@@ -296,12 +293,12 @@ Bully.define_module_method = function(klass, name, fn) {
 };
 
 Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
-  var id = Bully.intern(name), sklass = Bully.singleton_class(obj);
+  var sklass = Bully.singleton_class(obj);
 
-  sklass.m_tbl[id] = fn;
-  sklass.m_tbl[id].klass = sklass;
-  sklass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  sklass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  sklass.m_tbl[name] = fn;
+  sklass.m_tbl[name].klass = sklass;
+  sklass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  sklass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
 
 Bully.find_method = function(klass, id) {
@@ -417,6 +414,17 @@ Bully.const_get = function(klass, name) {
   }
 
   return c;
+};
+
+Bully.raise = function(exception, message) {
+  var args;
+
+  if (send(exception, 'is_a?', Bully.Class)) {
+    args      = message ? [Bully.String.make(message)] : [];
+    exception = Bully.dispatch_method(exception, 'new', args);
+  }
+
+  throw exception;
 };
 
 Bully.init = function() {

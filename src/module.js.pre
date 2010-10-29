@@ -16,16 +16,16 @@ Bully.init_module = function() {
       _super = _super._super;
     }
 
-    return Bully.array_new(a);
+    return Bully.Array.make(a);
   }, 0, 0);
 
   Bully.define_method(Bully.Module, 'name', function(self, args) {
-    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
+    return Bully.String.make(Bully.ivar_get(self, '__classpath__'));
   });
 
   // FIXME: properly alias these methods
-  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl[Bully.intern('name')]);
-  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl.name);
+  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl.name);
 
   Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
     var methods       = [],
@@ -34,13 +34,26 @@ Bully.init_module = function() {
 
     do {
       for (symbol in klass.m_tbl) {
-        methods.push(Bully.str_new(symbol));
+        methods.push(Bully.String.make(symbol));
       }
 
       klass = klass._super;
     } while (klass && include_super);
 
-    return Bully.array_new(methods);
+    return Bully.Array.make(methods);
   }, 0, 1);
+
+  Bully.define_method(Bully.Module, 'include', function(self, args) {
+    var mod = args[0], name;
+
+    if (!send(mod, 'is_a?', Bully.Module)) {
+      name = send(send(mod, 'class'), 'name');
+      Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
+    }
+
+    Bully.include_module(self, args[0]);
+
+    return self;
+  }, 1, 1);
 };
 

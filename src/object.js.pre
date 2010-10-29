@@ -10,7 +10,7 @@ Bully.init_object = function() {
         name      = send(klass, 'name').data,
         object_id = send(self, 'object_id');
 
-    return Bully.str_new('#<' + name + ':' + object_id + '>');
+    return Bully.String.make('#<' + name + ':' + object_id + '>');
   });
 
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
@@ -18,7 +18,7 @@ Bully.init_object = function() {
   });
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.to_s);
 
   Bully.define_method(Bully.Kernel, 'send', function(self, args) {
     var name = args[0];
@@ -133,7 +133,7 @@ Bully.init_object = function() {
   }, 1, 1);
 
   // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
+  Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl.object_id);
 
   Bully.define_module_method(Bully.Kernel, '==', function(self, args) {
     return self === args[0];
