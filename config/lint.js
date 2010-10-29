@@ -29,7 +29,7 @@ var options = {
   widget     : false, // if the Yahoo Widgets globals should be predefined
   indent     : 2,     // set the expected indentation level
   predef     : ['exports', 'module', 'require', 'process', '__filename',
-                '__dirname', 'GLOBAL', 'global', 'Bully', 'window'],
+                '__dirname', 'GLOBAL', 'global', 'Bully', 'window', 'console'],
   
   // customise the error reporting -- the following colours the text red
   error_prefix: "\u001b[1m",

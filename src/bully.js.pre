@@ -2,13 +2,13 @@ exports.Bully = Bully = {};
 
 #define send(obj, name, ...) Bully.dispatch_method(obj, name, [__VA_ARGS__])
 
-#include "lexer.js.pre"
-#include "rewriter.js.pre"
-#include "eval.js.pre"
-#include "class.js.pre"
-#include "variable.js.pre"
+#include "runtime.js.pre"
 #include "object.js.pre"
-#include "platform/node.js.pre"
+#include "module.js.pre"
+#include "class.js.pre"
+#include "main.js.pre"
+#include "nil.js.pre"
+#include "boolean.js.pre"
 #include "symbol.js.pre"
 #include "string.js.pre"
 #include "error.js.pre"
@@ -16,6 +16,11 @@ exports.Bully = Bully = {};
 #include "hash.js.pre"
 #include "number.js.pre"
 #include "enumerable.js.pre"
+#include "platform/node.js.pre"
+#include "eval.js.pre"
+
+#include "lexer.js.pre"
+#include "rewriter.js.pre"
 #include "parser.js"
 
 Bully.parser.lexer = {

@@ -1,0 +1,46 @@
+Bully.init_module = function() {
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+  }, 0, 0);
+
+  Bully.define_method(Bully.Module, 'ancestors', function(self, args) {
+    var a = [self], _super = self._super;
+
+    while (_super) {
+      if (_super.is_include_class) {
+        a.push(_super.klass);
+      }
+      else {
+        a.push(_super);
+      }
+
+      _super = _super._super;
+    }
+
+    return Bully.array_new(a);
+  }, 0, 0);
+
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
+  });
+
+  // FIXME: properly alias these methods
+  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl[Bully.intern('name')]);
+
+  Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
+    var methods       = [],
+        klass         = self,
+        include_super = args.length > 0 ?args[0] : true, symbol;
+
+    do {
+      for (symbol in klass.m_tbl) {
+        methods.push(Bully.str_new(symbol));
+      }
+
+      klass = klass._super;
+    } while (klass && include_super);
+
+    return Bully.array_new(methods);
+  }, 0, 1);
+};
+

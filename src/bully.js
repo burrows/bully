@@ -1,220 +1,894 @@
 exports.Bully = Bully = {};
-Bully.Lexer = function() {};
-Bully.Lexer.KEYWORDS = [
-  'def',
-  'do',
-  'class',
-  'module',
-  'end',
-  'true',
-  'false',
-  'nil',
-  'self',
-  'return',
-  'if',
-  'unless',
-  'else',
-  'elsif',
-  'then',
-  'begin',
-  'rescue',
-  'ensure',
-  'super',
-  'yield'
-];
-Bully.Lexer.OPERATORS = [
-  '**',
-  '!',
-  '~',
-  '+',
-  '-',
-  '*',
-  '/',
-  '%',
-  '<<',
-  '>>',
-  '&',
-  '^',
-  '|',
-  '<=',
-  '<',
-  '>',
-  '>=',
-  '<=>',
-  '==',
-  '===',
-  '!=',
-  '=~',
-  '!~',
-  '&&',
-  '||',
-  '=>'
-];
-Bully.Lexer.regex_escape = function(text) {
-  return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
+/*
+ * Creates the most basic instance of a Bully object.
+ *
+ * If passed an object, that object will be decorated with properties necessary
+ * to be a Bully object, otherwise a brand new object is constructed.
+ */
+Bully.next_object_id = 8;
+Bully.make_object = function(obj, klass) {
+  obj = obj || {};
+  klass = klass || null;
+  obj.klass = klass;
+  obj.iv_tbl = {};
+  obj.id = Bully.next_object_id;
+  Bully.next_object_id += 4;
+  return obj;
 };
-Bully.Lexer.prototype = {
-  tokenize: function(code) {
-    var pos = 0, // current character position
-        tokens = [], // list of the parsed tokens, form is: [tag, value, lineno]
-        line = 1, // the current source line number
-        opRegex = [],
-        sortedOps, chunk, match, i;
-    sortedOps = Bully.Lexer.OPERATORS.sort(function(a, b) {
-      if (a.length < b.length) { return 1; }
-      else if (a.length > b.length) { return -1; }
-      return 0;
-    });
-    for (i = 0; i < sortedOps.length; i += 1) {
-      opRegex.push(Bully.Lexer.regex_escape(sortedOps[i]));
+/*
+ * Indicates whether or not an object is truthy.  In Bully, all objects are
+ * truthy expect false and nil.
+ */
+Bully.test = function(obj) {
+  return !(obj === false || obj === null);
+};
+/*
+ * Indicates whether or not the given object is an immediate value.  An
+ * immediate value is represented by a native javascript value instead of
+ * being wrapped in an Object instance.  The following types of objects are
+ * immediate objects:
+ *   * Symbol
+ *   * Number
+ *   * NilClass
+ *   * TrueClass
+ *   * FalseClass
+ */
+Bully.is_immediate = function(obj) {
+  return typeof obj === 'number' ||
+                obj === 'string' ||
+                obj === null ||
+                obj === true ||
+                obj === false;
+};
+Bully.check_method_args = function(min, max, args) {
+  var msg = 'wrong number of arguments (', n = args.length;
+  if (min === max) {
+    // 0 or more required arguments, no optionals
+    if (n !== min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
     }
-    opRegex = new RegExp('^(' + opRegex.join('|') + ')');
-    while (pos < code.length) {
-      chunk = code.substr(pos);
-      // match standard tokens
-      if ((match = chunk.match(/^([a-z_]\w*[?!]?)/))) {
-        match = match[1];
-        if (Bully.Lexer.KEYWORDS.indexOf(match) !== -1) {
-          tokens.push([match.toUpperCase(), match, line]);
-        }
-        else {
-          tokens.push(['IDENTIFIER', match, line]);
-        }
-        pos += match.length;
-      }
-      // match symbols
-      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
-        match = match[1];
-        tokens.push(['SYMBOL', match, line]);
-        pos += match.length;
-      }
-      // match operators
-      else if ((match = chunk.match(opRegex))) {
-        match = match[1];
-        tokens.push([match, match, line]);
-        pos += match.length;
-      }
-      // match constants
-      else if ((match = chunk.match(/^([A-Z]\w*)/))) {
-        match = match[1];
-        tokens.push(['CONSTANT', match, line]);
-        pos += match.length;
-      }
-      else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
-        match = match[1];
-        tokens.push(['NUMBER', parseFloat(match), line]);
-        pos += match.length;
-      }
-      // double quoted strings
-      else if ((match = chunk.match(/^"([^"\\]*(\\.[^"\\]*)*)"/))) {
-        match = match[1];
-        tokens.push(['STRING', match, line]);
-        pos += match.length + 2;
-      }
-      // single quoted strings
-      else if ((match = chunk.match(/^'([^'\\]*(\\.[^'\\]*)*)'/))) {
-        match = match[1];
-        tokens.push(['STRING', match, line]);
-        pos += match.length + 2;
-      }
-      // handle new lines
-      else if ((match = chunk.match(/^\n/))) {
-        tokens.push(["NEWLINE", "\n", line]);
-        line += 1;
-        pos += 1;
-      }
-      // ignore whitespace
-      else if (chunk.match(/^ /)) {
-        pos += 1;
-      }
-      // ignore comments
-      else if ((match = chunk.match(/^#.*\n/))) {
-        pos += match[0].length;
-        line += 1;
-      }
-      // treat all other single characters as a token
-      else {
-        match = chunk.substring(0, 1);
-        tokens.push([match, match, line]);
-        pos += 1;
-      }
+  }
+  else if (max === -1) {
+    // no limit on args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
     }
-    return (new Bully.Rewriter(tokens)).rewrite();
+  }
+  else {
+    // bounded number of args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+    else if (n > max) {
+      msg += n + ' for ' + max + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
   }
 };
-Bully.Rewriter = function(tokens) {
-  this.tokens = tokens;
-  this.index = -1;
-  return this;
+Bully.dispatch_method = function(obj, name, args, block) {
+  var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
+  args = args || [];
+  if (!fn) {
+    args.unshift(id);
+    return Bully.dispatch_method(obj, 'method_missing', args, block);
+  }
+  Bully.check_method_args(fn.min_args, fn.max_args, args);
+  return fn.call(null, obj, args, block);
 };
-Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
-Bully.Rewriter.prototype = {
-  rewrite: function() {
-    this.remove_extra_newlines();
-    this.rewrite_keyword_method_calls();
-    return this.tokens;
-  },
-  next: function() {
-    this.index += 1;
-    return this.tokens[this.index];
-  },
-  prev: function() {
-    this.index -= 1;
-    return this.tokens[this.index];
-  },
-  peak: function() {
-    return this.tokens[this.index + 1];
-  },
-  reset: function() {
-    this.index = -1;
-  },
-  insert_before: function(token) {
-    this.tokens.splice(this.index, 0, token);
-  },
-  insert_after: function(token) {
-    this.tokens.splice(this.index + 1, 0, token);
-  },
-  remove: function() {
-    this.tokens.splice(this.index, 1);
-  },
-  remove_next_of_type: function(type) {
-    while (this.tokens[this.index][0] === type) {
-      this.tokens.splice(this.index, 1);
+Bully.call_super = function(obj, name, args) {
+  var fn = Bully.find_method(Bully.class_of(obj)._super, Bully.intern(name));
+  // FIXME: check if method was found
+  return fn.call(null, obj, args);
+};
+Bully.respond_to = function(obj, name) {
+  name = typeof name === 'string' ? Bully.intern(name) : name;
+  return !!Bully.find_method(Bully.class_of(obj), name);
+};
+/*
+ * @private
+ */
+Bully.class_boot = function(_super) {
+  var klass = Bully.make_object();
+  klass.klass = Bully.Class;
+  klass._super = _super;
+  klass.m_tbl = {};
+  return klass;
+};
+/*
+ * @private
+ */
+Bully.defclass_boot = function(name, _super) {
+  var klass = Bully.class_boot(_super);
+  Bully.ivar_set(klass, '__classpath__', name);
+  // TODO: define constant for class name
+  return klass;
+};
+/*
+ * Returns the singleton class of the given object, creating it if necessary.
+ *
+ * A singleton class provides a place to store instance specific behavior.
+ */
+Bully.singleton_class = function(obj) {
+  var sklass;
+  // TODO: can't access singleton class of Numbers or Symbols
+  if (obj.klass && obj.klass.is_singleton) {
+    sklass = obj.klass;
+  }
+  else {
+    sklass = Bully.class_boot(obj.klass);
+    sklass.is_singleton = true;
+    obj.klass = sklass;
+  }
+  return sklass;
+};
+/*
+ * @private
+ *
+ * Constructs a metaclass for the given Class instance.  A metaclass is simply
+ * the singleton class of a Class instance.
+ */
+Bully.make_metaclass = function(klass, _super) {
+  var sklass = Bully.singleton_class(klass);
+  klass.klass = sklass;
+  sklass._super = _super || klass._super.klass;
+  return sklass;
+};
+/*
+ * @private
+ *
+ * Creates a new Class instance and constructs its metaclass.
+ */
+Bully.make_class = function(name, _super) {
+  var klass;
+  // TODO: check for existance of class
+  // TODO: call Bully.class_inherited
+  // TODO: make sure super is not Bully.Class
+  // TODO: make sure super is not a singleton class
+  _super = _super || Bully.Object;
+  klass = Bully.class_boot(_super);
+  Bully.make_metaclass(klass, _super.klass);
+  return klass;
+};
+/*
+ * Defines a new Class instance in the global scope.
+ */
+Bully.define_class = function(name, _super) {
+  var klass = Bully.make_class(name, _super);
+  Bully.define_global_const(name, klass);
+  Bully.ivar_set(klass, '__classpath__', name);
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
+  return klass;
+};
+/*
+ * Defines a new Class instance under the given class or module.
+ */
+Bully.define_class_under = function(outer, name, _super) {
+  var klass = Bully.make_class(name, _super),
+      classpath = Bully.ivar_get(outer, '__classpath__');
+  Bully.define_const(outer, klass);
+  Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
+  return klass;
+};
+Bully.make_include_class = function(module, _super) {
+  var iklass = Bully.class_boot(_super);
+  iklass.is_include_class = true;
+  iklass.m_tbl = module.m_tbl;
+  iklass.klass = module;
+  return iklass;
+};
+Bully.include_module = function(klass, module) {
+  var current = klass, skip, p;
+  while (module) {
+    skip = false;
+    for (p = klass._super; p; p = p._super) {
+      if (p.m_tbl === module.m_tbl) { skip = true; }
     }
-  },
-  remove_prev_of_type: function(type) {
-    while (this.tokens[this.index - 2][0] === type) {
-      this.tokens.splice(this.index - 2, 1);
-      this.index -= 1;
+    if (!skip) {
+      current = current._super = Bully.make_include_class(module, current._super);
     }
-  },
-  remove_extra_newlines: function() {
-    var token;
-    while ((token = this.next())) {
-      if (token[0] === '{' || token[0] === '[') {
-        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+    module = module._super;
+  }
+};
+Bully.module_new = function() {
+  var mod = Bully.make_object();
+  mod.klass = Bully.Module;
+  mod._super = null;
+  mod.iv_tbl = {};
+  mod.m_tbl = {};
+  return mod;
+};
+Bully.define_module = function(name) {
+  var mod = Bully.module_new();
+  // TODO: check for existance of module
+  Bully.define_global_const(name, mod);
+  Bully.ivar_set(mod, '__classpath__', name);
+  return mod;
+};
+Bully.define_module_under = function(outer, name) {
+  var mod = Bully.module_new();
+  // TODO: check for existance of module
+  Bully.define_const(outer, name, mod);
+  return mod;
+};
+Bully.define_method = function(klass, name, fn, min_args, max_args) {
+  var id = Bully.intern(name);
+  klass.m_tbl[id] = fn;
+  klass.m_tbl[id].klass = klass;
+  klass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0 : min_args;
+  klass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+};
+Bully.define_module_method = function(klass, name, fn) {
+  Bully.define_method(klass, name, fn);
+  Bully.define_singleton_method(klass, name, fn);
+};
+Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
+  var id = Bully.intern(name), sklass = Bully.singleton_class(obj);
+  sklass.m_tbl[id] = fn;
+  sklass.m_tbl[id].klass = sklass;
+  sklass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0 : min_args;
+  sklass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+};
+Bully.find_method = function(klass, id) {
+  while (klass && !klass.m_tbl[id]) {
+    klass = klass._super;
+  }
+  return klass ? klass.m_tbl[id] : null;
+};
+Bully.class_of = function(obj) {
+  if (typeof obj === 'number') { return Bully.Number; }
+  else if (typeof obj === 'string') { return Bully.Symbol; }
+  else if (obj === null) { return Bully.NilClass; }
+  else if (obj === true) { return Bully.TrueClass; }
+  else if (obj === false) { return Bully.FalseClass; }
+  return obj.klass;
+};
+Bully.real_class_of = function(obj) {
+  return Bully.real_class(Bully.class_of(obj));
+};
+Bully.real_class = function(klass) {
+  while (klass.is_singleton) {
+    klass = klass._super;
+  }
+  return klass;
+};
+/*
+ * Stores instance variables for immediate objects.
+ */
+Bully.immediate_iv_tbl = {};
+/* 
+ * Sets an instance variable on the given object for non-immediate objects.
+ * For immediate objects, the instance variable is set on
+ * Bully.immediate_iv_tbl.
+ */
+Bully.ivar_set = function(obj, name, val) {
+  if (Bully.is_immediate(obj)) {
+    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
+    Bully.immediate_iv_tbl[obj][name] = val;
+  }
+  else {
+    obj.iv_tbl[name] = val;
+  }
+};
+/*
+ * Retrieves an instance variable value from the given object.  For immediate
+ * objects, the instance variable is looked up from Bully.immediate_iv_tbl.
+ */
+Bully.ivar_get = function(obj, name) {
+  var val;
+  if (Bully.is_immediate(obj)) {
+    val = Bully.immediate_iv_tbl[obj] ?
+      Bully.immediate_iv_tbl[obj][name] : null;
+  }
+  else {
+    val = obj.iv_tbl[name];
+  }
+  return typeof val === 'undefined' ? null : val;
+};
+/*
+ * Defines a constant under the given class' namespace.  Constants are stored
+ * in the class' iv_tbl just like instance and class variables.
+ */
+Bully.define_const = function(klass, name, val) {
+  // TODO: check format of name
+  klass.iv_tbl[name] = val;
+};
+/*
+ * Defines a global constant.  The namespace of a global constant is Object.
+ */
+Bully.define_global_const = function(name, val) {
+  Bully.define_const(Bully.Object, name, val);
+};
+/*
+ * Attempts to lookup the given constant name.  This method simply searches
+ * the class' superclass chain.  During execution, constants are first searched
+ * for in the current lexical scope.  The code that does this searching is
+ * implemented in the compiler.
+ *
+ * TODO: reference the method/class in the compiler
+ */
+Bully.lookup_const = function(klass, name) {
+  do {
+    if (klass.iv_tbl.hasOwnProperty(name)) {
+      return klass.iv_tbl[name];
+    }
+    else {
+      klass = klass._super;
+    }
+  } while (klass);
+  return null;
+};
+Bully.const_get = function(klass, name) {
+  var c = Bully.lookup_const(klass, name);
+  if (!c) {
+    Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+  }
+  return c;
+};
+Bully.init = function() {
+  var metaclass;
+  // bootstrap
+  Bully.Object = Bully.defclass_boot('Object', null);
+  Bully.Module = Bully.defclass_boot('Module', Bully.Object);
+  Bully.Class = Bully.defclass_boot('Class', Bully.Module);
+  metaclass = Bully.make_metaclass(Bully.Object, Bully.Class);
+  metaclass = Bully.make_metaclass(Bully.Module, metaclass);
+  Bully.make_metaclass(Bully.Class, metaclass);
+  Bully.define_global_const('Object', Bully.Object);
+  Bully.define_global_const('Module', Bully.Module);
+  Bully.define_global_const('Class', Bully.Class);
+  Bully.init_object();
+  Bully.init_class();
+  Bully.init_module();
+  Bully.init_main();
+  Bully.init_nil();
+  Bully.init_boolean();
+  Bully.init_symbol();
+  Bully.init_string();
+  Bully.init_number();
+  Bully.init_error();
+  Bully.init_enumerable();
+  Bully.init_array();
+  Bully.init_hash();
+  Bully.init_proc();
+};Bully.init_object = function() {
+  Bully.Kernel = Bully.define_module('Kernel');
+  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
+    return Bully.real_class_of(self);
+  });
+  Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
+    var klass = Bully.real_class_of(self),
+        name = Bully.dispatch_method(klass, 'name', []).data,
+        object_id = Bully.dispatch_method(self, 'object_id', []);
+    return Bully.str_new('#<' + name + ':' + object_id + '>');
+  });
+  Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
+    return Bully.respond_to(self, args[0]);
+  });
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
+  Bully.define_method(Bully.Kernel, 'send', function(self, args) {
+    var name = args[0];
+    args = args.slice(1);
+    return Bully.dispatch_method(self, name, args);
+  }, 1, -1);
+  Bully.define_method(Bully.Kernel, '!', function(self, args) {
+    return !Bully.test(self);
+  }, 0, 0);
+  Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
+    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
+    Bully.platform.puts(str);
+    return null;
+  });
+  Bully.define_module_method(Bully.Kernel, 'print', function(self, args) {
+    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
+    Bully.platform.print(str);
+    return null;
+  });
+  Bully.define_module_method(Bully.Kernel, 'at_exit', function(self, args, block) {
+    Bully.at_exit = block;
+  }, 0, 0);
+  Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
+    var code = args[0] || 0, at_exit = Bully.at_exit;
+    Bully.at_exit = null;
+    if (at_exit) {
+      Bully.dispatch_method(at_exit, 'call', []);
+    }
+    Bully.platform.exit(code);
+  }, 0, 1);
+  Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
+    var str = Bully.dispatch_method(args[0], 'inspect', []).data;
+    Bully.platform.puts(str);
+    return null;
+  });
+  // raise can be called in the following ways:
+  //
+  //   raise
+  //     - Raises current exception if there is one or StandardError
+  //   raise(string)
+  //     - creates RuntimeError instance with string as message and raises it
+  //   raise(object)
+  //     - calls #exception on object and raises result
+  //   raise(object, message)
+  //     - calls #exception on object, passing it message and raises result
+  Bully.define_module_method(Bully.Kernel, 'raise', function(self, args) {
+    var exception;
+    if (args.length === 0) {
+      exception = Bully.current_exception ||
+        Bully.dispatch_method(Bully.RuntimeError, 'new', []);
+    }
+    else if (args.length === 1) {
+      if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
+        exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
       }
-      else if (token[0] === '}' || token[0] === ']') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
-        this.next();
+      else if (Bully.respond_to(args[0], 'exception')) {
+        exception = Bully.dispatch_method(args[0], 'exception', []);
       }
-      else if (token[0] === ',') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
-        this.next();
-        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+      else {
+        Bully.raise(Bully.TypeError, 'exception class/object expected');
       }
     }
-    this.reset();
-  },
-  rewrite_keyword_method_calls: function() {
-    var t1, t2;
-    while ((t1 = this.next()) && (t2 = this.peak())) {
-      if ((t1[0] === '.' || t1[0] === 'DEF') &&
-          Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
-        t2[0] = 'IDENTIFIER';
+    else {
+      if (Bully.respond_to(args[0], 'exception')) {
+        exception = Bully.dispatch_method(args[0], 'exception', [args[1]]);
+      }
+      else {
+        Bully.raise(Bully.TypeError, 'exception class/object expected');
       }
     }
-    this.reset();
+    Bully.raise(exception);
+  }, 0, 2);
+  Bully.define_method(Bully.Kernel, 'is_a?', function(self, args) {
+    var test_klass = args[0], klass = Bully.class_of(self);
+    while (klass) {
+      if (test_klass === klass) { return true; }
+      klass = klass._super;
+    }
+    return false;
+  }, 1, 1);
+  Bully.define_method(Bully.Kernel, 'object_id', function(self, args) {
+    if (typeof self === 'number') { return 'number-' + self.toString(); }
+    else if (typeof self === 'string') { return 'symbol-' + self; }
+    else if (self === false) { return 'boolean-false'; }
+    else if (self === true) { return 'boolean-true'; }
+    else if (self === null) { return 'nil-nil'; }
+    return 'object' + self.id;
+  }, 0, 0);
+  Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
+    return Bully.require(args[0].data);
+  }, 1, 1);
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
+  Bully.define_module_method(Bully.Kernel, '==', function(self, args) {
+    return self === args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
+    var name = args[0],
+        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect', []).data;
+    Bully.raise(Bully.NoMethodError, message);
+  }, 1, -1);
+  // Object
+  Bully.include_module(Bully.Object, Bully.Kernel);
+};Bully.init_module = function() {
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+  }, 0, 0);
+  Bully.define_method(Bully.Module, 'ancestors', function(self, args) {
+    var a = [self], _super = self._super;
+    while (_super) {
+      if (_super.is_include_class) {
+        a.push(_super.klass);
+      }
+      else {
+        a.push(_super);
+      }
+      _super = _super._super;
+    }
+    return Bully.array_new(a);
+  }, 0, 0);
+  Bully.define_method(Bully.Module, 'name', function(self, args) {
+    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
+  });
+  // FIXME: properly alias these methods
+  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl[Bully.intern('name')]);
+  Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
+    var methods = [],
+        klass = self,
+        include_super = args.length > 0 ?args[0] : true, symbol;
+    do {
+      for (symbol in klass.m_tbl) {
+        methods.push(Bully.str_new(symbol));
+      }
+      klass = klass._super;
+    } while (klass && include_super);
+    return Bully.array_new(methods);
+  }, 0, 1);
+};Bully.init_class = function() {
+  Bully.define_method(Bully.Class, 'allocate', function(self, args) {
+    return Bully.make_object();
+  });
+  Bully.define_method(Bully.Class, 'new', function(self, args) {
+    var o = Bully.dispatch_method(self, 'allocate', []);
+    o.klass = self;
+    if (Bully.respond_to(o, 'initialize')) {
+      Bully.dispatch_method(o, 'initialize', args);
+    }
+    return o;
+  });
+  Bully.define_method(Bully.Class, 'superclass', function(self, args) {
+    var klass = self._super;
+    while (klass && klass.is_include_class) {
+      klass = klass._super;
+    }
+    return klass || null;
+  });
+  Bully.define_method(Bully.Class, 'include', function(self, args) {
+    var mod = args[0], name;
+    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
+      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class', []), 'name', []);
+      Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
+    }
+    Bully.include_module(self, args[0]);
+    return self;
+  }, 1, 1);
+};Bully.init_main = function() {
+  // main (top level self)
+  Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
+  Bully.define_singleton_method(Bully.main, 'to_s', function() {
+    return Bully.str_new('main');
+  });
+};Bully.init_nil = function() {
+  Bully.NilClass = Bully.define_class('NilClass');
+  Bully.define_method(Bully.NilClass, 'to_i', function() {
+    return 0;
+  });
+  Bully.define_method(Bully.NilClass, 'nil?', function() {
+    return true;
+  });
+  Bully.define_method(Bully.NilClass, 'to_s', function() {
+    return Bully.str_new("");
+  });
+  Bully.define_method(Bully.NilClass, 'inspect', function() {
+    return Bully.str_new('nil');
+  });
+};Bully.init_boolean = function() {
+  // FalseClass
+  Bully.FalseClass = Bully.define_class('FalseClass');
+  Bully.define_method(Bully.FalseClass, 'to_s', function() {
+    return Bully.str_new('false');
+  });
+  // FIXME: alias this properly
+  Bully.define_method(Bully.FalseClass, 'inspect', Bully.FalseClass.m_tbl[Bully.intern('to_s')]);
+  // TrueClass
+  Bully.TrueClass = Bully.define_class('TrueClass');
+  Bully.define_method(Bully.TrueClass, 'to_s', function() {
+    return Bully.str_new('true');
+  });
+  // FIXME: alias this properly
+  Bully.define_method(Bully.TrueClass, 'inspect', Bully.TrueClass.m_tbl[Bully.intern('to_s')]);
+};Bully.symbol_ids = {};
+Bully.next_symbol_id = 11;
+Bully.intern = function(js_str) {
+  return js_str;
+};
+Bully.init_symbol = function() {
+  Bully.Symbol = Bully.define_class('Symbol');
+  Bully.define_method(Bully.Symbol, 'inspect', function(self, args) {
+    return Bully.str_new(':' + self);
+  }, 0, 0);
+  Bully.define_method(Bully.Symbol, '==', function(self, args) {
+    return self === args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Symbol, 'to_s', function(self) {
+    return Bully.str_new(self);
+  }, 0, 0);
+};
+Bully.str_new = function(js_str) {
+  var s = Bully.dispatch_method(Bully.String, 'new', []);
+  s.data = js_str;
+  return s;
+};
+Bully.str_cat = function(str, js_str) {
+  str.data += js_str;
+  return str;
+};
+Bully.str_hash = function(str) {
+  var s = str.data, len = s.length, key = 0, i;
+  for (i = 0; i < len; i += 1) {
+    key += s.charCodeAt(i);
+    key += (key << 10);
+    key ^= (key >> 6);
+  }
+  key += (key << 3);
+  key ^= (key >> 11);
+  key += (key << 15);
+  return key;
+};
+Bully.str_slice = function(str, args) {
+  var s = str.data, i1 = args[0], i2 = args[1];
+  return Bully.str_new(s.slice(i1, i1 + i2));
+};
+Bully.str_equals = function(str, args) {
+  return str.data === args[0].data;
+};
+Bully.init_string = function() {
+  Bully.String = Bully.define_class('String');
+  Bully.define_singleton_method(Bully.String, 'allocate', function(self, args) {
+    var o = Bully.make_object();
+    o.data = "";
+    return o;
+  });
+  Bully.define_method(Bully.String, 'to_s', function(self, args) {
+    return self;
+  }, 0, 0);
+  Bully.define_method(Bully.String, 'inspect', function(self, args) {
+    return Bully.str_new('"' + self.data + '"');
+  }, 0, 0);
+  Bully.define_method(Bully.String, '<<', function(self, args) {
+    Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s', []).data);
+    return self;
+  }, 1, 1);
+  Bully.define_method(Bully.String, 'to_sym', function(self, args) {
+    return Bully.intern(self.data);
+  }, 0, 0);
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.String, '+', Bully.String.m_tbl[Bully.intern('<<')]);
+  Bully.define_method(Bully.String, 'hash', Bully.str_hash, 0, 0);
+  Bully.define_method(Bully.String, 'slice', Bully.str_slice, 2, 2);
+  Bully.define_method(Bully.String, '==', Bully.str_equals, 1, 1);
+};Bully.raise = function(exception, message) {
+  var args;
+  if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
+    args = message ? [Bully.str_new(message)] : [];
+    exception = Bully.dispatch_method(exception, 'new', args);
+  }
+  throw exception;
+};
+Bully.init_error = function() {
+  Bully.Exception = Bully.define_class('Exception');
+  Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
+    Bully.ivar_set(self, '@message', args[0] ||
+      Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []));
+  }, 0, 1);
+  Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
+    return Bully.dispatch_method(self, 'new', args);
+  }, 0, 1);
+  Bully.define_method(Bully.Exception, 'message', function(self, args) {
+    return Bully.ivar_get(self, '@message');
+  });
+  Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
+    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []),
+        message = Bully.dispatch_method(self, 'message', []);
+    return Bully.str_new(name.data + ': ' + message.data);
+  });
+  Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
+    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
+    return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
+  });
+  Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
+  Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
+  Bully.RuntimeError = Bully.define_class('RuntimeError', Bully.StandardError);
+  Bully.NameError = Bully.define_class('NameError', Bully.StandardError);
+  Bully.TypeError = Bully.define_class('TypeError', Bully.StandardError);
+  Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.NameError);
+};Bully.array_new = function(js_array) {
+  return Bully.make_object(js_array, Bully.Array);
+};
+Bully.init_array = function() {
+  Bully.Array = Bully.define_class('Array');
+  Bully.include_module(Bully.Array, Bully.Enumerable);
+  Bully.define_singleton_method(Bully.Array, 'new', function(self, args) {
+    return Bully.array_new([]);
+  });
+  Bully.define_method(Bully.Array, 'size', function(self, args) {
+    return self.length;
+  });
+  Bully.define_method(Bully.Array, 'push', function(self, args) {
+    self.push.apply(self, args);
+    return self;
+  });
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Array, '<<', Bully.Array.m_tbl[Bully.intern('push')]);
+  Bully.define_method(Bully.Array, 'pop', function(self, args) {
+    return self.pop();
+  });
+  Bully.define_method(Bully.Array, 'at', function(self, args) {
+    return self[args[0]];
+  });
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl[Bully.intern('at')]);
+  Bully.define_method(Bully.Array, 'insert', function(self, args) {
+    self[args[0]] = args[1];
+    return self;
+  });
+  Bully.define_method(Bully.Array, '[]=', function(self, args) {
+    self[args[0]] = args[1];
+    return args[1];
+  });
+  Bully.define_method(Bully.Array, 'inspect', function(self, args) {
+    var i = 0, elems = [];
+    for (i = 0; i < self.length; i += 1) {
+      elems.push(Bully.dispatch_method(self[i], 'inspect', []).data);
+    }
+    return Bully.str_new('[' + elems.join(', ') + ']');
+  });
+  Bully.define_method(Bully.Array, 'each', function(self, args, block) {
+    var i;
+    for (i = 0; i < self.length; i += 1) {
+      Bully.Evaluator._yield(block, [self[i]]);
+    }
+    return self;
+  });
+  // FIXME: make this take a block
+  Bully.define_method(Bully.Array, 'any?', function(self, args, block) {
+    return self.length > 0;
+  });
+  Bully.define_method(Bully.Array, 'join', function(self, args, block) {
+    var strings = [], elem, i;
+    for (i = 0; i < self.length; i += 1) {
+      strings.push(Bully.dispatch_method(self[i], 'to_s', []).data);
+    }
+    return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
+  });
+  Bully.define_method(Bully.Array, 'include?', function(self, args) {
+    var i;
+    for (i = 0; i < self.length; i += 1) {
+      if (Bully.dispatch_method(self[i], '==', [args[0]])) {
+        return true;
+      }
+    }
+    return false;
+  }, 1, 1);
+  Bully.define_method(Bully.Array, '==', function(self, args) {
+    var other = args[0], i;
+    if (!Bully.dispatch_method(other, 'is_a?', [Bully.Array])) { return false; }
+    if (self.length !== other.length) { return false; }
+    for (i = 0; i < self.length; i += 1) {
+      if (!Bully.dispatch_method(self[i], '==', [other[i]])) { return false; }
+    }
+    return true;
+  }, 1, 1);
+};Bully.hash_new = function() {
+  var h = Bully.make_object({}, Bully.Hash);
+  Bully.ivar_set(h, '__keys__', []);
+  return h;
+};
+Bully.hash_set = function(hash, key, value) {
+  var keys = Bully.ivar_get(hash, '__keys__');
+  if (keys.indexOf(key) === -1) { keys.push(key); }
+  key = Bully.dispatch_method(key, 'hash', []);
+  hash[key] = value;
+  return value;
+};
+Bully.hash_get = function(hash, key) {
+  key = Bully.dispatch_method(key, 'hash', []);
+  return hash.hasOwnProperty(key) ? hash[key] : null;
+};
+Bully.init_hash = function() {
+  Bully.Hash = Bully.define_class('Hash');
+  Bully.define_singleton_method(Bully.Hash, 'new', function(self, args) {
+    return Bully.hash_new();
+  });
+  Bully.define_method(Bully.Hash, '[]=', function(self, args) {
+    return Bully.hash_set(self, args[0], args[1]);
+  }, 2, 2);
+  Bully.define_method(Bully.Hash, '[]', function(self, args) {
+    return Bully.hash_get(self, args[0]);
+  }, 1, 1);
+  Bully.define_method(Bully.Hash, 'keys', function(self, args) {
+    return Bully.array_new(Bully.ivar_get(self, '__keys__'));
+  });
+  Bully.define_method(Bully.Hash, 'values', function(self, args) {
+    var keys = Bully.ivar_get(self, '__keys__'), values = [], i;
+    for (i = 0; i < keys.length; i += 1) {
+      values.push(Bully.hash_get(self, keys[i]));
+    }
+    return Bully.array_new(values);
+  });
+  Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
+    var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
+    for (i = 0; i < keys.length; i += 1) {
+      s = Bully.dispatch_method(keys[i], 'inspect', []).data + ' => ';
+      s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect', []).data;
+      elems.push(s);
+    }
+    return Bully.str_new('{' + elems.join(', ') + '}');
+  });
+};Bully.init_number = function() {
+  Bully.Number = Bully.define_class('Number');
+  // FIXME: undefine new method for Number
+  Bully.define_method(Bully.Number, 'to_s', function(self, args) {
+    return Bully.str_new(self.toString());
+  });
+  // FIXME: properly alias this method
+  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl[Bully.intern('to_s')]);
+  Bully.define_method(Bully.Number, '+@', function(self, args) {
+    return self;
+  }, 0, 0);
+  Bully.define_method(Bully.Number, '-@', function(self, args) {
+    return -self;
+  }, 0, 0);
+  Bully.define_method(Bully.Number, '+', function(self, args) {
+    return self + args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '-', function(self, args) {
+    return self - args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '*', function(self, args) {
+    return self * args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '/', function(self, args) {
+    return self / args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '%', function(self, args) {
+    return self % args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '<<', function(self, args) {
+    return self << args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '>>', function(self, args) {
+    return self >> args[0];
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '**', function(self, args) {
+    return Math.pow(self, args[0]);
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '<=>', function(self, args) {
+    if (self < args[0]) { return 1; }
+    if (self > args[0]) { return -1; }
+    return 0;
+  }, 1, 1);
+  Bully.define_method(Bully.Number, '==', function(self, args) {
+    return self === args[0];
+  });
+  Bully.define_method(Bully.Number, '!=', function(self, args) {
+    return self !== args[0];
+  });
+  Bully.define_method(Bully.Number, '>', function(self, args) {
+    return self > args[0];
+  });
+  Bully.define_method(Bully.Number, '<', function(self, args) {
+    return self < args[0];
+  });
+  Bully.define_method(Bully.Number, 'times', function(self, args, block) {
+    var i;
+    for (i = 0; i < self; i += 1) {
+      Bully.Evaluator._yield(block, [i]);
+    }
+    return self;
+  }, 0, 0);
+};
+Bully.init_enumerable = function() {
+  Bully.Enumerable = Bully.define_module('Enumerable');
+  Bully.define_method(Bully.Enumerable, 'select', function(self, args, block) {
+    var results = [];
+    Bully.dispatch_method(self, 'each', [], function(args) {
+      var x = args[0], r;
+      if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
+        results.push(x);
+      }
+    });
+    return Bully.array_new(results);
+  }, 0, 0);
+};var sys = require('sys'),
+    path = require('path'),
+    fs = require('fs');
+Bully.platform = {
+  puts: sys.puts,
+  print: sys.print,
+  exit: process.exit,
+  locate_lib: function(lib) {
+    // FIXME: don't hardcode lib path
+    return path.join('./lib', lib) + '.bully';
+  },
+  read_file: function(path) {
+    return fs.readFileSync(path, 'ascii');
   }
 };Bully.load = function(path) {
   var source = Bully.platform.read_file(path),
@@ -584,886 +1258,224 @@ Bully.init_proc = function() {
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
     return self.call(null, args);
   });
-};/*
- * @private
- */
-Bully.class_boot = function(_super) {
-  var klass = Bully.make_object();
-  klass.klass = Bully.Class;
-  klass._super = _super;
-  klass.m_tbl = {};
-  return klass;
 };
-/*
- * @private
- */
-Bully.defclass_boot = function(name, _super) {
-  var klass = Bully.class_boot(_super);
-  Bully.ivar_set(klass, '__classpath__', name);
-  // TODO: define constant for class name
-  return klass;
+Bully.Lexer = function() {};
+Bully.Lexer.KEYWORDS = [
+  'def',
+  'do',
+  'class',
+  'module',
+  'end',
+  'true',
+  'false',
+  'nil',
+  'self',
+  'return',
+  'if',
+  'unless',
+  'else',
+  'elsif',
+  'then',
+  'begin',
+  'rescue',
+  'ensure',
+  'super',
+  'yield'
+];
+Bully.Lexer.OPERATORS = [
+  '**',
+  '!',
+  '~',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '<<',
+  '>>',
+  '&',
+  '^',
+  '|',
+  '<=',
+  '<',
+  '>',
+  '>=',
+  '<=>',
+  '==',
+  '===',
+  '!=',
+  '=~',
+  '!~',
+  '&&',
+  '||',
+  '=>'
+];
+Bully.Lexer.regex_escape = function(text) {
+  return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
 };
-/*
- * Returns the singleton class of the given object, creating it if necessary.
- *
- * A singleton class provides a place to store instance specific behavior.
- */
-Bully.singleton_class = function(obj) {
-  var sklass;
-  // TODO: can't access singleton class of Numbers or Symbols
-  if (obj.klass && obj.klass.is_singleton) {
-    sklass = obj.klass;
-  }
-  else {
-    sklass = Bully.class_boot(obj.klass);
-    sklass.is_singleton = true;
-    obj.klass = sklass;
-  }
-  return sklass;
-};
-/*
- * @private
- *
- * Constructs a metaclass for the given Class instance.  A metaclass is simply
- * the singleton class of a Class instance.
- */
-Bully.make_metaclass = function(klass, _super) {
-  var sklass = Bully.singleton_class(klass);
-  klass.klass = sklass;
-  sklass._super = _super || klass._super.klass;
-  return sklass;
-};
-/*
- * @private
- *
- * Creates a new Class instance and constructs its metaclass.
- */
-Bully.make_class = function(name, _super) {
-  var klass;
-  // TODO: check for existance of class
-  // TODO: call Bully.class_inherited
-  // TODO: make sure super is not Bully.Class
-  // TODO: make sure super is not a singleton class
-  _super = _super || Bully.Object;
-  klass = Bully.class_boot(_super);
-  Bully.make_metaclass(klass, _super.klass);
-  return klass;
-};
-/*
- * Defines a new Class instance in the global scope.
- */
-Bully.define_class = function(name, _super) {
-  var klass = Bully.make_class(name, _super);
-  Bully.define_global_const(name, klass);
-  Bully.ivar_set(klass, '__classpath__', name);
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
-  }
-  return klass;
-};
-/*
- * Defines a new Class instance under the given class or module.
- */
-Bully.define_class_under = function(outer, name, _super) {
-  var klass = Bully.make_class(name, _super),
-      classpath = Bully.ivar_get(outer, '__classpath__');
-  Bully.define_const(outer, klass);
-  Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
-  }
-  return klass;
-};
-Bully.make_include_class = function(module, _super) {
-  var iklass = Bully.class_boot(_super);
-  iklass.is_include_class = true;
-  iklass.m_tbl = module.m_tbl;
-  iklass.klass = module;
-  return iklass;
-};
-Bully.include_module = function(klass, module) {
-  var current = klass, skip, p;
-  while (module) {
-    skip = false;
-    for (p = klass._super; p; p = p._super) {
-      if (p.m_tbl === module.m_tbl) { skip = true; }
-    }
-    if (!skip) {
-      current = current._super = Bully.make_include_class(module, current._super);
-    }
-    module = module._super;
-  }
-};
-Bully.module_new = function() {
-  var mod = Bully.make_object();
-  mod.klass = Bully.Module;
-  mod._super = null;
-  mod.iv_tbl = {};
-  mod.m_tbl = {};
-  return mod;
-};
-Bully.define_module = function(name) {
-  var mod = Bully.module_new();
-  // TODO: check for existance of module
-  Bully.define_global_const(name, mod);
-  Bully.ivar_set(mod, '__classpath__', name);
-  return mod;
-};
-Bully.define_module_under = function(outer, name) {
-  var mod = Bully.module_new();
-  // TODO: check for existance of module
-  Bully.define_const(outer, name, mod);
-  return mod;
-};
-Bully.define_method = function(klass, name, fn, min_args, max_args) {
-  var id = Bully.intern(name);
-  klass.m_tbl[id] = fn;
-  klass.m_tbl[id].klass = klass;
-  klass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0 : min_args;
-  klass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
-};
-Bully.define_module_method = function(klass, name, fn) {
-  Bully.define_method(klass, name, fn);
-  Bully.define_singleton_method(klass, name, fn);
-};
-Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
-  var id = Bully.intern(name), sklass = Bully.singleton_class(obj);
-  sklass.m_tbl[id] = fn;
-  sklass.m_tbl[id].klass = sklass;
-  sklass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0 : min_args;
-  sklass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
-};
-Bully.find_method = function(klass, id) {
-  while (klass && !klass.m_tbl[id]) {
-    klass = klass._super;
-  }
-  return klass ? klass.m_tbl[id] : null;
-};
-Bully.class_of = function(obj) {
-  if (typeof obj === 'number') { return Bully.Number; }
-  else if (typeof obj === 'string') { return Bully.Symbol; }
-  else if (obj === null) { return Bully.NilClass; }
-  else if (obj === true) { return Bully.TrueClass; }
-  else if (obj === false) { return Bully.FalseClass; }
-  return obj.klass;
-};
-Bully.real_class_of = function(obj) {
-  return Bully.real_class(Bully.class_of(obj));
-};
-Bully.real_class = function(klass) {
-  while (klass.is_singleton) {
-    klass = klass._super;
-  }
-  return klass;
-};/*
- * Stores instance variables for immediate objects.
- */
-Bully.immediate_iv_tbl = {};
-/* 
- * Sets an instance variable on the given object for non-immediate objects.
- * For immediate objects, the instance variable is set on
- * Bully.immediate_iv_tbl.
- */
-Bully.ivar_set = function(obj, name, val) {
-  if (Bully.is_immediate(obj)) {
-    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
-    Bully.immediate_iv_tbl[obj][name] = val;
-  }
-  else {
-    obj.iv_tbl[name] = val;
-  }
-};
-/*
- * Retrieves an instance variable value from the given object.  For immediate
- * objects, the instance variable is looked up from Bully.immediate_iv_tbl.
- */
-Bully.ivar_get = function(obj, name) {
-  var val;
-  if (Bully.is_immediate(obj)) {
-    val = Bully.immediate_iv_tbl[obj] ?
-      Bully.immediate_iv_tbl[obj][name] : null;
-  }
-  else {
-    val = obj.iv_tbl[name];
-  }
-  return typeof val === 'undefined' ? null : val;
-};
-/*
- * Defines a constant under the given class' namespace.  Constants are stored
- * in the class' iv_tbl just like instance and class variables.
- */
-Bully.define_const = function(klass, name, val) {
-  // TODO: check format of name
-  klass.iv_tbl[name] = val;
-};
-/*
- * Defines a global constant.  The namespace of a global constant is Object.
- */
-Bully.define_global_const = function(name, val) {
-  Bully.define_const(Bully.Object, name, val);
-};
-/*
- * Attempts to lookup the given constant name.  This method simply searches
- * the class' superclass chain.  During execution, constants are first searched
- * for in the current lexical scope.  The code that does this searching is
- * implemented in the compiler.
- *
- * TODO: reference the method/class in the compiler
- */
-Bully.lookup_const = function(klass, name) {
-  do {
-    if (klass.iv_tbl.hasOwnProperty(name)) {
-      return klass.iv_tbl[name];
-    }
-    else {
-      klass = klass._super;
-    }
-  } while (klass);
-  return null;
-};
-Bully.const_get = function(klass, name) {
-  var c = Bully.lookup_const(klass, name);
-  if (!c) {
-    Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
-  }
-  return c;
-};/*
- * Creates the most basic instance of a Bully object.
- *
- * If passed an object, that object will be decorated with properties necessary
- * to be a Bully object, otherwise a brand new object is constructed.
- */
-Bully.next_object_id = 8;
-Bully.make_object = function(obj, klass) {
-  obj = obj || {};
-  klass = klass || null;
-  obj.klass = klass;
-  obj.iv_tbl = {};
-  obj.id = Bully.next_object_id;
-  Bully.next_object_id += 4;
-  return obj;
-};
-/*
- * Indicates whether or not an object is truthy.  In Bully, all objects are
- * truthy expect false and nil.
- */
-Bully.test = function(obj) {
-  return !(obj === false || obj === null);
-};
-/*
- * Indicates whether or not the given object is an immediate value.  An
- * immediate value is represented by a native javascript value instead of
- * being wrapped in an Object instance.  The following types of objects are
- * immediate objects:
- *   * Symbol
- *   * Number
- *   * NilClass
- *   * TrueClass
- *   * FalseClass
- */
-Bully.is_immediate = function(obj) {
-  return typeof obj === 'number' ||
-                obj === 'string' ||
-                obj === null ||
-                obj === true ||
-                obj === false;
-};
-Bully.check_method_args = function(min, max, args) {
-  var msg = 'wrong number of arguments (', n = args.length;
-  if (min === max) {
-    // 0 or more required arguments, no optionals
-    if (n !== min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else if (max === -1) {
-    // no limit on args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else {
-    // bounded number of args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-    else if (n > max) {
-      msg += n + ' for ' + max + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-};
-Bully.dispatch_method = function(obj, name, args, block) {
-  var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
-  args = args || [];
-  if (!fn) {
-    args.unshift(id);
-    return Bully.dispatch_method(obj, 'method_missing', args, block);
-  }
-  Bully.check_method_args(fn.min_args, fn.max_args, args);
-  return fn.call(null, obj, args, block);
-};
-Bully.call_super = function(obj, name, args) {
-  var fn = Bully.find_method(Bully.class_of(obj)._super, Bully.intern(name));
-  // FIXME: check if method was found
-  return fn.call(null, obj, args);
-};
-Bully.respond_to = function(obj, name) {
-  name = typeof name === 'string' ? Bully.intern(name) : name;
-  return !!Bully.find_method(Bully.class_of(obj), name);
-};
-Bully.init = function() {
-  var metaclass;
-  Bully.Object = Bully.defclass_boot('Object', null);
-  Bully.Module = Bully.defclass_boot('Module', Bully.Object);
-  Bully.Class = Bully.defclass_boot('Class', Bully.Module);
-  metaclass = Bully.make_metaclass(Bully.Object, Bully.Class);
-  metaclass = Bully.make_metaclass(Bully.Module, metaclass);
-  Bully.make_metaclass(Bully.Class, metaclass);
-  Bully.define_global_const('Object', Bully.Object);
-  Bully.define_global_const('Module', Bully.Module);
-  Bully.define_global_const('Class', Bully.Class);
-  // Module
-  Bully.define_method(Bully.Module, 'name', function(self, args) {
-  }, 0, 0);
-  Bully.define_method(Bully.Module, 'ancestors', function(self, args) {
-    var a = [self], _super = self._super;
-    while (_super) {
-      if (_super.is_include_class) {
-        a.push(_super.klass);
-      }
-      else {
-        a.push(_super);
-      }
-      _super = _super._super;
-    }
-    return Bully.array_new(a);
-  }, 0, 0);
-  Bully.define_method(Bully.Module, 'name', function(self, args) {
-    return Bully.str_new(Bully.ivar_get(self, '__classpath__'));
-  });
-  // FIXME: properly alias these methods
-  Bully.define_method(Bully.Module, 'to_s', Bully.Module.m_tbl[Bully.intern('name')]);
-  Bully.define_method(Bully.Module, 'inspect', Bully.Module.m_tbl[Bully.intern('name')]);
-  // Class
-  Bully.define_method(Bully.Class, 'allocate', function(self, args) {
-    return Bully.make_object();
-  });
-  Bully.define_method(Bully.Class, 'new', function(self, args) {
-    var o = Bully.dispatch_method(self, 'allocate', []);
-    o.klass = self;
-    if (Bully.respond_to(o, 'initialize')) {
-      Bully.dispatch_method(o, 'initialize', args);
-    }
-    return o;
-  });
-  Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
-    var methods = [],
-        klass = self,
-        include_super = args.length > 0 ?args[0] : true, symbol;
-    do {
-      for (symbol in klass.m_tbl) {
-        methods.push(Bully.str_new(symbol));
-      }
-      klass = klass._super;
-    } while (klass && include_super);
-    return Bully.array_new(methods);
-  }, 0, 1);
-  Bully.define_method(Bully.Class, 'superclass', function(self, args) {
-    var klass = self._super;
-    while (klass && klass.is_include_class) {
-      klass = klass._super;
-    }
-    return klass || null;
-  });
-  Bully.define_method(Bully.Class, 'include', function(self, args) {
-    var mod = args[0], name;
-    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
-      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class', []), 'name', []);
-      Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
-    }
-    Bully.include_module(self, args[0]);
-    return self;
-  }, 1, 1);
-  // Kernel
-  Bully.Kernel = Bully.define_module('Kernel');
-  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
-    return Bully.real_class_of(self);
-  });
-  Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
-    var klass = Bully.real_class_of(self),
-        name = Bully.dispatch_method(klass, 'name', []).data,
-        object_id = Bully.dispatch_method(self, 'object_id', []);
-    return Bully.str_new('#<' + name + ':' + object_id + '>');
-  });
-  Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
-    return Bully.respond_to(self, args[0]);
-  });
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl[Bully.intern('to_s')]);
-  Bully.define_method(Bully.Kernel, 'send', function(self, args) {
-    var name = args[0];
-    args = args.slice(1);
-    return Bully.dispatch_method(self, name, args);
-  }, 1, -1);
-  Bully.define_method(Bully.Kernel, '!', function(self, args) {
-    return !Bully.test(self);
-  }, 0, 0);
-  Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
-    Bully.platform.puts(str);
-    return null;
-  });
-  Bully.define_module_method(Bully.Kernel, 'print', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
-    Bully.platform.print(str);
-    return null;
-  });
-  Bully.define_module_method(Bully.Kernel, 'at_exit', function(self, args, block) {
-    Bully.at_exit = block;
-  }, 0, 0);
-  Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
-    var code = args[0] || 0, at_exit = Bully.at_exit;
-    Bully.at_exit = null;
-    if (at_exit) {
-      Bully.dispatch_method(at_exit, 'call', []);
-    }
-    Bully.platform.exit(code);
-  }, 0, 1);
-  Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'inspect', []).data;
-    Bully.platform.puts(str);
-    return null;
-  });
-  // raise can be called in the following ways:
-  //
-  //   raise
-  //     - Raises current exception if there is one or StandardError
-  //   raise(string)
-  //     - creates RuntimeError instance with string as message and raises it
-  //   raise(object)
-  //     - calls #exception on object and raises result
-  //   raise(object, message)
-  //     - calls #exception on object, passing it message and raises result
-  Bully.define_module_method(Bully.Kernel, 'raise', function(self, args) {
-    var exception;
-    if (args.length === 0) {
-      exception = Bully.current_exception ||
-        Bully.dispatch_method(Bully.RuntimeError, 'new', []);
-    }
-    else if (args.length === 1) {
-      if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
-        exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
-      }
-      else if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception', []);
-      }
-      else {
-        Bully.raise(Bully.TypeError, 'exception class/object expected');
-      }
-    }
-    else {
-      if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception', [args[1]]);
-      }
-      else {
-        Bully.raise(Bully.TypeError, 'exception class/object expected');
-      }
-    }
-    Bully.raise(exception);
-  }, 0, 2);
-  Bully.define_method(Bully.Kernel, 'is_a?', function(self, args) {
-    var test_klass = args[0], klass = Bully.class_of(self);
-    while (klass) {
-      if (test_klass === klass) { return true; }
-      klass = klass._super;
-    }
-    return false;
-  }, 1, 1);
-  Bully.define_method(Bully.Kernel, 'object_id', function(self, args) {
-    if (typeof self === 'number') { return 'number-' + self.toString(); }
-    else if (typeof self === 'string') { return 'symbol-' + self; }
-    else if (self === false) { return 'boolean-false'; }
-    else if (self === true) { return 'boolean-true'; }
-    else if (self === null) { return 'nil-nil'; }
-    return 'object' + self.id;
-  }, 0, 0);
-  Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
-    return Bully.require(args[0].data);
-  }, 1, 1);
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'hash', Bully.Kernel.m_tbl[Bully.intern('object_id')]);
-  Bully.define_module_method(Bully.Kernel, '==', function(self, args) {
-    return self === args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
-    var name = args[0],
-        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect', []).data;
-    Bully.raise(Bully.NoMethodError, message);
-  }, 1, -1);
-  // Object
-  Bully.include_module(Bully.Object, Bully.Kernel);
-  // FalseClass
-  Bully.FalseClass = Bully.define_class('FalseClass');
-  Bully.define_method(Bully.FalseClass, 'to_s', function() {
-    return Bully.str_new('false');
-  });
-  // FIXME: alias this properly
-  Bully.define_method(Bully.FalseClass, 'inspect', Bully.FalseClass.m_tbl[Bully.intern('to_s')]);
-  // TrueClass
-  Bully.TrueClass = Bully.define_class('TrueClass');
-  Bully.define_method(Bully.TrueClass, 'to_s', function() {
-    return Bully.str_new('true');
-  });
-  // FIXME: alias this properly
-  Bully.define_method(Bully.TrueClass, 'inspect', Bully.TrueClass.m_tbl[Bully.intern('to_s')]);
-  // NilClass
-  Bully.NilClass = Bully.define_class('NilClass');
-  Bully.define_method(Bully.NilClass, 'to_i', function() {
-    return 0;
-  });
-  Bully.define_method(Bully.NilClass, 'nil?', function() {
-    return true;
-  });
-  Bully.define_method(Bully.NilClass, 'to_s', function() {
-    return Bully.str_new("");
-  });
-  Bully.define_method(Bully.NilClass, 'inspect', function() {
-    return Bully.str_new('nil');
-  });
-  // main (top level self)
-  Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
-  Bully.define_singleton_method(Bully.main, 'to_s', function() {
-    return Bully.str_new('main');
-  });
-  Bully.init_symbol();
-  Bully.init_string();
-  Bully.init_number();
-  Bully.init_error();
-  Bully.init_enumerable();
-  Bully.init_array();
-  Bully.init_hash();
-  Bully.init_proc();
-};var sys = require('sys'),
-    path = require('path'),
-    fs = require('fs');
-Bully.platform = {
-  puts: sys.puts,
-  print: sys.print,
-  exit: process.exit,
-  locate_lib: function(lib) {
-    // FIXME: don't hardcode lib path
-    return path.join('./lib', lib) + '.bully';
-  },
-  read_file: function(path) {
-    return fs.readFileSync(path, 'ascii');
-  }
-};Bully.symbol_ids = {};
-Bully.next_symbol_id = 11;
-Bully.intern = function(js_str) {
-  return js_str;
-};
-Bully.init_symbol = function() {
-  Bully.Symbol = Bully.define_class('Symbol');
-  Bully.define_method(Bully.Symbol, 'inspect', function(self, args) {
-    return Bully.str_new(':' + self);
-  }, 0, 0);
-  Bully.define_method(Bully.Symbol, '==', function(self, args) {
-    return self === args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Symbol, 'to_s', function(self) {
-    return Bully.str_new(self);
-  }, 0, 0);
-};
-Bully.str_new = function(js_str) {
-  var s = Bully.dispatch_method(Bully.String, 'new', []);
-  s.data = js_str;
-  return s;
-};
-Bully.str_cat = function(str, js_str) {
-  str.data += js_str;
-  return str;
-};
-Bully.str_hash = function(str) {
-  var s = str.data, len = s.length, key = 0, i;
-  for (i = 0; i < len; i += 1) {
-    key += s.charCodeAt(i);
-    key += (key << 10);
-    key ^= (key >> 6);
-  }
-  key += (key << 3);
-  key ^= (key >> 11);
-  key += (key << 15);
-  return key;
-};
-Bully.str_slice = function(str, args) {
-  var s = str.data, i1 = args[0], i2 = args[1];
-  return Bully.str_new(s.slice(i1, i1 + i2));
-};
-Bully.str_equals = function(str, args) {
-  return str.data === args[0].data;
-};
-Bully.init_string = function() {
-  Bully.String = Bully.define_class('String');
-  Bully.define_singleton_method(Bully.String, 'allocate', function(self, args) {
-    var o = Bully.make_object();
-    o.data = "";
-    return o;
-  });
-  Bully.define_method(Bully.String, 'to_s', function(self, args) {
-    return self;
-  }, 0, 0);
-  Bully.define_method(Bully.String, 'inspect', function(self, args) {
-    return Bully.str_new('"' + self.data + '"');
-  }, 0, 0);
-  Bully.define_method(Bully.String, '<<', function(self, args) {
-    Bully.str_cat(self, Bully.dispatch_method(args[0], 'to_s', []).data);
-    return self;
-  }, 1, 1);
-  Bully.define_method(Bully.String, 'to_sym', function(self, args) {
-    return Bully.intern(self.data);
-  }, 0, 0);
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.String, '+', Bully.String.m_tbl[Bully.intern('<<')]);
-  Bully.define_method(Bully.String, 'hash', Bully.str_hash, 0, 0);
-  Bully.define_method(Bully.String, 'slice', Bully.str_slice, 2, 2);
-  Bully.define_method(Bully.String, '==', Bully.str_equals, 1, 1);
-};Bully.raise = function(exception, message) {
-  var args;
-  if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
-    args = message ? [Bully.str_new(message)] : [];
-    exception = Bully.dispatch_method(exception, 'new', args);
-  }
-  throw exception;
-};
-Bully.init_error = function() {
-  Bully.Exception = Bully.define_class('Exception');
-  Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
-    Bully.ivar_set(self, '@message', args[0] ||
-      Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []));
-  }, 0, 1);
-  Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
-    return Bully.dispatch_method(self, 'new', args);
-  }, 0, 1);
-  Bully.define_method(Bully.Exception, 'message', function(self, args) {
-    return Bully.ivar_get(self, '@message');
-  });
-  Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []),
-        message = Bully.dispatch_method(self, 'message', []);
-    return Bully.str_new(name.data + ': ' + message.data);
-  });
-  Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
-    return Bully.str_new('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
-  });
-  Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
-  Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
-  Bully.RuntimeError = Bully.define_class('RuntimeError', Bully.StandardError);
-  Bully.NameError = Bully.define_class('NameError', Bully.StandardError);
-  Bully.TypeError = Bully.define_class('TypeError', Bully.StandardError);
-  Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.NameError);
-};Bully.array_new = function(js_array) {
-  return Bully.make_object(js_array, Bully.Array);
-};
-Bully.init_array = function() {
-  Bully.Array = Bully.define_class('Array');
-  Bully.include_module(Bully.Array, Bully.Enumerable);
-  Bully.define_singleton_method(Bully.Array, 'new', function(self, args) {
-    return Bully.array_new([]);
-  });
-  Bully.define_method(Bully.Array, 'size', function(self, args) {
-    return self.length;
-  });
-  Bully.define_method(Bully.Array, 'push', function(self, args) {
-    self.push.apply(self, args);
-    return self;
-  });
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Array, '<<', Bully.Array.m_tbl[Bully.intern('push')]);
-  Bully.define_method(Bully.Array, 'pop', function(self, args) {
-    return self.pop();
-  });
-  Bully.define_method(Bully.Array, 'at', function(self, args) {
-    return self[args[0]];
-  });
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Array, '[]', Bully.Array.m_tbl[Bully.intern('at')]);
-  Bully.define_method(Bully.Array, 'insert', function(self, args) {
-    self[args[0]] = args[1];
-    return self;
-  });
-  Bully.define_method(Bully.Array, '[]=', function(self, args) {
-    self[args[0]] = args[1];
-    return args[1];
-  });
-  Bully.define_method(Bully.Array, 'inspect', function(self, args) {
-    var i = 0, elems = [];
-    for (i = 0; i < self.length; i += 1) {
-      elems.push(Bully.dispatch_method(self[i], 'inspect', []).data);
-    }
-    return Bully.str_new('[' + elems.join(', ') + ']');
-  });
-  Bully.define_method(Bully.Array, 'each', function(self, args, block) {
-    var i;
-    for (i = 0; i < self.length; i += 1) {
-      Bully.Evaluator._yield(block, [self[i]]);
-    }
-    return self;
-  });
-  // FIXME: make this take a block
-  Bully.define_method(Bully.Array, 'any?', function(self, args, block) {
-    return self.length > 0;
-  });
-  Bully.define_method(Bully.Array, 'join', function(self, args, block) {
-    var strings = [], elem, i;
-    for (i = 0; i < self.length; i += 1) {
-      strings.push(Bully.dispatch_method(self[i], 'to_s', []).data);
-    }
-    return Bully.str_new(strings.join(args[0] ? args[0].data : ' '));
-  });
-  Bully.define_method(Bully.Array, 'include?', function(self, args) {
-    var i;
-    for (i = 0; i < self.length; i += 1) {
-      if (Bully.dispatch_method(self[i], '==', [args[0]])) {
-        return true;
-      }
-    }
-    return false;
-  }, 1, 1);
-  Bully.define_method(Bully.Array, '==', function(self, args) {
-    var other = args[0], i;
-    if (!Bully.dispatch_method(other, 'is_a?', [Bully.Array])) { return false; }
-    if (self.length !== other.length) { return false; }
-    for (i = 0; i < self.length; i += 1) {
-      if (!Bully.dispatch_method(self[i], '==', [other[i]])) { return false; }
-    }
-    return true;
-  }, 1, 1);
-};Bully.hash_new = function() {
-  var h = Bully.make_object({}, Bully.Hash);
-  Bully.ivar_set(h, '__keys__', []);
-  return h;
-};
-Bully.hash_set = function(hash, key, value) {
-  var keys = Bully.ivar_get(hash, '__keys__');
-  if (keys.indexOf(key) === -1) { keys.push(key); }
-  key = Bully.dispatch_method(key, 'hash', []);
-  hash[key] = value;
-  return value;
-};
-Bully.hash_get = function(hash, key) {
-  key = Bully.dispatch_method(key, 'hash', []);
-  return hash.hasOwnProperty(key) ? hash[key] : null;
-};
-Bully.init_hash = function() {
-  Bully.Hash = Bully.define_class('Hash');
-  Bully.define_singleton_method(Bully.Hash, 'new', function(self, args) {
-    return Bully.hash_new();
-  });
-  Bully.define_method(Bully.Hash, '[]=', function(self, args) {
-    return Bully.hash_set(self, args[0], args[1]);
-  }, 2, 2);
-  Bully.define_method(Bully.Hash, '[]', function(self, args) {
-    return Bully.hash_get(self, args[0]);
-  }, 1, 1);
-  Bully.define_method(Bully.Hash, 'keys', function(self, args) {
-    return Bully.array_new(Bully.ivar_get(self, '__keys__'));
-  });
-  Bully.define_method(Bully.Hash, 'values', function(self, args) {
-    var keys = Bully.ivar_get(self, '__keys__'), values = [], i;
-    for (i = 0; i < keys.length; i += 1) {
-      values.push(Bully.hash_get(self, keys[i]));
-    }
-    return Bully.array_new(values);
-  });
-  Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
-    var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
-    for (i = 0; i < keys.length; i += 1) {
-      s = Bully.dispatch_method(keys[i], 'inspect', []).data + ' => ';
-      s += Bully.dispatch_method(Bully.hash_get(self, keys[i]), 'inspect', []).data;
-      elems.push(s);
-    }
-    return Bully.str_new('{' + elems.join(', ') + '}');
-  });
-};Bully.init_number = function() {
-  Bully.Number = Bully.define_class('Number');
-  // FIXME: undefine new method for Number
-  Bully.define_method(Bully.Number, 'to_s', function(self, args) {
-    return Bully.str_new(self.toString());
-  });
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Number, 'inspect', Bully.Number.m_tbl[Bully.intern('to_s')]);
-  Bully.define_method(Bully.Number, '+@', function(self, args) {
-    return self;
-  }, 0, 0);
-  Bully.define_method(Bully.Number, '-@', function(self, args) {
-    return -self;
-  }, 0, 0);
-  Bully.define_method(Bully.Number, '+', function(self, args) {
-    return self + args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '-', function(self, args) {
-    return self - args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '*', function(self, args) {
-    return self * args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '/', function(self, args) {
-    return self / args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '%', function(self, args) {
-    return self % args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '<<', function(self, args) {
-    return self << args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '>>', function(self, args) {
-    return self >> args[0];
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '**', function(self, args) {
-    return Math.pow(self, args[0]);
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '<=>', function(self, args) {
-    if (self < args[0]) { return 1; }
-    if (self > args[0]) { return -1; }
-    return 0;
-  }, 1, 1);
-  Bully.define_method(Bully.Number, '==', function(self, args) {
-    return self === args[0];
-  });
-  Bully.define_method(Bully.Number, '!=', function(self, args) {
-    return self !== args[0];
-  });
-  Bully.define_method(Bully.Number, '>', function(self, args) {
-    return self > args[0];
-  });
-  Bully.define_method(Bully.Number, '<', function(self, args) {
-    return self < args[0];
-  });
-  Bully.define_method(Bully.Number, 'times', function(self, args, block) {
-    var i;
-    for (i = 0; i < self; i += 1) {
-      Bully.Evaluator._yield(block, [i]);
-    }
-    return self;
-  }, 0, 0);
-};
-Bully.init_enumerable = function() {
-  Bully.Enumerable = Bully.define_module('Enumerable');
-  Bully.define_method(Bully.Enumerable, 'select', function(self, args, block) {
-    var results = [];
-    Bully.dispatch_method(self, 'each', [], function(args) {
-      var x = args[0], r;
-      if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
-        results.push(x);
-      }
+Bully.Lexer.prototype = {
+  tokenize: function(code) {
+    var pos = 0, // current character position
+        tokens = [], // list of the parsed tokens, form is: [tag, value, lineno]
+        line = 1, // the current source line number
+        opRegex = [],
+        sortedOps, chunk, match, i;
+    sortedOps = Bully.Lexer.OPERATORS.sort(function(a, b) {
+      if (a.length < b.length) { return 1; }
+      else if (a.length > b.length) { return -1; }
+      return 0;
     });
-    return Bully.array_new(results);
-  }, 0, 0);
+    for (i = 0; i < sortedOps.length; i += 1) {
+      opRegex.push(Bully.Lexer.regex_escape(sortedOps[i]));
+    }
+    opRegex = new RegExp('^(' + opRegex.join('|') + ')');
+    while (pos < code.length) {
+      chunk = code.substr(pos);
+      // match standard tokens
+      if ((match = chunk.match(/^([a-z_]\w*[?!]?)/))) {
+        match = match[1];
+        if (Bully.Lexer.KEYWORDS.indexOf(match) !== -1) {
+          tokens.push([match.toUpperCase(), match, line]);
+        }
+        else {
+          tokens.push(['IDENTIFIER', match, line]);
+        }
+        pos += match.length;
+      }
+      // match symbols
+      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
+        match = match[1];
+        tokens.push(['SYMBOL', match, line]);
+        pos += match.length;
+      }
+      // match operators
+      else if ((match = chunk.match(opRegex))) {
+        match = match[1];
+        tokens.push([match, match, line]);
+        pos += match.length;
+      }
+      // match constants
+      else if ((match = chunk.match(/^([A-Z]\w*)/))) {
+        match = match[1];
+        tokens.push(['CONSTANT', match, line]);
+        pos += match.length;
+      }
+      else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
+        match = match[1];
+        tokens.push(['NUMBER', parseFloat(match), line]);
+        pos += match.length;
+      }
+      // double quoted strings
+      else if ((match = chunk.match(/^"([^"\\]*(\\.[^"\\]*)*)"/))) {
+        match = match[1];
+        tokens.push(['STRING', match, line]);
+        pos += match.length + 2;
+      }
+      // single quoted strings
+      else if ((match = chunk.match(/^'([^'\\]*(\\.[^'\\]*)*)'/))) {
+        match = match[1];
+        tokens.push(['STRING', match, line]);
+        pos += match.length + 2;
+      }
+      // handle new lines
+      else if ((match = chunk.match(/^\n/))) {
+        tokens.push(["NEWLINE", "\n", line]);
+        line += 1;
+        pos += 1;
+      }
+      // ignore whitespace
+      else if (chunk.match(/^ /)) {
+        pos += 1;
+      }
+      // ignore comments
+      else if ((match = chunk.match(/^#.*\n/))) {
+        pos += match[0].length;
+        line += 1;
+      }
+      // treat all other single characters as a token
+      else {
+        match = chunk.substring(0, 1);
+        tokens.push([match, match, line]);
+        pos += 1;
+      }
+    }
+    return (new Bully.Rewriter(tokens)).rewrite();
+  }
+};
+Bully.Rewriter = function(tokens) {
+  this.tokens = tokens;
+  this.index = -1;
+  return this;
+};
+Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
+Bully.Rewriter.prototype = {
+  rewrite: function() {
+    this.remove_extra_newlines();
+    this.rewrite_keyword_method_calls();
+    return this.tokens;
+  },
+  next: function() {
+    this.index += 1;
+    return this.tokens[this.index];
+  },
+  prev: function() {
+    this.index -= 1;
+    return this.tokens[this.index];
+  },
+  peak: function() {
+    return this.tokens[this.index + 1];
+  },
+  reset: function() {
+    this.index = -1;
+  },
+  insert_before: function(token) {
+    this.tokens.splice(this.index, 0, token);
+  },
+  insert_after: function(token) {
+    this.tokens.splice(this.index + 1, 0, token);
+  },
+  remove: function() {
+    this.tokens.splice(this.index, 1);
+  },
+  remove_next_of_type: function(type) {
+    while (this.tokens[this.index][0] === type) {
+      this.tokens.splice(this.index, 1);
+    }
+  },
+  remove_prev_of_type: function(type) {
+    while (this.tokens[this.index - 2][0] === type) {
+      this.tokens.splice(this.index - 2, 1);
+      this.index -= 1;
+    }
+  },
+  remove_extra_newlines: function() {
+    var token;
+    while ((token = this.next())) {
+      if (token[0] === '{' || token[0] === '[') {
+        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+      }
+      else if (token[0] === '}' || token[0] === ']') {
+        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        this.next();
+      }
+      else if (token[0] === ',') {
+        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        this.next();
+        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+      }
+    }
+    this.reset();
+  },
+  rewrite_keyword_method_calls: function() {
+    var t1, t2;
+    while ((t1 = this.next()) && (t2 = this.peak())) {
+      if ((t1[0] === '.' || t1[0] === 'DEF') &&
+          Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
+        t2[0] = 'IDENTIFIER';
+      }
+    }
+    this.reset();
+  }
 };/* Jison generated parser */
 Bully.parser = (function(){
 var parser = {trace: function trace() { },

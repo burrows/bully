@@ -1,0 +1,454 @@
+/*
+ * Creates the most basic instance of a Bully object.
+ *
+ * If passed an object, that object will be decorated with properties necessary
+ * to be a Bully object, otherwise a brand new object is constructed.
+ */
+Bully.next_object_id = 8;
+Bully.make_object = function(obj, klass) {
+  obj   = obj   || {};
+  klass = klass || null;
+
+  obj.klass  = klass;
+  obj.iv_tbl = {};
+  obj.id     = Bully.next_object_id;
+
+  Bully.next_object_id += 4;
+
+  return obj;
+};
+
+/*
+ * Indicates whether or not an object is truthy.  In Bully, all objects are
+ * truthy expect false and nil.
+ */
+Bully.test = function(obj) {
+  return !(obj === false || obj === null);
+};
+
+/*
+ * Indicates whether or not the given object is an immediate value.  An
+ * immediate value is represented by a native javascript value instead of
+ * being wrapped in an Object instance.  The following types of objects are
+ * immediate objects:
+ *   * Symbol
+ *   * Number
+ *   * NilClass
+ *   * TrueClass
+ *   * FalseClass
+ */
+Bully.is_immediate = function(obj) {
+  return typeof obj === 'number' ||
+                obj === 'string' ||
+                obj === null     ||
+                obj === true     ||
+                obj === false;
+};
+
+Bully.check_method_args = function(min, max, args) {
+  var msg = 'wrong number of arguments (', n = args.length;
+
+  if (min === max) {
+    // 0 or more required arguments, no optionals
+    if (n !== min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+  else if (max === -1) {
+    // no limit on args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+  else {
+    // bounded number of args
+    if (n < min) {
+      msg += n + ' for ' + min + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+    else if (n > max) {
+      msg += n + ' for ' + max + ')';
+      Bully.raise(Bully.ArgumentError, msg);
+    }
+  }
+};
+
+Bully.dispatch_method = function(obj, name, args, block) {
+  var id = Bully.intern(name), fn = Bully.find_method(Bully.class_of(obj), id);
+
+  args = args || [];
+
+  if (!fn) {
+    args.unshift(id);
+    return Bully.dispatch_method(obj, 'method_missing', args, block);
+  }
+
+  Bully.check_method_args(fn.min_args, fn.max_args, args);
+
+  return fn.call(null, obj, args, block);
+};
+
+Bully.call_super = function(obj, name, args) {
+  var fn = Bully.find_method(Bully.class_of(obj)._super, Bully.intern(name));
+
+  // FIXME: check if method was found
+  
+  return fn.call(null, obj, args);
+};
+
+Bully.respond_to = function(obj, name) {
+  name = typeof name === 'string' ? Bully.intern(name) : name;
+  return !!Bully.find_method(Bully.class_of(obj), name);
+};
+
+/*
+ * @private
+ */
+Bully.class_boot = function(_super) {
+  var klass = Bully.make_object();
+
+  klass.klass = Bully.Class;
+  klass._super = _super;
+  klass.m_tbl = {};
+
+  return klass;
+};
+
+/*
+ * @private
+ */
+Bully.defclass_boot = function(name, _super) {
+  var klass = Bully.class_boot(_super);
+
+  Bully.ivar_set(klass, '__classpath__', name);
+
+  // TODO: define constant for class name
+
+  return klass;
+};
+
+/*
+ * Returns the singleton class of the given object, creating it if necessary.
+ *
+ * A singleton class provides a place to store instance specific behavior.
+ */
+Bully.singleton_class = function(obj) {
+  var sklass;
+
+  // TODO: can't access singleton class of Numbers or Symbols
+
+  if (obj.klass && obj.klass.is_singleton) {
+    sklass = obj.klass;
+  }
+  else {
+    sklass = Bully.class_boot(obj.klass);
+    sklass.is_singleton = true;
+    obj.klass = sklass;
+  }
+
+  return sklass;
+};
+
+/*
+ * @private
+ *
+ * Constructs a metaclass for the given Class instance.  A metaclass is simply
+ * the singleton class of a Class instance.
+ */
+Bully.make_metaclass = function(klass, _super) {
+  var sklass = Bully.singleton_class(klass);
+
+  klass.klass  = sklass;
+  sklass._super = _super || klass._super.klass;
+
+  return sklass;
+};
+
+/*
+ * @private
+ *
+ * Creates a new Class instance and constructs its metaclass.
+ */
+Bully.make_class = function(name, _super) {
+  var klass;
+
+  // TODO: check for existance of class
+  // TODO: call Bully.class_inherited
+  // TODO: make sure super is not Bully.Class
+  // TODO: make sure super is not a singleton class
+
+  _super = _super || Bully.Object;
+
+  klass = Bully.class_boot(_super);
+
+  Bully.make_metaclass(klass, _super.klass);
+
+  return klass;
+};
+
+/*
+ * Defines a new Class instance in the global scope.
+ */
+Bully.define_class = function(name, _super) {
+  var klass = Bully.make_class(name, _super);
+  Bully.define_global_const(name, klass);
+
+  Bully.ivar_set(klass, '__classpath__', name);
+
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    send(_super, 'inherited', klass);
+  }
+
+  return klass;
+};
+
+/*
+ * Defines a new Class instance under the given class or module.
+ */
+Bully.define_class_under = function(outer, name, _super) {
+  var klass     = Bully.make_class(name, _super),
+      classpath = Bully.ivar_get(outer, '__classpath__');
+
+  Bully.define_const(outer, klass);
+
+  Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
+
+  if (_super && Bully.respond_to(_super, 'inherited')) {
+    send(_super, 'inherited', klass);
+  }
+
+  return klass;
+};
+
+Bully.make_include_class = function(module, _super) {
+  var iklass = Bully.class_boot(_super);
+
+  iklass.is_include_class = true;
+  iklass.m_tbl = module.m_tbl;
+  iklass.klass = module;
+
+  return iklass;
+};
+
+Bully.include_module = function(klass, module) {
+  var current = klass, skip, p;
+
+  while (module) {
+    skip = false;
+    for (p = klass._super; p; p = p._super) {
+      if (p.m_tbl === module.m_tbl) { skip = true; }
+    }
+
+    if (!skip) {
+      current = current._super = Bully.make_include_class(module, current._super);
+    }
+
+    module = module._super;
+  }
+};
+
+Bully.module_new = function() {
+  var mod = Bully.make_object();
+
+  mod.klass  = Bully.Module;
+  mod._super = null;
+  mod.iv_tbl = {};
+  mod.m_tbl  = {};
+
+  return mod;
+};
+
+Bully.define_module = function(name) {
+  var mod = Bully.module_new();
+
+  // TODO: check for existance of module
+
+  Bully.define_global_const(name, mod);
+  Bully.ivar_set(mod, '__classpath__', name);
+
+  return mod;
+};
+
+Bully.define_module_under = function(outer, name) {
+  var mod = Bully.module_new();
+
+  // TODO: check for existance of module
+
+  Bully.define_const(outer, name, mod);
+
+  return mod;
+};
+
+Bully.define_method = function(klass, name, fn, min_args, max_args) {
+  var id = Bully.intern(name);
+
+  klass.m_tbl[id] = fn;
+  klass.m_tbl[id].klass = klass;
+  klass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  klass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+};
+
+Bully.define_module_method = function(klass, name, fn) {
+  Bully.define_method(klass, name, fn);
+  Bully.define_singleton_method(klass, name, fn);
+};
+
+Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
+  var id = Bully.intern(name), sklass = Bully.singleton_class(obj);
+
+  sklass.m_tbl[id] = fn;
+  sklass.m_tbl[id].klass = sklass;
+  sklass.m_tbl[id].min_args = typeof min_args === 'undefined' ? 0  : min_args;
+  sklass.m_tbl[id].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+};
+
+Bully.find_method = function(klass, id) {
+  while (klass && !klass.m_tbl[id]) {
+    klass = klass._super;
+  }
+
+  return klass ? klass.m_tbl[id] : null;
+};
+
+Bully.class_of = function(obj) {
+  if (typeof obj === 'number')      { return Bully.Number; }
+  else if (typeof obj === 'string') { return Bully.Symbol; }
+  else if (obj === null)            { return Bully.NilClass; }
+  else if (obj === true)            { return Bully.TrueClass; }
+  else if (obj === false)           { return Bully.FalseClass; }
+
+  return obj.klass;
+};
+
+Bully.real_class_of = function(obj) {
+  return Bully.real_class(Bully.class_of(obj));
+};
+
+Bully.real_class = function(klass) {
+  while (klass.is_singleton) {
+    klass = klass._super;
+  }
+
+  return klass;
+};
+
+/*
+ * Stores instance variables for immediate objects.
+ */
+Bully.immediate_iv_tbl = {};
+
+/* 
+ * Sets an instance variable on the given object for non-immediate objects.
+ * For immediate objects, the instance variable is set on
+ * Bully.immediate_iv_tbl.
+ */
+Bully.ivar_set = function(obj, name, val) {
+  if (Bully.is_immediate(obj)) {
+    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
+    Bully.immediate_iv_tbl[obj][name] = val;
+  }
+  else {
+    obj.iv_tbl[name] = val;
+  }
+};
+
+/*
+ * Retrieves an instance variable value from the given object.  For immediate
+ * objects, the instance variable is looked up from Bully.immediate_iv_tbl.
+ */
+Bully.ivar_get = function(obj, name) {
+  var val;
+
+  if (Bully.is_immediate(obj)) {
+    val = Bully.immediate_iv_tbl[obj] ?
+      Bully.immediate_iv_tbl[obj][name] : null;
+  }
+  else {
+    val = obj.iv_tbl[name];
+  }
+
+  return typeof val === 'undefined' ? null : val;
+};
+
+/*
+ * Defines a constant under the given class' namespace.  Constants are stored
+ * in the class' iv_tbl just like instance and class variables.
+ */
+Bully.define_const = function(klass, name, val) {
+  // TODO: check format of name
+  klass.iv_tbl[name] = val;
+};
+
+/*
+ * Defines a global constant.  The namespace of a global constant is Object.
+ */
+Bully.define_global_const = function(name, val) {
+  Bully.define_const(Bully.Object, name, val);
+};
+
+/*
+ * Attempts to lookup the given constant name.  This method simply searches
+ * the class' superclass chain.  During execution, constants are first searched
+ * for in the current lexical scope.  The code that does this searching is
+ * implemented in the compiler.
+ *
+ * TODO: reference the method/class in the compiler
+ */
+Bully.lookup_const = function(klass, name) {
+  do {
+    if (klass.iv_tbl.hasOwnProperty(name)) {
+      return klass.iv_tbl[name];
+    }
+    else {
+      klass = klass._super;
+    }
+  } while (klass);
+
+  return null;
+};
+
+Bully.const_get = function(klass, name) {
+  var c = Bully.lookup_const(klass, name);
+
+  if (!c) {
+    Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+  }
+
+  return c;
+};
+
+Bully.init = function() {
+  var metaclass;
+
+  // bootstrap
+  Bully.Object = Bully.defclass_boot('Object', null);
+  Bully.Module = Bully.defclass_boot('Module', Bully.Object);
+  Bully.Class  = Bully.defclass_boot('Class', Bully.Module);
+
+  metaclass = Bully.make_metaclass(Bully.Object, Bully.Class);
+  metaclass = Bully.make_metaclass(Bully.Module, metaclass);
+  Bully.make_metaclass(Bully.Class, metaclass);
+
+  Bully.define_global_const('Object', Bully.Object);
+  Bully.define_global_const('Module', Bully.Module);
+  Bully.define_global_const('Class', Bully.Class);
+
+  Bully.init_object();
+  Bully.init_class();
+  Bully.init_module();
+  Bully.init_main();
+  Bully.init_nil();
+  Bully.init_boolean();
+
+  Bully.init_symbol();
+  Bully.init_string();
+  Bully.init_number();
+  Bully.init_error();
+  Bully.init_enumerable();
+  Bully.init_array();
+  Bully.init_hash();
+  Bully.init_proc();
+};
+

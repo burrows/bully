@@ -1,0 +1,16 @@
+Bully.init_nil = function() {
+  Bully.NilClass = Bully.define_class('NilClass');
+
+  Bully.define_method(Bully.NilClass, 'to_i', function() {
+    return 0;
+  });
+  Bully.define_method(Bully.NilClass, 'nil?', function() {
+    return true;
+  });
+  Bully.define_method(Bully.NilClass, 'to_s', function() {
+    return Bully.str_new("");
+  });
+  Bully.define_method(Bully.NilClass, 'inspect', function() {
+    return Bully.str_new('nil');
+  });
+};

@@ -1,0 +1,18 @@
+Bully.init_boolean = function() {
+  // FalseClass
+  Bully.FalseClass = Bully.define_class('FalseClass');
+  Bully.define_method(Bully.FalseClass, 'to_s', function() {
+    return Bully.str_new('false');
+  });
+  // FIXME: alias this properly
+  Bully.define_method(Bully.FalseClass, 'inspect', Bully.FalseClass.m_tbl[Bully.intern('to_s')]);
+
+  // TrueClass
+  Bully.TrueClass = Bully.define_class('TrueClass');
+  Bully.define_method(Bully.TrueClass, 'to_s', function() {
+    return Bully.str_new('true');
+  });
+  // FIXME: alias this properly
+  Bully.define_method(Bully.TrueClass, 'inspect', Bully.TrueClass.m_tbl[Bully.intern('to_s')]);
+};
+
