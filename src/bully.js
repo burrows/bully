@@ -1,10 +1,13 @@
 exports.Bully = Bully = {};
-/*
- * Creates the most basic instance of a Bully object.
- *
- * If passed an object, that object will be decorated with properties necessary
- * to be a Bully object, otherwise a brand new object is constructed.
- */
+// Returns a native javascript object with the properties necessary to be a
+// Bully object.
+//
+// obj   - If passed a native object, that object will be decorated with the
+//         properties necessary to be a Bully object, otherwise a new native
+//         object is created (optional).
+// klass - The Bully class of the object to create (optional).
+//
+// Returns an object capable of being a Bully object.
 (function() {
   var next_object_id = 1;
   Bully.make_object = function(obj, klass) {
@@ -17,24 +20,29 @@ exports.Bully = Bully = {};
     return obj;
   };
 }());
-/*
- * Indicates whether or not an object is truthy.  In Bully, all objects are
- * truthy expect false and nil.
- */
+// Indicates whether or not an object is truthy.  In Bully, all objects are
+// truthy expect false and nil.
+//
+// obj - Any Bully object test for truthiness.
+//
+// Returns true if object is truthy, false otherwise.
 Bully.test = function(obj) {
   return !(obj === false || obj === null);
 };
-/*
- * Indicates whether or not the given object is an immediate value.  An
- * immediate value is represented by a native javascript value instead of
- * being wrapped in an Object instance.  The following types of objects are
- * immediate objects:
- *   * Symbol
- *   * Number
- *   * NilClass
- *   * TrueClass
- *   * FalseClass
- */
+// Indicates whether or not the given object is an immediate value.  An
+// immediate value is represented by a native javascript value instead of
+// being wrapped in an Object instance.  The following types of objects are
+// immediate objects:
+//
+// * Symbol (a native javascript string)
+// * Number (a native javascript number)
+// * NilClass (null)
+// * TrueClass (true)
+// * FalseClass (false)
+//
+// obj - The object to test.
+//
+// Returns true if the object is an immediate object, false otherwise.
 Bully.is_immediate = function(obj) {
   return typeof obj === 'number' ||
                 obj === 'string' ||
@@ -42,8 +50,22 @@ Bully.is_immediate = function(obj) {
                 obj === true ||
                 obj === false;
 };
-Bully.check_method_args = function(min, max, args) {
-  var msg = 'wrong number of arguments (', n = args.length;
+// Used by dispatch_method to check the number of arguments passed to a method.
+// Bully methods can accept a fixed number of arguments, optional arguments, and
+// splat arguments.  When methods are defined, their minimum and maximum number
+// of arguments are calculated from the method signature.  Those values are used
+// here to check whether the number of arguments passed is acceptable.  If an
+// incorrect number of arguments are passed, then an ArgumentError exception is
+// raised.
+//
+// min - The minimum number of arguments the method accepts.
+// max - The maximum number of arguments the method accepts.
+// n   - The number of arguments passed to the method.
+//
+// Returns nothing.
+// Raises ArgumentError if an incorrect number of arguments are passed.
+Bully.check_method_args = function(min, max, n) {
+  var msg = 'wrong number of arguments (';
   if (min === max) {
     // 0 or more required arguments, no optionals
     if (n !== min) {
@@ -70,6 +92,16 @@ Bully.check_method_args = function(min, max, args) {
     }
   }
 };
+// Looks up and invokes a method on the given object.  If the method cannot be
+// found anywhere in the object's inheritance chain, the method 'method_missing'
+// will be sent to the object instead.
+//
+// obj   - The object to invoke the method on.
+// name  - The name of the method to invoke.
+// args  - A javascript array containing the arguments to send (optional).
+// block - A Proc instance to pass to the method (optional).
+//
+// Returns the return value of the invoked method.
 Bully.dispatch_method = function(obj, name, args, block) {
   var fn = Bully.find_method(Bully.class_of(obj), name);
   args = args || [];
@@ -77,12 +109,27 @@ Bully.dispatch_method = function(obj, name, args, block) {
     args.unshift(name);
     return Bully.dispatch_method(obj, 'method_missing', args, block);
   }
-  Bully.check_method_args(fn.min_args, fn.max_args, args);
+  Bully.check_method_args(fn.min_args, fn.max_args, args.length);
   return fn.call(null, obj, args, block);
 };
+// Looks up and invokes the given method name starting from the given object's
+// superclass.
+//
+// obj  - The object whose superclass should be searched (this should be the
+//        current value of self).
+// name - The name of the method to invoke (this should be the name of the
+//        method currently being invoked).
+// args - The arguments to pass to the super method (optional).
+//
+// Returns the return value of the invoked super method.
+// Raises NoMethodError if super method can't be found.
 Bully.call_super = function(obj, name, args) {
   var fn = Bully.find_method(Bully.class_of(obj)._super, name);
   // FIXME: check if method was found
+  if (!fn) {
+    Bully.raise(Bully.NoMethodError,
+      "super: no superclass method '" + name + "' for " + Bully.dispatch_method(obj, 'inspect', []).data);
+  }
   return fn.call(null, obj, args);
 };
 Bully.respond_to = function(obj, name) {
@@ -945,6 +992,7 @@ Bully.Evaluator = {
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
       ctx.block = block;
+      ctx.args = args;
       if (node.params) {
         Bully.Evaluator.evaluateParamList(node.params, args, ctx);
       }
@@ -1026,7 +1074,7 @@ Bully.Evaluator = {
     return rv;
   },
   evaluateSuperCall: function(node, ctx) {
-    var args = node.args ? this.evaluateArgs(node.args, ctx) : [], rv;
+    var args = node.args ? this.evaluateArgs(node.args, ctx) : ctx.args, rv;
     try {
       rv = Bully.call_super(ctx.self, ctx.method_name, args);
     }

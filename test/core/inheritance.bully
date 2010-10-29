@@ -1,0 +1,146 @@
+require('unit_test')
+
+class InheritanceTestParent
+  @subclasses = []
+
+  def self.inherited(klass)
+    @subclasses.push(klass)
+  end
+
+  def self.subclasses
+    @subclasses
+  end
+
+  def self.foo
+    'InheritanceTestParent.foo'
+  end
+
+  def self.bar
+    'InheritanceTestParent.bar'
+  end
+
+  def self.baz
+    'InheritanceTestParent.baz'
+  end
+
+  def foo
+    'InheritanceTestParent#foo'
+  end
+
+  def bar
+    'InheritanceTestParent#bar'
+  end
+
+  def baz
+    'InheritanceTestParent#baz'
+  end
+
+  def quux
+    'InheritanceTestParent#quux'
+  end
+
+  def args1(*a)
+    a
+  end
+
+  def args2(*a)
+    a
+  end
+end
+
+class InheritanceTestChild < InheritanceTestParent
+  def self.inherited(klass)
+  end
+
+  def self.bar
+    'InheritanceTestChild.bar'
+  end
+
+  def bar
+    'InheritanceTestChild#bar'
+  end
+
+  def baz
+    super + ',InheritanceTestChild#baz'
+  end
+
+  def stuff
+    super
+  end
+end
+
+class InheritanceTestGrandchild < InheritanceTestChild
+  def self.baz
+    super + ',InheritanceTestGrandchild.baz'
+  end
+
+  def quux
+    super + ',InheritanceTestGrandchild#quux'
+  end
+
+  def args1
+    super(1,2,3)
+  end
+
+  def args2(a, b)
+    super
+  end
+end
+
+class InheritanceTest < UnitTest
+  def test_defining_a_subclass_should_set_the_superclass_to_the_given_class
+    assert_equal(InheritanceTestParent, InheritanceTestChild.superclass)
+    assert_equal(InheritanceTestChild, InheritanceTestGrandchild.superclass)
+  end
+
+  def test_instances_of_a_subclass_should_respond_to_methods_defined_in_the_parent_class
+    assert_equal('InheritanceTestParent#foo', InheritanceTestChild.new.foo)
+    assert_equal('InheritanceTestParent#foo', InheritanceTestGrandchild.new.foo)
+  end
+
+  def test_subclasses_should_be_able_to_override_a_method_defined_in_the_parent_class
+    assert_equal('InheritanceTestParent#bar', InheritanceTestParent.new.bar)
+    assert_equal('InheritanceTestChild#bar', InheritanceTestChild.new.bar)
+  end
+
+  def test_methods_overridden_in_a_subclass_should_be_able_to_invoke_the_method_defined_in_an_ancestor_class
+    assert_equal('InheritanceTestParent#baz,InheritanceTestChild#baz',
+                 InheritanceTestChild.new.baz)
+    assert_equal('InheritanceTestParent#quux,InheritanceTestGrandchild#quux',
+                 InheritanceTestGrandchild.new.quux)
+  end
+
+  def test_calling_super_with_arguments_should_pass_the_arguments_to_the_super_method
+    assert_equal([1,2,3], InheritanceTestGrandchild.new.args1)
+  end
+
+  def test_calling_super_with_no_arguments_should_pass_the_current_arguments_to_the_super_method
+    assert_equal([:foo, :bar], InheritanceTestGrandchild.new.args2(:foo, :bar))
+  end
+
+  def test_calling_super_when_no_super_method_exists_should_raise_a_NoMethodError_exception
+    o = InheritanceTestChild.new
+    msg = "super: no superclass method 'stuff' for " + o.inspect
+    assert_raise(NoMethodError, msg) { o.stuff }
+  end
+
+  def test_subclasses_should_respond_to_class_methods_defined_in_the_parent_class
+    assert_equal('InheritanceTestParent.foo', InheritanceTestChild.foo)
+    assert_equal('InheritanceTestParent.foo', InheritanceTestGrandchild.foo)
+  end
+
+  def test_subclasses_should_be_able_to_override_a_class_method_defined_in_the_parent_class
+    assert_equal('InheritanceTestParent.bar', InheritanceTestParent.bar)
+    assert_equal('InheritanceTestChild.bar', InheritanceTestChild.bar)
+  end
+
+  def test_class_methods_overridden_in_a_subclass_should_be_able_to_invoke_the_method_defined_in_an_ancestor_class
+    assert_equal('InheritanceTestParent.baz,InheritanceTestGrandchild.baz',
+                 InheritanceTestGrandchild.baz)
+  end
+
+  def test_inherited_method_should_be_called_on_parent_class_when_it_is_subclassed_and_be_passed_the_subclass_object
+    assert_equal([InheritanceTestChild], InheritanceTestParent.subclasses)
+  end
+end
+

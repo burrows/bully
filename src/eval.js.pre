@@ -82,6 +82,7 @@ Bully.Evaluator = {
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
       ctx.block = block;
+      ctx.args = args;
 
       if (node.params) {
         Bully.Evaluator.evaluateParamList(node.params, args, ctx);
@@ -190,7 +191,7 @@ Bully.Evaluator = {
   },
 
   evaluateSuperCall: function(node, ctx) {
-    var args = node.args ? this.evaluateArgs(node.args, ctx) : [], rv;
+    var args = node.args ? this.evaluateArgs(node.args, ctx) : ctx.args, rv;
 
     try {
       rv = Bully.call_super(ctx.self, ctx.method_name, args);

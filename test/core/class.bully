@@ -14,25 +14,12 @@ class TestClass1
   end
 end
 
-class TestParentClass
-  @subclasses = []
-
-  def self.inherited(klass)
-    @subclasses.push(klass)
-  end
-
-  def self.subclasses
-    @subclasses
-  end
-
+class TestClass2
   def initialize(arg)
     @arg = arg
   end
 
   def arg; @arg; end
-end
-
-class TestChildClass < TestParentClass
 end
 
 class ClassTest < UnitTest
@@ -82,13 +69,9 @@ class ClassTest < UnitTest
     assert_equal(:instance_method1, instance.instance_method1)
   end
 
-  def test_inherited_method_should_be_called_on_parent_class_when_subclass_and_pass_subclass
-    assert_equal([TestChildClass], TestParentClass.subclasses)
-  end
-
   def test_initialize_method_should_be_called_when_instance_is_created
-    assert_equal(:foo, TestParentClass.new(:foo).arg)
-    assert_equal(9, TestParentClass.new(9).arg)
+    assert_equal(:foo, TestClass2.new(:foo).arg)
+    assert_equal(9, TestClass2.new(9).arg)
   end
 end
 
