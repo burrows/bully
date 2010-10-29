@@ -4,19 +4,22 @@
  * If passed an object, that object will be decorated with properties necessary
  * to be a Bully object, otherwise a brand new object is constructed.
  */
-Bully.next_object_id = 8;
-Bully.make_object = function(obj, klass) {
-  obj   = obj   || {};
-  klass = klass || null;
+(function() {
+  var next_object_id = 1;
 
-  obj.klass  = klass;
-  obj.iv_tbl = {};
-  obj.id     = Bully.next_object_id;
+  Bully.make_object = function(obj, klass) {
+    obj   = obj   || {};
+    klass = klass || null;
 
-  Bully.next_object_id += 4;
+    obj.klass  = klass;
+    obj.iv_tbl = {};
+    obj.id     = next_object_id;
 
-  return obj;
-};
+    next_object_id += 1;
+
+    return obj;
+  };
+}());
 
 /*
  * Indicates whether or not an object is truthy.  In Bully, all objects are

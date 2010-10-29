@@ -5,16 +5,18 @@ exports.Bully = Bully = {};
  * If passed an object, that object will be decorated with properties necessary
  * to be a Bully object, otherwise a brand new object is constructed.
  */
-Bully.next_object_id = 8;
-Bully.make_object = function(obj, klass) {
-  obj = obj || {};
-  klass = klass || null;
-  obj.klass = klass;
-  obj.iv_tbl = {};
-  obj.id = Bully.next_object_id;
-  Bully.next_object_id += 4;
-  return obj;
-};
+(function() {
+  var next_object_id = 1;
+  Bully.make_object = function(obj, klass) {
+    obj = obj || {};
+    klass = klass || null;
+    obj.klass = klass;
+    obj.iv_tbl = {};
+    obj.id = next_object_id;
+    next_object_id += 1;
+    return obj;
+  };
+}());
 /*
  * Indicates whether or not an object is truthy.  In Bully, all objects are
  * truthy expect false and nil.
@@ -465,7 +467,7 @@ Bully.init = function() {
     else if (self === false) { return 'boolean-false'; }
     else if (self === true) { return 'boolean-true'; }
     else if (self === null) { return 'nil-nil'; }
-    return 'object' + self.id;
+    return 'object-' + self.id;
   }, 0, 0);
   Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
     return Bully.require(args[0].data);

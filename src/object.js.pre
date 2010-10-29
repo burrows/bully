@@ -125,7 +125,7 @@ Bully.init_object = function() {
     else if (self === true)            { return 'boolean-true'; }
     else if (self === null)            { return 'nil-nil'; }
 
-    return 'object' + self.id;
+    return 'object-' + self.id;
   }, 0, 0);
 
   Bully.define_module_method(Bully.Kernel, 'require', function(self, args) {
