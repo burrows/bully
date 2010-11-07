@@ -252,9 +252,7 @@ Bully.Evaluator = {
   evaluateInstanceAssign: function(node, ctx) {
     var value = this._evaluate(node.expression, ctx);
 
-    Bully.ivar_set(ctx.self, node.name, value);
-
-    return value;
+    return Bully.ivar_set(ctx.self, node.name, value);
   },
 
   evaluateConstantRef: function(node, ctx) {

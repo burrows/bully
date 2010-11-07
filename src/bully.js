@@ -1,4 +1,6 @@
 exports.Bully = Bully = {};
+(function() {
+var next_object_id = 1;
 // Returns a native javascript object with the properties necessary to be a
 // Bully object.
 //
@@ -8,17 +10,15 @@ exports.Bully = Bully = {};
 // klass - The Bully class of the object to create (optional).
 //
 // Returns an object capable of being a Bully object.
-(function() {
-  var next_object_id = 1;
-  Bully.make_object = function(obj, klass) {
-    obj = obj || {};
-    klass = klass || null;
-    obj.klass = klass;
-    obj.iv_tbl = {};
-    obj.id = next_object_id;
-    next_object_id += 1;
-    return obj;
-  };
+Bully.make_object = function(obj, klass) {
+  obj = obj || {};
+  klass = klass || null;
+  obj.klass = klass;
+  obj.iv_tbl = {};
+  obj.id = next_object_id;
+  next_object_id += 1;
+  return obj;
+};
 }());
 // Indicates whether or not an object is truthy.  In Bully, all objects are
 // truthy expect false and nil.
@@ -437,23 +437,28 @@ Bully.real_class_of = function(obj) {
   }
   return klass;
 };
-/*
- * Stores instance variables for immediate objects.
- */
-Bully.immediate_iv_tbl = {};
-/* 
- * Sets an instance variable on the given object for non-immediate objects.
- * For immediate objects, the instance variable is set on
- * Bully.immediate_iv_tbl.
- */
+(function() {
+var immediate_iv_tbl = {};
+// Sets and instance variable for the given object.
+//
+// For non-immediate objects the variable is stored on the object's iv_tbl
+// property.  Since immediate objects don't have the normal object properties
+// their instance variable are stored in the private immediate_iv_tbl object.
+//
+// obj - The object to set the instance variable on.
+// name - The name of the instance variable.
+// val  - The value to set for the instance variable.
+//
+// Returns the value.
 Bully.ivar_set = function(obj, name, val) {
   if (Bully.is_immediate(obj)) {
-    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
-    Bully.immediate_iv_tbl[obj][name] = val;
+    immediate_iv_tbl[obj] = immediate_iv_tbl[obj] || {};
+    immediate_iv_tbl[obj][name] = val;
   }
   else {
     obj.iv_tbl[name] = val;
   }
+  return val;
 };
 /*
  * Retrieves an instance variable value from the given object.  For immediate
@@ -462,14 +467,14 @@ Bully.ivar_set = function(obj, name, val) {
 Bully.ivar_get = function(obj, name) {
   var val;
   if (Bully.is_immediate(obj)) {
-    val = Bully.immediate_iv_tbl[obj] ?
-      Bully.immediate_iv_tbl[obj][name] : null;
+    val = immediate_iv_tbl[obj] ? immediate_iv_tbl[obj][name] : null;
   }
   else {
     val = obj.iv_tbl[name];
   }
   return typeof val === 'undefined' ? null : val;
 };
+}());
 /*
  * Defines a constant under the given class' namespace.  Constants are stored
  * in the class' iv_tbl just like instance and class variables.
@@ -1253,8 +1258,7 @@ Bully.Evaluator = {
   },
   evaluateInstanceAssign: function(node, ctx) {
     var value = this._evaluate(node.expression, ctx);
-    Bully.ivar_set(ctx.self, node.name, value);
-    return value;
+    return Bully.ivar_set(ctx.self, node.name, value);
   },
   evaluateConstantRef: function(node, ctx) {
     return Bully.const_get(ctx.module, node.name);
