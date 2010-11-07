@@ -210,31 +210,39 @@ Bully.singleton_class = function(obj) {
 // klass  - The Class instance to build the metaclass for.
 // _super - The superclass of this metaclass.  If not supplied then the
 //          metaclass of the class' superclass is used. (optional)
+//
+// Returns the metaclass instance.
 Bully.make_metaclass = function(klass, _super) {
   var sklass = Bully.singleton_class(klass);
   klass.klass = sklass;
   sklass._super = _super || klass._super.klass;
   return sklass;
 };
-/*
- * @private
- *
- * Creates a new Class instance and constructs its metaclass.
- */
+// Private: Constructs a new Class instance and its metaclass.  This is simply
+// the common behavior between the define_class and define_class_under methods.
+//
+// name   - A js string representing the name of the class.
+// _super - A Class reference to assign as the superclass of this class.
+//
+// Returns the new class instance.
 Bully.make_class = function(name, _super) {
   var klass;
   // TODO: check for existance of class
-  // TODO: call Bully.class_inherited
-  // TODO: make sure super is not Bully.Class
   // TODO: make sure super is not a singleton class
+  if (_super === Bully.Class) {
+    Bully.raise(Bully.TypeError, "can't make subclass of Class");
+  }
   _super = _super || Bully.Object;
   klass = Bully.class_boot(_super);
   Bully.make_metaclass(klass, _super.klass);
   return klass;
 };
-/*
- * Defines a new Class instance in the global scope.
- */
+// Defines a new Class instance in the global scope with the given superclass.
+//
+// name   - A js string containing the name of the class.
+// _super - A Class reference to assign as the superclass of this class.
+//
+// Returns the new class instance.
 Bully.define_class = function(name, _super) {
   var klass = Bully.make_class(name, _super);
   Bully.define_global_const(name, klass);
@@ -244,9 +252,13 @@ Bully.define_class = function(name, _super) {
   }
   return klass;
 };
-/*
- * Defines a new Class instance under the given class or module.
- */
+// Defines a new Class instance under the given module.
+//
+// outer  - A module or class reference to define the new class under.
+// name   - A js string containing the name of the class.
+// _super - A Class reference to assign as the superclass of this class.
+//
+// Returns the new class instance.
 Bully.define_class_under = function(outer, name, _super) {
   var klass = Bully.make_class(name, _super),
       classpath = Bully.ivar_get(outer, '__classpath__');
@@ -257,6 +269,16 @@ Bully.define_class_under = function(outer, name, _super) {
   }
   return klass;
 };
+// Private: Creates an include class for the given module.  Include classes are
+// created and inserted into a class' superclass chain when a module is included
+// into another module or class.  They basically act as a proxy to the actual
+// module's method table.  The reason they are necessary is because directly
+// inserting the actual module into some other class' superclass chain would
+// mean that the module can only be used once.
+//
+// _super - A Class reference to assign as the superclass of the include class.
+//
+// Returns the include class insance.
 Bully.make_include_class = function(module, _super) {
   var iklass = Bully.class_boot(_super);
   iklass.is_include_class = true;
@@ -264,6 +286,17 @@ Bully.make_include_class = function(module, _super) {
   iklass.klass = module;
   return iklass;
 };
+// Takes the given module and mixes it in to the given class by creating an
+// include class for it and inserting that into the class' superclass chain.
+// The module's superclass chain is then traversed, creating and inserting
+// additional include classes into the class' superclass chain.  Special care is
+// taken to ensure that a module is not mixed in to the class' superclass chain
+// more than once.
+//
+// klass  - A Class instance to include the module into.
+// module - A Module instance.
+//
+// Returns nothing.
 Bully.include_module = function(klass, module) {
   var current = klass, skip, p;
   while (module) {
@@ -277,6 +310,9 @@ Bully.include_module = function(klass, module) {
     module = module._super;
   }
 };
+// Private: Creates a new Module instance.
+//
+// Returns the new Module instance.
 Bully.module_new = function() {
   var mod = Bully.make_object();
   mod.klass = Bully.Module;
@@ -285,6 +321,11 @@ Bully.module_new = function() {
   mod.m_tbl = {};
   return mod;
 };
+// Creates a new Module instance in the global scope with the given name.
+//
+// name - A js string containing the name of the module.
+//
+// Returns the new Module instance.
 Bully.define_module = function(name) {
   var mod = Bully.module_new();
   // TODO: check for existance of module
@@ -292,22 +333,62 @@ Bully.define_module = function(name) {
   Bully.ivar_set(mod, '__classpath__', name);
   return mod;
 };
+// Creates a new Module instance under the given class or module.
+//
+// outer - A module reference to define the new module under.
+// name  - A js string containing the name of the module.
+//
+// Returns the new Module instance.
 Bully.define_module_under = function(outer, name) {
   var mod = Bully.module_new();
   // TODO: check for existance of module
   Bully.define_const(outer, name, mod);
   return mod;
 };
+// Defines a method with the given name in the given class.  A method is simply
+// a reference to a javascript function that accepts a reference to the current
+// self as its first argument and an array contain the arguments passed to the
+// method.  The minimum and maximum number of arguments that the method should
+// take can optionally be specified.
+//
+// klass    - The class to define the method in.
+// name     - A js string containing the name of the method.
+// fn       - A js function reference.
+// min_args - The minimum number of arguments the method takes. (optional)
+// max_args - The maximum number of arguments the method takes. (-1 means
+//            indicates that there is no maximum) (optional)
+//
+// Returns nothing.
 Bully.define_method = function(klass, name, fn, min_args, max_args) {
   klass.m_tbl[name] = fn;
   klass.m_tbl[name].klass = klass;
   klass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0 : min_args;
   klass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
+// Private: Defines a "module" method.  A module method is a method that can be
+// called on both a class and instances of that class.  Its simply a convenience
+// for defining methods like "Kernel.puts" that should be available in any
+// context.
+//
+// klass - The class to define the method in.
+// name  - A js string containing the name of the method.
+// fn    - A js function reference.
+//
+// Returns nothing.
 Bully.define_module_method = function(klass, name, fn) {
   Bully.define_method(klass, name, fn);
   Bully.define_singleton_method(klass, name, fn);
 };
+// Defines a method in the given object's singleton class.  This function is
+// used to define instance specific methods and class methods.
+//
+// obj      - A reference to a Bully object to define the singleton method on.
+// name     - A js string containing the name of the method.
+// fn       - A js function reference.
+// min_args - The minimum number of arguments the method takes.
+// max_args - The maximum number of arguments the method takes.
+//
+// Returns nothing.
 Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
   var sklass = Bully.singleton_class(obj);
   sklass.m_tbl[name] = fn;
@@ -315,12 +396,25 @@ Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
   sklass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0 : min_args;
   sklass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
 };
-Bully.find_method = function(klass, id) {
-  while (klass && !klass.m_tbl[id]) {
+// Private: Searches the given class and its superclass chain for a method
+// with the given name.
+//
+// klass - A reference to a Class instance to search.
+// name  - A js string containing the name of the method to look for.
+//
+// Returns the method reference if found and null otherwise.
+Bully.find_method = function(klass, name) {
+  while (klass && !klass.m_tbl[name]) {
     klass = klass._super;
   }
-  return klass ? klass.m_tbl[id] : null;
+  return klass ? klass.m_tbl[name] : null;
 };
+// Returns the class of the given object.  This properly handles immediate
+// objects.
+//
+// obj - The object to get the class of.
+//
+// Returns a reference to the object's class.
 Bully.class_of = function(obj) {
   if (typeof obj === 'number') { return Bully.Number; }
   else if (typeof obj === 'string') { return Bully.Symbol; }
@@ -329,10 +423,15 @@ Bully.class_of = function(obj) {
   else if (obj === false) { return Bully.FalseClass; }
   return obj.klass;
 };
+// Returns the "real" class of the given object.  If an object has a singleton
+// class then this method follows its superclass chain until a non-singleton
+// class is found.
+//
+// obj - The object to get the real class of.
+//
+// Returns a reference to the real class.
 Bully.real_class_of = function(obj) {
-  return Bully.real_class(Bully.class_of(obj));
-};
-Bully.real_class = function(klass) {
+  var klass = Bully.class_of(obj);
   while (klass.is_singleton) {
     klass = klass._super;
   }

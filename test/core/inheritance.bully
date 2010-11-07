@@ -142,5 +142,11 @@ class InheritanceTest < UnitTest
   def test_inherited_method_should_be_called_on_parent_class_when_it_is_subclassed_and_be_passed_the_subclass_object
     assert_equal([InheritanceTestChild], InheritanceTestParent.subclasses)
   end
+
+  def test_attempting_to_define_a_class_that_inherites_from_Class_should_raise_a_TypeError_exception
+    assert_raise(TypeError, "can't make subclass of Class") do
+      class ClassThatInheritesFromClass < Class; end
+    end
+  end
 end
 
