@@ -23,7 +23,7 @@ exports.Bully = Bully = {};
 // Indicates whether or not an object is truthy.  In Bully, all objects are
 // truthy expect false and nil.
 //
-// obj - Any Bully object test for truthiness.
+// obj - Any Bully object to test for truthiness.
 //
 // Returns true if object is truthy, false otherwise.
 Bully.test = function(obj) {
@@ -96,6 +96,12 @@ Bully.check_method_args = function(min, max, n) {
 // found anywhere in the object's inheritance chain, the method 'method_missing'
 // will be sent to the object instead.
 //
+// Method dispatch is very straightforward, we simply start with the given
+// object's class and check to see if the method is defined in its m_tbl
+// property.  If the method is not found, we simply traverse the superclass
+// chain until it can be located.  If the method is not found, the process
+// starts over again to look for the 'method_missing' method.
+//
 // obj   - The object to invoke the method on.
 // name  - The name of the method to invoke.
 // args  - A javascript array containing the arguments to send (optional).
@@ -132,12 +138,20 @@ Bully.call_super = function(obj, name, args) {
   }
   return fn.call(null, obj, args);
 };
+// Checks to see if the given object responds to the given method name.
+//
+// obj  - The object to check.
+// name - The name of the method to look for.
+//
+// Returns true if the object implements the method and false otherwise.
 Bully.respond_to = function(obj, name) {
   return !!Bully.find_method(Bully.class_of(obj), name);
 };
-/*
- * @private
- */
+// Private: Creates a basic Class instance.
+//
+// _super - A reference to the superclass of the class.
+//
+// Returns the new class instance.
 Bully.class_boot = function(_super) {
   var klass = Bully.make_object();
   klass.klass = Bully.Class;
@@ -145,20 +159,33 @@ Bully.class_boot = function(_super) {
   klass.m_tbl = {};
   return klass;
 };
-/*
- * @private
- */
+// Private: Used to create the default Bully classes: (Object, Module, and
+// Class).  This method differs from make_class in that it does not create the
+// metaclass since we won't have all of the necessary parts constructed yet
+// when the default classes are created (e.g. when creating the Object class we
+// can't yet define its class yet since we've yet to define Class).  The
+// metaclasses for the default classes are built manually in the init method.
+//
+// name   - The name of the default class to construct.
+// _super - A reference to the superclass of the default class.
+//
+// Returns the default class object.
 Bully.defclass_boot = function(name, _super) {
   var klass = Bully.class_boot(_super);
   Bully.ivar_set(klass, '__classpath__', name);
-  // TODO: define constant for class name
   return klass;
 };
-/*
- * Returns the singleton class of the given object, creating it if necessary.
- *
- * A singleton class provides a place to store instance specific behavior.
- */
+// Private: Returns the singleton class of the given object, creating it if it
+// does not yet exsit.  A singleton class provides a place to store instance
+// specific behavior.  Singleton classes for non-Class objects are created
+// lazily since their use is not common.  Singleton classes for Class instances
+// are very common though and are given the special name of 'metaclass'.
+// Metaclasses are created automatically when a Class is created (see the
+// make_metaclass method).
+//
+// obj - The object to build the singleton class for.
+//
+// Returns the singleton class object.
 Bully.singleton_class = function(obj) {
   var sklass;
   // TODO: can't access singleton class of Numbers or Symbols
@@ -172,12 +199,17 @@ Bully.singleton_class = function(obj) {
   }
   return sklass;
 };
-/*
- * @private
- *
- * Constructs a metaclass for the given Class instance.  A metaclass is simply
- * the singleton class of a Class instance.
- */
+// Private: Builds the metaclass for the given Class instance.  A metaclass is a
+// special case of a singleton class that is used to store Class instance
+// specific behavior.  It differs from a regular singleton class in that it's
+// superclass pointer is set to the metaclass of the superclass.  In other
+// words - the superclass of the metaclass is the metaclass of the superclass.
+// On the other hand, the superclass of a regular singleton class is the "real"
+// class of the object.
+//
+// klass  - The Class instance to build the metaclass for.
+// _super - The superclass of this metaclass.  If not supplied then the
+//          metaclass of the class' superclass is used. (optional)
 Bully.make_metaclass = function(klass, _super) {
   var sklass = Bully.singleton_class(klass);
   klass.klass = sklass;
