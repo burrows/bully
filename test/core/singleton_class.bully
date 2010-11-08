@@ -1,0 +1,64 @@
+require('unit_test')
+
+class TestSingleton
+  class << self
+    def class_method1
+      'TestSingleton.class_method1'
+    end
+  end
+
+  class << TestSingleton
+    def class_method2
+      'TestSingleton.class_method2'
+    end
+  end
+
+  def self.class_method3
+    'TestSingleton.class_method3'
+  end
+
+  def TestSingleton.class_method4
+    'TestSingleton.class_method4'
+  end
+end
+
+class SingletonClassTest < UnitTest
+  def test_class_append_self_notation_should_allow_for_defining_class_methods
+    assert_equal('TestSingleton.class_method1', TestSingleton.class_method1)
+  end
+
+  def test_class_append_class_name_notation_should_allow_for_defining_class_methods
+    assert_equal('TestSingleton.class_method2', TestSingleton.class_method2)
+  end
+
+  def test_self_dot_notation_should_allow_for_defining_class_methods
+    assert_equal('TestSingleton.class_method3', TestSingleton.class_method3)
+  end
+
+  def test_class_name_dot_notation_should_allow_for_defining_class_methods
+    assert_equal('TestSingleton.class_method4', TestSingleton.class_method4)
+  end
+
+  def test_object_dot_notation_should_allow_for_defining_single_methods
+    o = Object.new
+    assert_equal(false, o.respond_to?(:bar))
+    def o.bar; 'o.bar'; end
+    assert_equal(true, o.respond_to?(:bar))
+    assert_equal('o.bar', o.bar)
+  end
+
+  def test_to_s_method_called_on_a_singleton_class_should_return_a_string_containing_the_attached_objects_to_s_representation
+    metaclass = class << TestSingleton
+      self
+    end
+
+    o = Object.new
+    sklass = class << o
+      self
+    end
+
+    assert_equal('#<Class:TestSingleton>', metaclass.inspect)
+    assert_equal('#<Class:' + o.to_s + '>', sklass.inspect)
+  end
+end
+

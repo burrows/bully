@@ -3,7 +3,7 @@ Bully.init_object = function() {
 
   Bully.define_method(Bully.Kernel, 'class', function(self, args) {
     return Bully.real_class_of(self);
-  });
+  }, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
     var klass     = Bully.real_class_of(self),
@@ -11,14 +11,15 @@ Bully.init_object = function() {
         object_id = send(self, 'object_id');
 
     return Bully.String.make('#<' + name + ':' + object_id + '>');
-  });
+  }, 0, 0);
+
+  Bully.define_method(Bully.Kernel, 'inspect', function(self, args) {
+    return Bully.dispatch_method(self, 'to_s', args);
+  }, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
     return Bully.respond_to(self, args[0]);
   });
-
-  // FIXME: properly alias this method
-  Bully.define_method(Bully.Kernel, 'inspect', Bully.Kernel.m_tbl.to_s);
 
   Bully.define_method(Bully.Kernel, 'send', function(self, args) {
     var name = args[0];

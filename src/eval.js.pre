@@ -95,8 +95,9 @@ Bully.Evaluator = {
   },
 
   evaluateSingletonDef: function(node, ctx) {
-    var object     = node.object === 'self' ? ctx.self : ctx.get_var(node.object),
-        args_range = this.calculateArgsRange(node.params);
+    var args_range = this.calculateArgsRange(node.params),
+        object     = typeof node.object === 'string' ? ctx.get_var(node.object) :
+          this._evaluate(node.object, ctx);
 
     Bully.define_singleton_method(object, node.name, function(receiver, args, block) {
       var ctx = new Bully.Evaluator.Context(receiver);
@@ -278,6 +279,13 @@ Bully.Evaluator = {
                  Bully.define_class(node.name, _super);
 
     return this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
+  },
+
+  evaluateSingletonClass: function(node, ctx) {
+    var object = this._evaluate(node.object, ctx),
+        sklass = Bully.singleton_class(object);
+
+    return this.evaluateBody(node.body, new Bully.Evaluator.Context(sklass, sklass));
   },
 
   evaluateModule: function(node, ctx) {

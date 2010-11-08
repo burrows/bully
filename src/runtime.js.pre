@@ -145,7 +145,6 @@ Bully.dispatch_method = function(obj, name, args, block) {
 Bully.call_super = function(obj, name, args) {
   var fn = Bully.find_method(Bully.class_of(obj)._super, name);
 
-  // FIXME: check if method was found
   if (!fn) {
     Bully.raise(Bully.NoMethodError,
       "super: no superclass method '" + name + "' for " + send(obj, 'inspect').data);
@@ -214,12 +213,14 @@ Bully.singleton_class = function(obj) {
 
   // TODO: can't access singleton class of Numbers or Symbols
 
-  if (obj.klass && obj.klass.is_singleton) {
+  if (obj.klass && obj.klass.is_singleton_class) {
     sklass = obj.klass;
   }
   else {
     sklass = Bully.class_boot(obj.klass);
-    sklass.is_singleton = true;
+    sklass.is_singleton_class = true;
+    Bully.ivar_set(sklass, '__classpath__', "");
+    Bully.ivar_set(sklass, '__attached__', obj);
     obj.klass = sklass;
   }
 
@@ -505,7 +506,7 @@ Bully.class_of = function(obj) {
 Bully.real_class_of = function(obj) {
   var klass = Bully.class_of(obj);
 
-  while (klass.is_singleton) {
+  while (klass.is_singleton_class) {
     klass = klass._super;
   }
 

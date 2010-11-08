@@ -31,12 +31,11 @@ var grammar = {
 
   Expression: [
     o('Literal'),
-    o('ArrayLiteral'),
-    o('HashLiteral'),
     o('Assignment'),
     o('VariableRef'),
     o('Def'),
     o('Class'),
+    o('SingletonClass'),
     o('Module'),
     o('Call'),
     o('Operation'),
@@ -61,7 +60,9 @@ var grammar = {
     o('SYMBOL', "$$ = {type: 'SymbolLiteral', value: $1};"),
     o('NIL',    "$$ = {type: 'NilLiteral'};"),
     o('TRUE',   "$$ = {type: 'TrueLiteral'};"),
-    o('FALSE',  "$$ = {type: 'FalseLiteral'};")
+    o('FALSE',  "$$ = {type: 'FalseLiteral'};"),
+    o('ArrayLiteral'),
+    o('HashLiteral'),
   ],
 
   Call: [
@@ -169,10 +170,12 @@ var grammar = {
   ],
 
   SingletonDef: [
-    o('DEF SELF . IDENTIFIER Terminator Body END',                     "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: 'self'};"),
-    o('DEF SELF . IDENTIFIER ( ParamList ) Terminator Body END',       "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: 'self'};"),
+    o('DEF Self . IDENTIFIER Terminator Body END',                     "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF Self . IDENTIFIER ( ParamList ) Terminator Body END',       "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
     o('DEF IDENTIFIER . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF IDENTIFIER . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
+    o('DEF IDENTIFIER . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
+    o('DEF ConstantRef . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF ConstantRef . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
   ],
 
   BlockParamList: [
@@ -226,6 +229,10 @@ var grammar = {
   Class: [
     o('CLASS CONSTANT Terminator Body END',              "$$ = {type: 'Class', name: $2, super_expr: null, body: $4};"),
     o('CLASS CONSTANT < Expression Terminator Body END', "$$ = {type: 'Class', name: $2, super_expr: $4, body: $6};")
+  ],
+
+  SingletonClass: [
+    o('CLASS << Expression Terminator Body END', "$$ = {type: 'SingletonClass', object: $3, body: $5};")
   ],
 
   Module: [

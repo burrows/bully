@@ -24,3 +24,4 @@ Bully.init_class = function() {
     return klass || null;
   });
 };
+
