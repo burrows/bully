@@ -39,7 +39,7 @@ class SingletonClassTest < UnitTest
     assert_equal('TestSingleton.class_method4', TestSingleton.class_method4)
   end
 
-  def test_object_dot_notation_should_allow_for_defining_single_methods
+  def test_object_dot_notation_should_allow_for_defining_singleton_methods
     o = Object.new
     assert_equal(false, o.respond_to?(:bar))
     def o.bar; 'o.bar'; end
@@ -59,6 +59,38 @@ class SingletonClassTest < UnitTest
 
     assert_equal('#<Class:TestSingleton>', metaclass.inspect)
     assert_equal('#<Class:' + o.to_s + '>', sklass.inspect)
+  end
+
+  def test_name_method_for_a_singleton_class_should_return_an_empty_string
+    sc = class << Object.new; self; end
+    assert_equal('', sc.name)
+  end
+
+  def test_attempting_to_open_the_singleton_class_of_a_Number_should_raise_a_TypeError_exception
+    assert_raise(TypeError, 'no virtual class for Number') do
+      class << 9; end
+    end
+  end
+
+  def test_attempting_to_open_the_singleton_class_of_a_Symbol_should_raise_a_TypeError_exception
+    assert_raise(TypeError, 'no virtual class for Symbol') do
+      class << :foo; end
+    end
+  end
+
+  def test_the_singleton_class_of_true_should_be_TrueClass
+    sc = class << true; self; end
+    assert_equal(TrueClass, sc);
+  end
+
+  def test_the_singleton_class_of_false_should_be_FalseClass
+    sc = class << false; self; end
+    assert_equal(FalseClass, sc);
+  end
+
+  def test_the_singleton_class_of_nil_should_be_NilClass
+    sc = class << nil; self; end
+    assert_equal(NilClass, sc);
   end
 end
 

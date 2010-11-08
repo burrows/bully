@@ -208,12 +208,27 @@ Bully.defclass_boot = function(name, _super) {
 // obj - The object to build the singleton class for.
 //
 // Returns the singleton class object.
+// Raises TypeError if the given object is a Number or Symbol since its
+// not possible to attach singleton classes to those immediate values.
 Bully.singleton_class = function(obj) {
   var sklass;
 
-  // TODO: can't access singleton class of Numbers or Symbols
-
-  if (obj.klass && obj.klass.is_singleton_class) {
+  if (typeof obj === 'number') {
+    Bully.raise(Bully.TypeError, 'no virtual class for Number');
+  }
+  else if (typeof obj === 'string') {
+    Bully.raise(Bully.TypeError, 'no virtual class for Symbol');
+  }
+  else if (obj === true) {
+    sklass = Bully.TrueClass;
+  }
+  else if (obj === false) {
+    sklass = Bully.FalseClass;
+  }
+  else if (obj === null) {
+    sklass = Bully.NilClass;
+  }
+  else if (obj.klass && obj.klass.is_singleton_class) {
     sklass = obj.klass;
   }
   else {
@@ -260,10 +275,13 @@ Bully.make_class = function(name, _super) {
   var klass;
 
   // TODO: check for existance of class
-  // TODO: make sure super is not a singleton class
 
   if (_super === Bully.Class) {
     Bully.raise(Bully.TypeError, "can't make subclass of Class");
+  }
+
+  if (_super && _super.is_singleton_class) {
+    Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
   }
 
   _super = _super || Bully.Object;

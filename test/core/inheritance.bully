@@ -148,5 +148,12 @@ class InheritanceTest < UnitTest
       class ClassThatInheritesFromClass < Class; end
     end
   end
+
+  def test_attempting_to_subclass_a_singleton_class_should_raise_a_TypeError_exception
+    sc = class << Object.new; self; end
+    assert_raise(TypeError, "can't make subclass of virtual class") do
+      class Foo < sc; end
+    end
+  end
 end
 
