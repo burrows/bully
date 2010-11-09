@@ -92,5 +92,12 @@ class SingletonClassTest < UnitTest
     sc = class << nil; self; end
     assert_equal(NilClass, sc);
   end
+
+  def test_class_method_should_skip_over_singleton_class_when_it_exists
+    o = Object.new
+    assert_equal(Object, o.class)
+    class << o; end
+    assert_equal(Object, o.class)
+  end
 end
 
