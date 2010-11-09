@@ -248,10 +248,9 @@ Bully.make_class = function(name, _super) {
   if (_super === Bully.Class) {
     Bully.raise(Bully.TypeError, "can't make subclass of Class");
   }
-  if (_super && _super.is_singleton_class) {
+  if (_super.is_singleton_class) {
     Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
   }
-  _super = _super || Bully.Object;
   klass = Bully.class_boot(_super);
   Bully.make_metaclass(klass, _super.klass);
   return klass;
@@ -261,9 +260,24 @@ Bully.make_class = function(name, _super) {
 // name   - A js string containing the name of the class.
 // _super - A Class reference to assign as the superclass of this class.
 //
-// Returns the new class instance.
+// Returns the new class instance if it doesn't already exist or a reference to
+// the class if it does already exist.
+// Raises TypeError if a constant with the same name is already defined.
+// Raises TypeError if class is already defined with a different superclass.
 Bully.define_class = function(name, _super) {
-  var klass = Bully.make_class(name, _super);
+  var klass = Bully.lookup_const(Bully.Object, name);
+  _super = _super || Bully.Object;
+  // check to see if a constant with this name is alredy defined
+  if (typeof klass !== 'undefined') {
+    if (!Bully.dispatch_method(klass, 'is_a?', [Bully.Class])) {
+      Bully.raise(Bully.TypeError, name + ' is not a class');
+    }
+    if (Bully.real_class(klass._super) !== _super) {
+      Bully.raise(Bully.TypeError, 'superclass mismatch for class ' + name);
+    }
+    return klass;
+  }
+  klass = Bully.make_class(name, _super);
   Bully.define_global_const(name, klass);
   Bully.ivar_set(klass, '__classpath__', name);
   if (_super && Bully.respond_to(_super, 'inherited')) {
@@ -443,15 +457,22 @@ Bully.class_of = function(obj) {
   return obj.klass;
 };
 // Returns the "real" class of the given object.  If an object has a singleton
-// class then this method follows its superclass chain until a non-singleton
-// class is found.
+// class then this method follows its superclass chain until a non-singleton,
+// non-include class is found.
 //
 // obj - The object to get the real class of.
 //
 // Returns a reference to the real class.
 Bully.real_class_of = function(obj) {
-  var klass = Bully.class_of(obj);
-  while (klass.is_singleton_class) {
+  return Bully.real_class(Bully.class_of(obj));
+};
+// Returns the "real" class of a given Class instance.
+//
+// klass - The Class instance to get the real class off.
+//
+// Returns a reference to the real class.
+Bully.real_class = function(klass) {
+  while (klass.is_singleton_class || klass.is_include_class) {
     klass = klass._super;
   }
   return klass;
@@ -533,7 +554,7 @@ Bully.define_global_const = function(name, val) {
 // klass - The class to start the constant search with.
 // name  - A js string containing the name of the constant to look for.
 //
-// Returns the value of the constant if found and nil otherwise.
+// Returns the value of the constant if found and undefined otherwise.
 Bully.lookup_const = function(klass, name) {
   do {
     if (klass.iv_tbl.hasOwnProperty(name)) {
@@ -543,7 +564,7 @@ Bully.lookup_const = function(klass, name) {
       klass = klass._super;
     }
   } while (klass);
-  return null;
+  return undefined;
 };
 // Returns the value of the given constant name from the given class.
 //
@@ -1338,8 +1359,7 @@ Bully.Evaluator = {
   },
   evaluateClass: function(node, ctx) {
     var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
-        klass = Bully.lookup_const(Bully.Object, node.name) ||
-                 Bully.define_class(node.name, _super);
+        klass = Bully.define_class(node.name, _super);
     return this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
   },
   evaluateSingletonClass: function(node, ctx) {

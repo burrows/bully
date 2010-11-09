@@ -275,8 +275,7 @@ Bully.Evaluator = {
 
   evaluateClass: function(node, ctx) {
     var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
-        klass  = Bully.lookup_const(Bully.Object, node.name) ||
-                 Bully.define_class(node.name, _super);
+        klass  = Bully.define_class(node.name, _super);
 
     return this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, klass));
   },
