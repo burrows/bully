@@ -44,6 +44,5 @@ class ArrayTest < UnitTest
     assert_equal(true, a1 == a2)
     assert_equal(true, a2 == a1)
   end
-
 end
 

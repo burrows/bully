@@ -171,9 +171,9 @@ Bully.respond_to = function(obj, name) {
 Bully.class_boot = function(_super) {
   var klass = Bully.make_object();
 
-  klass.klass = Bully.Class;
+  klass.klass  = Bully.Class;
   klass._super = _super;
-  klass.m_tbl = {};
+  klass.m_tbl  = {};
 
   return klass;
 };
@@ -337,11 +337,14 @@ Bully.define_class = function(name, _super) {
 //
 // Returns the new class instance.
 Bully.define_class_under = function(outer, name, _super) {
-  var klass     = Bully.make_class(name, _super),
-      classpath = Bully.ivar_get(outer, '__classpath__');
+  var classpath = Bully.ivar_get(outer, '__classpath__'),
+      klass;
+
+  _super = _super || Bully.Object;
+
+  klass = Bully.make_class(name, _super);
 
   Bully.define_const(outer, klass);
-
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
   if (_super && Bully.respond_to(_super, 'inherited')) {

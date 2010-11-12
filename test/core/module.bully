@@ -23,6 +23,9 @@ end
 class TestModuleClass3
 end
 
+module TestModuleNesting
+end
+
 class ModuleTest < UnitTest
   def test_class_of_Module_is_Class
     assert_equal(Class, Module.class)
@@ -98,6 +101,10 @@ class ModuleTest < UnitTest
     assert_raise(TypeError, 'wrong argument type Number (expected Module)') do
       class TestModuleClass1; include(9); end
     end
+  end
+
+  def test_nesting_method_should_return_the_list_of_modules_nested_at_the_point_of_call
+    assert_equal([ModuleTest], Module.nesting)
   end
 end
 

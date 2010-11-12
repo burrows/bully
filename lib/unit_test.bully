@@ -1,6 +1,8 @@
 
+# FIXME: nest this under UnitTest
+class FailedAssertion < RuntimeError; end
+
 class UnitTest
-  class FailedAssertion < RuntimeError; end
 
   def self.inherited(klass)
     # FIXME: use ||= here
@@ -105,41 +107,43 @@ class UnitTest
     assert_equal(nil, exception, 'expected nothing to be raise but ' + exception.inspect + ' was raised instead')
   end
 
-  class ConsoleRunner
-    def initialize
-      @totals   = { :tests => 0, :assertions => 0, :pass => 0, :fail => 0, :error => 0 }
-      @messages = []
+end
+
+# FIXME: nest this under UnitTest
+class ConsoleRunner
+  def initialize
+    @totals   = { :tests => 0, :assertions => 0, :pass => 0, :fail => 0, :error => 0 }
+    @messages = []
+  end
+
+  def post_result(result)
+    if result[:status] == :pass
+      print('.')
+    elsif result[:status] == :fail
+      print('F')
+      @messages << 'Failure: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
+    elsif result[:status] == :error
+      print('E')
+      @messages << 'Error: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
     end
 
-    def post_result(result)
-      if result[:status] == :pass
-        print('.')
-      elsif result[:status] == :fail
-        print('F')
-        @messages << 'Failure: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
-      elsif result[:status] == :error
-        print('E')
-        @messages << 'Error: ' + result[:test] + '(' + result[:class] + "):\n" + result[:message]
-      end
+    # FIXME: implement global vars
+    #$stdout.flush
 
-      # FIXME: implement global vars
-      #$stdout.flush
+    # FIXME: use += here
+    @totals[result[:status]] = @totals[result[:status]] + 1
+    @totals[:assertions]     = @totals[:assertions] + result[:assertions]
+    @totals[:tests]          = @totals[:tests] + 1
+  end
 
-      # FIXME: use += here
-      @totals[result[:status]] = @totals[result[:status]] + 1
-      @totals[:assertions]     = @totals[:assertions] + result[:assertions]
-      @totals[:tests]          = @totals[:tests] + 1
+  def finish
+    if @messages.any?
+      puts("\n\n" + @messages.join("\n\n"))
     end
 
-    def finish
-      if @messages.any?
-        puts("\n\n" + @messages.join("\n\n"))
-      end
+    puts("\n" + @totals[:tests].to_s + ' tests, ' + @totals[:assertions].to_s + ' assertions, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors')
 
-      puts("\n" + @totals[:tests].to_s + ' tests, ' + @totals[:assertions].to_s + ' assertions, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors')
-
-      exit(@totals[:fail] + @totals[:error])
-    end
+    exit(@totals[:fail] + @totals[:error])
   end
 end
 

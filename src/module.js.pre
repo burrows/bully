@@ -62,5 +62,10 @@ Bully.init_module = function() {
 
     return self;
   }, 1, 1);
+
+  // Returns the list of modules nested at the point of call.
+  Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
+    return Bully.Array.make(Bully.Evaluator.modules.slice().reverse());
+  }, 0, 0);
 };
 
