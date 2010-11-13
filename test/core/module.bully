@@ -24,6 +24,15 @@ class TestModuleClass3
 end
 
 module TestModuleNesting
+  def self.outer_nesting
+    Module.nesting
+  end
+
+  module Foo
+    def self.inner_nesting
+      Module.nesting
+    end
+  end
 end
 
 class ModuleTest < UnitTest
@@ -100,8 +109,13 @@ class ModuleTest < UnitTest
     end
   end
 
-  #def test_nesting_method_should_return_the_list_of_modules_nested_at_the_point_of_call
-  #  assert_equal([ModuleTest], Module.nesting)
-  #end
+  def test_nesting_method_should_return_the_list_of_modules_nested_at_the_point_of_call
+    assert_equal([ModuleTest], Module.nesting)
+    assert_equal([TestModuleNesting], TestModuleNesting.outer_nesting)
+
+    # FIXME: uncomment this once scoped constant references are supported
+    # assert_equal([TestModuleNesting::Foo, TestModuleNesting],
+    #   TestModuleNesting::Foo.inner_nesting)
+  end
 end
 

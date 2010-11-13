@@ -797,7 +797,7 @@ Bully.init = function() {
   }, 1, 1);
   // Returns the list of modules nested at the point of call.
   Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
-    return Bully.Array.make(Bully.Evaluator.modules.slice().reverse());
+    return Bully.Array.make(Bully.Evaluator.current_ctx.modules.slice().reverse());
   }, 0, 0);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
@@ -1192,7 +1192,8 @@ Bully.Evaluator = {
   },
   _evaluate: function(node, ctx) {
     if (!ctx) { throw new Error("_evaluate called without a context"); }
-    return this['evaluate' + node.type](node, ctx);
+    this.current_ctx = ctx;
+    return this['evaluate' + node.type].apply(this, arguments);
   },
   evaluateBody: function(node, ctx) {
     var i, line, rv = null;
@@ -1222,9 +1223,9 @@ Bully.Evaluator = {
       ctx.block = block;
       ctx.args = args;
       if (node.params) {
-        Bully.Evaluator.evaluateParamList(node.params, args, ctx);
+        Bully.Evaluator._evaluate(node.params, ctx, args);
       }
-      return Bully.Evaluator.evaluateBody(node.body, ctx);
+      return Bully.Evaluator._evaluate(node.body, ctx);
     }, args_range[0], args_range[1]);
     return null;
   },
@@ -1239,13 +1240,13 @@ Bully.Evaluator = {
       ctx.method_name = node.name;
       ctx.block = block;
       if (node.params) {
-        Bully.Evaluator.evaluateParamList(node.params, args, ctx);
+        Bully.Evaluator._evaluate(node.params, ctx, args);
       }
-      return Bully.Evaluator.evaluateBody(node.body, ctx);
+      return Bully.Evaluator._evaluate(node.body, ctx);
     }, args_range[0], args_range[1]);
     return null;
   },
-  evaluateParamList: function(node, args, ctx) {
+  evaluateParamList: function(node, ctx, args) {
     var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
     for (i = 0; i < req_len; i += 1) {
       ctx.set_var(node.required[i], args[i]);
@@ -1264,7 +1265,7 @@ Bully.Evaluator = {
       ctx.set_var(node.splat, Bully.Array.make(args.slice(req_len + opt_len)));
     }
   },
-  evaluateBlockParamList: function(node, args, ctx) {
+  evaluateBlockParamList: function(node, ctx, args) {
     var args_len = args.length, req_len = node.required.length, i;
     // FIXME: check passed argument length
     for (i = 0; i < args_len; i += 1) {
@@ -1293,7 +1294,7 @@ Bully.Evaluator = {
     }
     receiver = node.expression ? this._evaluate(node.expression, ctx) : ctx.self;
     args = node.args ? this.evaluateArgs(node.args, ctx) : [];
-    block = node.block ? this.evaluateBlock(node.block, ctx) : null;
+    block = node.block ? this._evaluate(node.block, ctx) : null;
     try {
       rv = Bully.dispatch_method(receiver, node.name, args, block);
     }
@@ -1355,7 +1356,8 @@ Bully.Evaluator = {
     return Bully.ivar_set(ctx.self, node.name, value);
   },
   evaluateConstantRef: function(node, ctx) {
-    return Bully.const_get(ctx.current_module(), node.name);
+    //return Bully.const_get(ctx.current_module(), node.name);
+    return Bully.const_get(Bully.Object, node.name);
   },
   evaluateInstanceRef: function(node, ctx) {
     return Bully.ivar_get(ctx.self, node.name);
@@ -1374,7 +1376,7 @@ Bully.Evaluator = {
       Bully.define_class(node.name, _super) :
       Bully.define_class_under(ctx.current_module(), node.name, _super);
     ctx.push_module(klass);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, ctx.modules));
+    ret = this._evaluate(node.body, new Bully.Evaluator.Context(klass, ctx.modules));
     ctx.pop_module();
     return ret;
   },
@@ -1384,7 +1386,7 @@ Bully.Evaluator = {
         sklass = Bully.singleton_class(object),
         ret;
     ctx.push_module(sklass);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(sklass, modules));
+    ret = this._evaluate(node.body, new Bully.Evaluator.Context(sklass, modules));
     ctx.pop_module();
     return ret;
   },
@@ -1394,7 +1396,7 @@ Bully.Evaluator = {
       Bully.define_module(node.name) :
       Bully.define_module_under(ctx.current_module(), node.name);
     ctx.push_module(mod);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(mod, ctx.modules));
+    ret = this._evaluate(node.body, new Bully.Evaluator.Context(mod, ctx.modules));
     ctx.pop_module();
     return ret;
   },
@@ -1435,7 +1437,7 @@ Bully.Evaluator = {
   },
   evaluateBeginBlock: function(node, ctx) {
     var handled = false, captured, rescue, types, type, i, j;
-    try { this.evaluateBody(node.body, ctx); }
+    try { this._evaluate(node.body, ctx); }
     catch (e) { captured = e; }
     // see if any of the rescue blocks match the exception
     if (captured) {
@@ -1451,17 +1453,17 @@ Bully.Evaluator = {
             if (rescue.name) {
               ctx.set_var(rescue.name, captured);
             }
-            this.evaluateBody(node.rescues[i].body, ctx);
+            this._evaluate(node.rescues[i].body, ctx);
             Bully.current_exception = null;
           }
         }
       }
       if (!handled && node.else_body) {
-        this.evaluateBody(node.else_body.body, ctx);
+        this._evaluate(node.else_body.body, ctx);
       }
     }
     if (node.ensure) {
-      this.evaluateBody(node.ensure.body, ctx);
+      this._evaluate(node.ensure.body, ctx);
     }
     // if none of our rescue blocks matched, then re-raise
     if (captured && !handled) { Bully.raise(captured); }
@@ -1472,12 +1474,12 @@ Bully.Evaluator = {
     for (i = 0; i < node.conditions.length; i += 1) {
       if (Bully.test(this._evaluate(node.conditions[i], ctx))) {
         eval_else = false;
-        rv = this.evaluateBody(node.bodies[i], ctx);
+        rv = this._evaluate(node.bodies[i], ctx);
         break;
       }
     }
     if (node.else_body && eval_else) {
-      rv = this.evaluateBody(node.else_body, ctx);
+      rv = this._evaluate(node.else_body, ctx);
     }
     return rv;
   }
@@ -1543,9 +1545,9 @@ Bully.make_proc = function(node, ctx) {
     var rv;
     ctx.push_scope();
     if (node.params) {
-      Bully.Evaluator.evaluateBlockParamList(node.params, args, ctx);
+      Bully.Evaluator._evaluate(node.params, ctx, args);
     }
-    rv = Bully.Evaluator.evaluateBody(node.body, ctx);
+    rv = Bully.Evaluator._evaluate(node.body, ctx);
     ctx.pop_scope();
     return rv;
   }, Bully.Proc);
