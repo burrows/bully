@@ -8,7 +8,10 @@ class TestClass1
   def instance_method1
     :instance_method1
   end
+end
 
+# testing ability to re-open classes
+class TestClass1
   def instance_method2
     :instance_method2
   end
@@ -72,25 +75,6 @@ class ClassTest < UnitTest
   def test_initialize_method_should_be_called_when_instance_is_created
     assert_equal(:foo, TestClass2.new(:foo).arg)
     assert_equal(9, TestClass2.new(9).arg)
-  end
-
-  def test_classes_should_be_able_to_be_reopened
-    klass1 = TestClass1
-    klass2 = class TestClass1; self; end
-    assert_equal(klass1, klass2)
-  end
-
-  def test_attempting_to_define_a_class_with_the_same_name_as_a_constant_should_raise_a_TypeError_exception
-    assert_raise(TypeError, 'Kernel is not a class') do
-      class Kernel; end
-    end
-  end
-
-  def test_attempting_to_redefine_a_class_with_another_superclass_should_raise_a_TypeError_exception
-    assert_raise(TypeError, 'superclass mismatch for class TestClass1') do
-      class TestClass1 < Array
-      end
-    end
   end
 end
 

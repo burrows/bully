@@ -1158,7 +1158,7 @@ Bully.platform = {
 };Bully.load = function(path) {
   var source = Bully.platform.read_file(path),
       ast = Bully.parser.parse((new Bully.Lexer()).tokenize(source));
-  Bully.Evaluator.evaluateBody(ast, new Bully.Evaluator.Context(Bully.main));
+  Bully.Evaluator.evaluate(ast);
   return true;
 };
 (function() {
@@ -1174,21 +1174,10 @@ Bully.require = function(lib) {
 };
 }());
 Bully.Evaluator = {
-  modules: [],
-  push_module: function(mod) {
-    this.modules.push(mod);
-  },
-  pop_module: function() {
-    this.modules.pop();
-  },
-  current_module: function() {
-    var len = this.modules.length;
-    return len === 0 ? Bully.Object : this.modules[len - 1];
-  },
   evaluate: function(node) {
     var rv = 0;
     try {
-      this['evaluate' + node.type](node, new Bully.Evaluator.Context(Bully.main));
+      this._evaluate(node, new Bully.Evaluator.Context(Bully.main));
     }
     catch (e) {
       if (Bully.respond_to(e, 'inspect')) {
@@ -1223,10 +1212,11 @@ Bully.Evaluator = {
     return [min, max];
   },
   evaluateDef: function(node, ctx) {
-    var module = this.current_module(),
+    var module = ctx.current_module(),
+        modules = ctx.modules,
         args_range = this.calculateArgsRange(node.params);
     Bully.define_method(module, node.name, function(receiver, args, block) {
-      var ctx = new Bully.Evaluator.Context(receiver);
+      var ctx = new Bully.Evaluator.Context(receiver, modules);
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
       ctx.block = block;
@@ -1240,10 +1230,11 @@ Bully.Evaluator = {
   },
   evaluateSingletonDef: function(node, ctx) {
     var args_range = this.calculateArgsRange(node.params),
+        modules = ctx.modules,
         object = typeof node.object === 'string' ? ctx.get_var(node.object) :
           this._evaluate(node.object, ctx);
     Bully.define_singleton_method(object, node.name, function(receiver, args, block) {
-      var ctx = new Bully.Evaluator.Context(receiver);
+      var ctx = new Bully.Evaluator.Context(receiver, modules);
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
       ctx.block = block;
@@ -1364,7 +1355,7 @@ Bully.Evaluator = {
     return Bully.ivar_set(ctx.self, node.name, value);
   },
   evaluateConstantRef: function(node, ctx) {
-    return Bully.const_get(this.current_module(), node.name);
+    return Bully.const_get(ctx.current_module(), node.name);
   },
   evaluateInstanceRef: function(node, ctx) {
     return Bully.ivar_get(ctx.self, node.name);
@@ -1379,31 +1370,32 @@ Bully.Evaluator = {
   evaluateClass: function(node, ctx) {
     var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
         klass, ret;
-    klass = this.modules.length === 0 ?
+    klass = ctx.modules.length === 0 ?
       Bully.define_class(node.name, _super) :
-      Bully.define_class_under(this.current_module(), node.name, _super);
-    this.push_module(klass);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(klass));
-    this.pop_module();
+      Bully.define_class_under(ctx.current_module(), node.name, _super);
+    ctx.push_module(klass);
+    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(klass, ctx.modules));
+    ctx.pop_module();
     return ret;
   },
   evaluateSingletonClass: function(node, ctx) {
     var object = this._evaluate(node.object, ctx),
+        modules = ctx.modules,
         sklass = Bully.singleton_class(object),
         ret;
-    this.push_module(sklass);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(sklass));
-    this.pop_module();
+    ctx.push_module(sklass);
+    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(sklass, modules));
+    ctx.pop_module();
     return ret;
   },
   evaluateModule: function(node, ctx) {
     var mod, ret;
-    mod = this.modules.length === 0 ?
+    mod = ctx.modules.length === 0 ?
       Bully.define_module(node.name) :
-      Bully.define_module_under(this.current_module(), node.name);
-    this.push_module(mod);
-    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(mod));
-    this.pop_module();
+      Bully.define_module_under(ctx.current_module(), node.name);
+    ctx.push_module(mod);
+    ret = this.evaluateBody(node.body, new Bully.Evaluator.Context(mod, ctx.modules));
+    ctx.pop_module();
     return ret;
   },
   evaluateStringLiteral: function(node, ctx) {
@@ -1490,22 +1482,22 @@ Bully.Evaluator = {
     return rv;
   }
 };
-// Represents a Bully evaluation context.  An evaluation context keeps track of
-// two things:
-//
-//   * the current value of self
-//   * the current local variable scope stack
-//
-// The current value of self is used whenever the self variable is referenced in
-// Bully source code.  
-//
-// The current local variable scope stack is used for storing and looking up
-// local variable definitions.
-Bully.Evaluator.Context = function(self) {
+Bully.Evaluator.Context = function(self, modules) {
   this.self = self;
+  this.modules = modules ? modules.slice() : [];
   this.scopes = [{}];
 };
 Bully.Evaluator.Context.prototype = {
+  push_module: function(mod) {
+    this.modules.push(mod);
+  },
+  pop_module: function() {
+    this.modules.pop();
+  },
+  current_module: function() {
+    var len = this.modules.length;
+    return len === 0 ? Bully.Object : this.modules[len - 1];
+  },
   push_scope: function() {
     this.scopes.push({});
     return this;

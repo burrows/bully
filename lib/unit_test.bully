@@ -3,7 +3,6 @@
 class FailedAssertion < RuntimeError; end
 
 class UnitTest
-
   def self.inherited(klass)
     # FIXME: use ||= here
     @classes = @classes || []
