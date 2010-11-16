@@ -363,8 +363,13 @@ Bully.module_new = function() {
 //
 // Returns the new Module instance.
 Bully.define_module = function(name) {
-  var mod = Bully.module_new();
-  // TODO: check for existance of module
+  var mod = Bully.const_defined(Bully.Object, name) ?
+    Bully.const_get(Bully.Object, name) : undefined;
+  if (typeof mod !== 'undefined') {
+    // TODO: do same checks here as in define_class
+    return mod;
+  }
+  mod = Bully.module_new();
   Bully.define_global_const(name, mod);
   Bully.ivar_set(mod, '__classpath__', name);
   return mod;
@@ -1342,7 +1347,7 @@ Bully.Evaluator = {
       modules = [Bully.Object];
     }
     else {
-      modules = ctx.modules.slice();
+      modules = ctx.modules.slice().reverse();
       modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
       modules = modules.concat(Bully.Module.ancestors(Bully.Object));
     }

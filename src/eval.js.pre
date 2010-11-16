@@ -268,7 +268,7 @@ Bully.Evaluator = {
       modules = [Bully.Object];
     }
     else {
-      modules = ctx.modules.slice();
+      modules = ctx.modules.slice().reverse();
       modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
       modules = modules.concat(Bully.Module.ancestors(Bully.Object));
     }
