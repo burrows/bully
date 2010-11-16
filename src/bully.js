@@ -376,9 +376,11 @@ Bully.define_module = function(name) {
 //
 // Returns the new Module instance.
 Bully.define_module_under = function(outer, name) {
-  var mod = Bully.module_new();
+  var classpath = Bully.ivar_get(outer, '__classpath__'),
+      mod = Bully.module_new();
   // TODO: check for existance of module
   Bully.define_const(outer, name, mod);
+  Bully.ivar_set(mod, '__classpath__', classpath + '::' + name);
   return mod;
 };
 // Defines a method with the given name in the given class.  A method is simply
