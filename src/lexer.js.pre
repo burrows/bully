@@ -50,7 +50,8 @@ Bully.Lexer.OPERATORS = [
   '!~',
   '&&',
   '||',
-  '=>'
+  '=>',
+  '::'
 ];
 
 Bully.Lexer.regex_escape = function(text) {
@@ -92,16 +93,16 @@ Bully.Lexer.prototype = {
 
         pos += match.length;
       }
-      // match symbols
-      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
-        match = match[1];
-        tokens.push(['SYMBOL', match, line]);
-        pos += match.length;
-      }
       // match operators
       else if ((match = chunk.match(opRegex))) {
         match = match[1];
         tokens.push([match, match, line]);
+        pos += match.length;
+      }
+      // match symbols
+      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
+        match = match[1];
+        tokens.push(['SYMBOL', match, line]);
         pos += match.length;
       }
       // match constants

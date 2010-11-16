@@ -261,9 +261,50 @@ Bully.Evaluator = {
     return Bully.ivar_set(ctx.self, node.name, value);
   },
 
+  _resolveConstant: function(names, global, ctx) {
+    var i, modules, constant;
+
+    if (global) {
+      modules = [Bully.Object];
+    }
+    else {
+      modules = ctx.modules.slice();
+      modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
+      modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+    }
+
+    for (i = 0; i < modules.length; i += 1) {
+      if (Bully.const_defined(modules[i], names[0])) {
+        constant = Bully.const_get(modules[i], names[0]);
+        break;
+      }
+    }
+
+    if (typeof constant === 'undefined') {
+      Bully.raise(Bully.NameError, 'uninitialized constant ' + names[0]);
+    }
+
+    for (i = 1; i < names.length; i += 1) {
+      constant = Bully.const_get(constant, names[i]);
+    }
+
+    return constant;
+  },
+
+  evaluateConstantAssign: function(node, ctx) {
+    var names = node.constant.names.slice(),
+        last  = names.pop(),
+        base  = names.length > 0 ?
+          this._resolveConstant(names, node.constant.global, ctx) :
+          ctx.current_module();
+
+    // TODO: check to see if constant is already defined
+
+    return Bully.const_set(base, last, this._evaluate(node.expression, ctx));
+  },
+
   evaluateConstantRef: function(node, ctx) {
-    // FIXME: properly lookup constants
-    return Bully.const_get(Bully.Object, node.name);
+    return this._resolveConstant(node.names, node.global, ctx);
   },
 
   evaluateInstanceRef: function(node, ctx) {
@@ -370,7 +411,7 @@ Bully.Evaluator = {
   },
 
   evaluateBeginBlock: function(node, ctx) {
-    var handled = false, captured, rescue, types, type, i, j;
+    var handled = false, captured, rescue, type_nodes, type, i, j;
 
     try       { this._evaluate(node.body, ctx); }
     catch (e) { captured = e; }
@@ -380,12 +421,12 @@ Bully.Evaluator = {
       Bully.current_exception = captured;
 
       for (i = 0; i < node.rescues.length && !handled; i += 1) {
-        rescue = node.rescues[i];
-        types  = rescue.exception_types || [{type: 'ConstantRef', name: 'StandardError'}];
+        rescue     = node.rescues[i];
+        type_nodes = rescue.exception_types || [{type: 'ConstantRef', global: true, names: ['StandardError']}];
 
-        for (j = 0; j < types.length && !handled; j += 1) {
+        for (j = 0; j < type_nodes.length && !handled; j += 1) {
           // FIXME: lookup constant for real
-          type = Bully.const_get(Bully.Object, types[j].name);
+          type = this._evaluate(type_nodes[j], ctx);
 
           if (send(captured, 'is_a?', type)) {
             handled = true;

@@ -301,7 +301,8 @@ Bully.make_class = function(name, _super) {
 // Raises TypeError if a constant with the same name is already defined.
 // Raises TypeError if class is already defined with a different superclass.
 Bully.define_class = function(name, _super) {
-  var klass = Bully.lookup_const(Bully.Object, name);
+  var klass = Bully.const_defined(Bully.Object, name) ?
+    Bully.const_get(Bully.Object, name) : undefined;
 
   _super = _super || Bully.Object;
 
@@ -344,7 +345,7 @@ Bully.define_class_under = function(outer, name, _super) {
 
   klass = Bully.make_class(name, _super);
 
-  Bully.define_const(outer, klass);
+  Bully.define_const(outer, name, klass);
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
   if (_super && Bully.respond_to(_super, 'inherited')) {
@@ -606,22 +607,40 @@ Bully.ivar_get = function(obj, name) {
 
 }());
 
-// Defines a constant under the given class' namespace.  Constants are stored
-// in the class' iv_tbl just like instance and class variables.  Naming
+Bully.const_set = function(module, name, val) {
+  // TODO: check constant name
+  module.iv_tbl[name] = val;
+
+  return val;
+};
+
+Bully.const_defined = function(module, name) {
+  return module.iv_tbl.hasOwnProperty(name);
+};
+
+Bully.const_get = function(module, name) {
+  // TODO: check constant name
+
+  if (module.iv_tbl.hasOwnProperty(name)) {
+    return module.iv_tbl[name];
+  }
+
+  Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+};
+
+// Defines a constant under the given module's namespace.  Constants are stored
+// in the moduel's iv_tbl just like instance and class variables.  Naming
 // collisions are avoided because all instance and class variables defined at
 // the Bully level are prefixed with either '@' or '@@' respectively while
 // constants must start with a capital letter.
 //
-// klass - A class reference to define the constant on.
-// name  - A js string containing the name of the constant.
-// val   - The value to set the constant to.
+// module - A module reference to define the constant on.
+// name   - A js string containing the name of the constant.
+// val    - The value to set the constant to.
 //
 // Returns the value.
-Bully.define_const = function(klass, name, val) {
-  // TODO: check format of name
-  klass.iv_tbl[name] = val;
-
-  return val;
+Bully.define_const = function(module, name, val) {
+  return Bully.const_set(module, name, val);
 };
 
 // Defines a global constant.  The namespace of a global constant is the Object
@@ -632,48 +651,7 @@ Bully.define_const = function(klass, name, val) {
 //
 // Returns the value.
 Bully.define_global_const = function(name, val) {
-  return Bully.define_const(Bully.Object, name, val);
-};
-
-// Private: Attempts to lookup the given constant name.  This method simply
-// searches the class' superclass chain.  During evaluation however, constants
-// are first searched for in the current lexical scope.  The code that does this
-// searching is implemented in the evaluator.
-//
-// TODO: reference the method in the evaluator
-//
-// klass - The class to start the constant search with.
-// name  - A js string containing the name of the constant to look for.
-//
-// Returns the value of the constant if found and undefined otherwise.
-Bully.lookup_const = function(klass, name) {
-  do {
-    if (klass.iv_tbl.hasOwnProperty(name)) {
-      return klass.iv_tbl[name];
-    }
-    else {
-      klass = klass._super;
-    }
-  } while (klass);
-
-  return undefined;
-};
-
-// Returns the value of the given constant name from the given class.
-//
-// klass - The class to start the constant search with.
-// name  - A js string containing the name of the constant to look for.
-//
-// Returns the value of the constant.
-// Raises NameError if the constant is not found.
-Bully.const_get = function(klass, name) {
-  var c = Bully.lookup_const(klass, name);
-
-  if (!c) {
-    Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
-  }
-
-  return c;
+  return Bully.const_set(Bully.Object, name, val);
 };
 
 // Raises an exception with the given message.

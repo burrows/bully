@@ -36,78 +36,78 @@ module TestModuleNesting
 end
 
 class ModuleTest < UnitTest
-  def test_class_of_Module_is_Class
-    assert_equal(Class, Module.class)
-  end
+  #def test_class_of_Module_is_Class
+  #  assert_equal(Class, Module.class)
+  #end
 
-  def test_superclass_of_Module_is_Object
-    assert_equal(nil, Object.superclass)
-  end
+  #def test_superclass_of_Module_is_Object
+  #  assert_equal(nil, Object.superclass)
+  #end
 
-  def test_name_method_should_return_name_of_module
-    assert_equal('TestModule1', TestModule1.name)
-  end
+  #def test_name_method_should_return_name_of_module
+  #  assert_equal('TestModule1', TestModule1.name)
+  #end
 
-  def test_to_s_method_should_return_name_of_module
-    assert_equal('TestModule1', TestModule1.to_s)
-  end
+  #def test_to_s_method_should_return_name_of_module
+  #  assert_equal('TestModule1', TestModule1.to_s)
+  #end
 
-  def test_inspect_method_should_return_name_of_module
-    assert_equal('TestModule1', TestModule1.inspect)
-  end
+  #def test_inspect_method_should_return_name_of_module
+  #  assert_equal('TestModule1', TestModule1.inspect)
+  #end
 
-  def test_ancestors_method_should_return_modules_inheritance_chain
-    assert_equal([Object, Kernel], Object.ancestors)
-    assert_equal([Module, Object, Kernel], Module.ancestors)
-    assert_equal([Class, Module, Object, Kernel], Class.ancestors)
-    assert_equal([Kernel], Kernel.ancestors)
-  end
+  #def test_ancestors_method_should_return_modules_inheritance_chain
+  #  assert_equal([Object, Kernel], Object.ancestors)
+  #  assert_equal([Module, Object, Kernel], Module.ancestors)
+  #  assert_equal([Class, Module, Object, Kernel], Class.ancestors)
+  #  assert_equal([Kernel], Kernel.ancestors)
+  #end
 
-  def test_instance_methods_method_should_return_a_list_of_all_instance_methods_define_directly_on_the_module
-    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(false))
-    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(true))
-    assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods)
-  end
+  #def test_instance_methods_method_should_return_a_list_of_all_instance_methods_define_directly_on_the_module
+  #  assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(false))
+  #  assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods(true))
+  #  assert_equal(['mod_method1', 'mod_method2'], TestModule1.instance_methods)
+  #end
 
-  def test_including_a_module_into_a_class_makes_methods_defined_on_the_module_available_to_the_class
-    x = TestModuleClass1.new
-    assert_equal(true, x.respond_to?(:mod_method1))
-    assert_equal(true, x.respond_to?(:mod_method2))
-  end
+  #def test_including_a_module_into_a_class_makes_methods_defined_on_the_module_available_to_the_class
+  #  x = TestModuleClass1.new
+  #  assert_equal(true, x.respond_to?(:mod_method1))
+  #  assert_equal(true, x.respond_to?(:mod_method2))
+  #end
 
-  def test_including_a_module_should_insert_itself_into_the_ancestor_chain_of_the_class
-    assert_equal([TestModuleClass2, Object, Kernel], TestModuleClass2.ancestors)
+  #def test_including_a_module_should_insert_itself_into_the_ancestor_chain_of_the_class
+  #  assert_equal([TestModuleClass2, Object, Kernel], TestModuleClass2.ancestors)
 
-    TestModuleClass2.include(TestModule1)
-    TestModuleClass2.include(TestModule2)
+  #  TestModuleClass2.include(TestModule1)
+  #  TestModuleClass2.include(TestModule2)
 
-    assert_equal([TestModuleClass2, TestModule2, TestModule1, Object, Kernel],
-                 TestModuleClass2.ancestors)
+  #  assert_equal([TestModuleClass2, TestModule2, TestModule1, Object, Kernel],
+  #               TestModuleClass2.ancestors)
 
-    TestModuleClass2.include(TestModule3)
+  #  TestModuleClass2.include(TestModule3)
 
-    assert_equal([TestModuleClass2, TestModule3, TestModule2, TestModule1, Object, Kernel],
-                 TestModuleClass2.ancestors)
-  end
+  #  assert_equal([TestModuleClass2, TestModule3, TestModule2, TestModule1, Object, Kernel],
+  #               TestModuleClass2.ancestors)
+  #end
 
-  def test_modules_should_not_be_included_twice
-    TestModuleClass3.include(TestModule1)
-    assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
-                 TestModuleClass3.ancestors)
-    TestModuleClass3.include(TestModule1)
-    assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
-                 TestModuleClass3.ancestors)
-  end
+  #def test_modules_should_not_be_included_twice
+  #  TestModuleClass3.include(TestModule1)
+  #  assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
+  #               TestModuleClass3.ancestors)
+  #  TestModuleClass3.include(TestModule1)
+  #  assert_equal([TestModuleClass3, TestModule1, Object, Kernel],
+  #               TestModuleClass3.ancestors)
+  #end
 
-  def test_include_should_return_the_value_of_self
-    assert_equal(TestModuleClass3, TestModuleClass3.include(TestModule1))
-  end
+  #def test_include_should_return_the_value_of_self
+  #  assert_equal(TestModuleClass3, TestModuleClass3.include(TestModule1))
+  #end
 
-  def test_include_must_be_passed_a_module_object
-    assert_raise(TypeError, 'wrong argument type Number (expected Module)') do
-      class TestModuleClass1; include(9); end
-    end
-  end
+  #def test_include_must_be_passed_a_module_object
+  #  assert_raise(TypeError, 'wrong argument type Number (expected Module)') do
+  #    class TestModuleClass1; include(9); end
+  #  end
+  #end
 
   def test_nesting_method_should_return_the_list_of_modules_nested_at_the_point_of_call
     assert_equal([ModuleTest], Module.nesting)

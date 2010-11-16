@@ -170,12 +170,12 @@ var grammar = {
   ],
 
   SingletonDef: [
-    o('DEF Self . IDENTIFIER Terminator Body END',                     "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF Self . IDENTIFIER ( ParamList ) Terminator Body END',       "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF IDENTIFIER . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF IDENTIFIER . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF ConstantRef . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF ConstantRef . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
+    o('DEF Self . IDENTIFIER Terminator Body END',                          "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF Self . IDENTIFIER ( ParamList ) Terminator Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
+    o('DEF IDENTIFIER . IDENTIFIER Terminator Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF IDENTIFIER . IDENTIFIER ( ParamList ) Terminator Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
+    o('DEF BareConstantRef . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF BareConstantRef . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
   ],
 
   BlockParamList: [
@@ -213,17 +213,28 @@ var grammar = {
     o('IDENTIFIER = Expression',     "$$ = {type: 'LocalAssign',    name: $1,        expression: $3};"),
     o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: '@' + $2,  expression: $4};"),
     o('@ @ IDENTIFIER = Expression', "$$ = {type: 'ClassAssign',    name: '@@' + $3, expression: $5};"),
-    o('CONSTANT = Expression',       "$$ = {type: 'ConstantAssign', name: $1,        expression: $3};")
+    o('ConstantRef = Expression',    "$$ = {type: 'ConstantAssign', constant: $1,    expression: $3};")
   ],
 
   VariableRef: [
     o('@ IDENTIFIER',   "$$ = {type: 'InstanceRef', name: '@' + $2};"),
     o('@ @ IDENTIFIER', "$$ = {type: 'ClassRef',    name: '@@' + $3};"),
-    o('ConstantRef')
+    o('ConstantRef'),
   ],
 
   ConstantRef: [
-    o('CONSTANT', "$$ = {type: 'ConstantRef', name: $1};")
+    o('BareConstantRef'),
+    o('ScopedConstantRef')
+  ],
+
+  BareConstantRef: [
+    o('CONSTANT', "$$ = {type: 'ConstantRef', global: false, names: [$1]};")
+  ],
+
+  ScopedConstantRef: [
+    o(':: CONSTANT',                   "$$ = {type: 'ConstantRef', global: true,  names: [$2]};"),
+    o('CONSTANT :: CONSTANT',          "$$ = {type: 'ConstantRef', global: false, names: [$1, $3]};"),
+    o('ScopedConstantRef :: CONSTANT', "$1.names.push($3);")
   ],
 
   Class: [
