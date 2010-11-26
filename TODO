@@ -1,12 +1,19 @@
-* finish tests
+* spec TODOs:
+  - Object#instance_eval
+  - ternary operator
+  - Time class
+  - parenthesized expressions
+  - Class.new
+* convert unit tests to specs
 * better constant support
 * global variables
 * Class.new does not work properly
-* runtime API cleanup
 * better parse error messages
+* stack traces and line numbers
 * lexer improvements
 * regex support
 * convert evaluator to VM
 * better ruby 1.9 compatibility
 * browser support
 * javascript integration
+
