@@ -25,6 +25,11 @@ var grammar = {
     o('NEWLINE')
   ],
 
+  OptNewline: [
+    o(''),
+    o('NEWLINE')
+  ],
+
   Statement: [
     o('Return')
   ],
@@ -41,6 +46,7 @@ var grammar = {
     o('Operation'),
     o('Logical'),
     o('If'),
+    o('Ternary'),
     o('Self'),
     o('BeginBlock')
   ],
@@ -135,6 +141,10 @@ var grammar = {
 
   ElsIf: [
     o('ELSIF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};")
+  ],
+
+  Ternary: [
+    o('Expression ? OptNewline Expression : OptNewline Expression', "$$ = {type: 'If', conditions: [$1], bodies: [$4], else_body: $7};")
   ],
 
   Then: [

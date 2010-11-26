@@ -1,6 +1,6 @@
 * spec TODOs:
   - Object#instance_eval
-  - ternary operator
+  x ternary operator
   - Time class
   - parenthesized expressions
   - Class.new

@@ -121,4 +121,25 @@ class ControlTest < UnitTest
 
     assert_equal('elsif body', result)
   end
+
+  def test_ternary_expression_should_execute_first_expression_when_test_expression_is_truthy
+    assert_equal(:first, true ? :first : :second)
+    assert_equal(:first, 9 ? :first : :second)
+  end
+
+  def test_ternary_expression_should_execute_second_expression_when_test_expression_is_falsy
+    assert_equal(:second, false ? :first : :second)
+    assert_equal(:second, nil ? :first : :second)
+  end
+
+  def test_ternary_expressions_can_be_split_up_over_multiple_lines
+    r1 = true ? 1 + 2 :
+                3 + 4
+    r2 = false ?
+      1 + 2 :
+      3 + 4
+    assert_equal(3, r1)
+    assert_equal(7, r2)
+  end
 end
+
