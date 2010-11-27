@@ -2,9 +2,10 @@
   - Object#instance_eval
   x ternary operator
   - Time class
-  - parenthesized expressions
+  x parenthesized expressions
   - Class.new
 * convert unit tests to specs
+* precedence tests
 * better constant support
 * global variables
 * Class.new does not work properly

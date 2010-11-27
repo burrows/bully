@@ -48,7 +48,8 @@ var grammar = {
     o('If'),
     o('Ternary'),
     o('Self'),
-    o('BeginBlock')
+    o('BeginBlock'),
+    o('( Expression )', "$$ = $2;")
   ],
 
   Self: [
