@@ -13,12 +13,20 @@ class ParamsTestClass
     splat
   end
 
+  def block_only(&block)
+    block
+  end
+
   def req_and_opt(req1, req2, opt1='opt1', opt2='opt2')
     {:req1 => req1, :req2 => req2, :opt1 => opt1, :opt2 => opt2}
   end
 
   def req_opt_and_splat(req1, req2, opt1='opt1', opt2='opt2', *splat)
     {:req1 => req1, :req2 => req2, :opt1 => opt1, :opt2 => opt2, :splat => splat}
+  end
+
+  def req_and_block(req1, req2, &block)
+    {:req1 => req1, :req2 => req2, :block => block}
   end
 end
 
@@ -180,6 +188,47 @@ class ParamsTest < UnitTest
       @params_test.splat_only(1,2,3,4)
       @params_test.splat_only(1,2,3,4,5)
     end
+  end
+
+  def test_methods_with_only_a_block_param_should_accept_zero_normal_arguments
+    assert_nothing_raised do
+      @params_test.block_only
+    end
+
+    assert_raise(ArgumentError, 'wrong number of arguments (1 for 0)') do
+      @params_test.block_only(1)
+    end
+  end
+
+  def test_methods_with_required_and_block_params_should_only_accept_the_number_of_required_normal_arguments
+    assert_nothing_raised do
+      @params_test.req_and_block(1,2)
+    end
+
+    assert_raise(ArgumentError, 'wrong number of arguments (0 for 2)') do
+      @params_test.req_and_block
+    end
+  end
+
+  def test_methods_with_a_block_param_should_set_the_param_to_nil_when_no_block_is_given
+    r = @params_test.block_only
+    assert_equal(nil, r)
+  end
+
+  def test_methods_with_a_block_param_should_convert_a_given_block_to_a_Proc_object
+    r = @params_test.block_only { 'hey' }
+    assert_equal(Proc, r.class)
+    assert_equal('hey', r.call)
+  end
+
+  def test_passing_a_proc_obect_with_an_ampersand_prefix_as_the_last_object_should_convert_it_to_a_block
+    p = Proc.new { 'some proc' }
+
+    assert_raise(ArgumentError, 'wrong number of arguments (1 for 0)') do
+      @params_test.block_only(p)
+    end
+
+    assert_equal('some proc', @params_test.block_only(&p).call)
   end
 end
 

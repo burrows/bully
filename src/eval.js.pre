@@ -85,11 +85,11 @@ Bully.Evaluator = {
 
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
-      ctx.block = block;
       ctx.args = args;
+      ctx.block = block;
 
       if (node.params) {
-        Bully.Evaluator._evaluate(node.params, ctx, args);
+        Bully.Evaluator._evaluate(node.params, ctx, args, block);
       }
 
       return Bully.Evaluator._evaluate(node.body, ctx);
@@ -109,6 +109,7 @@ Bully.Evaluator = {
 
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
+      ctx.args = args;
       ctx.block = block;
 
       if (node.params) {
@@ -121,7 +122,7 @@ Bully.Evaluator = {
     return null;
   },
 
-  evaluateParamList: function(node, ctx, args) {
+  evaluateParamList: function(node, ctx, args, block) {
     var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
 
     for (i = 0; i < req_len; i += 1) {
@@ -141,6 +142,10 @@ Bully.Evaluator = {
 
     if (node.splat) {
       ctx.set_var(node.splat, Bully.Array.make(args.slice(req_len + opt_len)));
+    }
+
+    if (node.block) {
+      ctx.set_var(node.block, block);
     }
   },
 
@@ -174,7 +179,7 @@ Bully.Evaluator = {
   },
 
   evaluateCall: function(node, ctx) {
-    var receiver, args, block, rv;
+    var block = null, receiver, args, rv;
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && ctx.has_var(node.name)) {
@@ -184,6 +189,14 @@ Bully.Evaluator = {
     receiver = node.expression ? this._evaluate(node.expression, ctx) : ctx.self;
     args     = node.args ? this.evaluateArgs(node.args, ctx) : [];
     block    = node.block ? this._evaluate(node.block, ctx) : null;
+
+    if (node.block_arg) {
+      // FIXME: make sure object is a Proc
+      block = ctx.get_var(node.block_arg);
+    }
+    else if (node.block) {
+      block = this._evaluate(node.block, ctx);
+    }
 
     try {
       rv = Bully.dispatch_method(receiver, node.name, args, block);
@@ -549,8 +562,13 @@ Bully.Evaluator.Context.prototype = {
 Bully.Evaluator.ReturnException = { value: null };
 
 Bully.make_proc = function(node, ctx) {
-  return Bully.make_object(function(args) {
-    var rv;
+  return Bully.make_object(function(args, self) {
+    var rv, old_self;
+
+    if (self) {
+      old_self = ctx.self;
+      ctx.self = self;
+    }
 
     ctx.push_scope();
 
@@ -561,6 +579,10 @@ Bully.make_proc = function(node, ctx) {
     rv = Bully.Evaluator._evaluate(node.body, ctx); 
 
     ctx.pop_scope();
+
+    if (self) {
+      ctx.self = old_self;
+    }
 
     return rv;
   }, Bully.Proc);

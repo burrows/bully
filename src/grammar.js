@@ -73,16 +73,23 @@ var grammar = {
   ],
 
   Call: [
-    o('IDENTIFIER OptBlock',                             "$$ = {type: 'Call', expression: null, name: $1,    args: null, block: $2};"),
-    o('IDENTIFIER ( ArgList ) OptBlock',                 "$$ = {type: 'Call', expression: null, name: $1,    args: $3,   block: $5};"),
-    o('Expression . IDENTIFIER OptBlock',                "$$ = {type: 'Call', expression: $1,   name: $3,    args: null, block: $4};"),
-    o('Expression . IDENTIFIER ( ArgList ) OptBlock',    "$$ = {type: 'Call', expression: $1,   name: $3,    args: $5,   block: $7};"),
-    o('Expression [ Expression ]',                       "$$ = {type: 'Call', expression: $1,   name: '[]',  args: [$3], block: null};"),
-    o('Expression [ Expression ] = Expression',          "$$ = {type: 'Call', expression: $1,   name: '[]=', args: [$3, $6], block: null};"),
-    o('SUPER OptBlock',                                  "$$ = {type: 'SuperCall', args: null, block: $2};"),
-    o('SUPER ( ArgList ) OptBlock',                      "$$ = {type: 'SuperCall', args: $3,   block: $5};"),
-    o('YIELD',                                           "$$ = {type: 'YieldCall', args: null};"),
-    o('YIELD ( ArgList )',                               "$$ = {type: 'YieldCall', args: $3};")
+    o('IDENTIFIER OptBlock',                              "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: null, block: $2};"),
+    o('IDENTIFIER ( BlockParam )',                        "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: $3,   block: null};"),
+    o('IDENTIFIER ( ArgList ) OptBlock',                  "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: null, block: $5};"),
+    o('IDENTIFIER ( ArgList , BlockParam )',              "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: $5,   block: null};"),
+    o('Expression . IDENTIFIER OptBlock',                 "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: null, block: $4};"),
+    o('Expression . IDENTIFIER ( BlockParam )',           "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: $5,   block: null};"),
+    o('Expression . IDENTIFIER ( ArgList ) OptBlock',     "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: null, block: $7};"),
+    o('Expression . IDENTIFIER ( ArgList , BlockParam )', "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: $7,   block: null};"),
+    o('Expression . IDENTIFIER = Expression',             "$$ = {type: 'Call', expression: $1,   name: $3+'=', args: [$5],     block_arg: null, block: null};"),
+    o('Expression [ Expression ]',                        "$$ = {type: 'Call', expression: $1,   name: '[]',   args: [$3],     block_arg: null, block: null};"),
+    o('Expression [ Expression ] = Expression',           "$$ = {type: 'Call', expression: $1,   name: '[]=',  args: [$3, $6], block_arg: null, block: null};"),
+    o('SUPER OptBlock',                                   "$$ = {type: 'SuperCall', args: null, block_arg: null, block: $2};"),
+    o('SUPER ( BlockParam )',                             "$$ = {type: 'SuperCall', args: null, block_arg: $2, block: $2};"),
+    o('SUPER ( ArgList ) OptBlock',                       "$$ = {type: 'SuperCall', args: $3,   block_arg: null, block: $5};"),
+    o('SUPER ( ArgList , BlockParam )',                   "$$ = {type: 'SuperCall', args: $3,   block_arg: $5, block: null};"),
+    o('YIELD',                                            "$$ = {type: 'YieldCall', args: null};"),
+    o('YIELD ( ArgList )',                                "$$ = {type: 'YieldCall', args: $3};")
   ],
 
   Operation: [
@@ -175,18 +182,25 @@ var grammar = {
   ],
 
   Def: [
-    o('DEF IDENTIFIER Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
-    o('DEF IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $7};"),
+    o('DEF MethodName Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
+    o('DEF MethodName ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $7};"),
     o('SingletonDef')
   ],
 
+  MethodName: [
+    o('IDENTIFIER',   "$$ = $1;"),
+    o('IDENTIFIER =', "$$ = $1 + '=';"),
+    o('IDENTIFIER ?', "$$ = $1 + '?';"),
+    o('IDENTIFIER !', "$$ = $1 + '!';")
+  ],
+
   SingletonDef: [
-    o('DEF Self . IDENTIFIER Terminator Body END',                          "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF Self . IDENTIFIER ( ParamList ) Terminator Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF IDENTIFIER . IDENTIFIER Terminator Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF IDENTIFIER . IDENTIFIER ( ParamList ) Terminator Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF BareConstantRef . IDENTIFIER Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF BareConstantRef . IDENTIFIER ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
+    o('DEF Self . MethodName Terminator Body END',                          "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF Self . MethodName ( ParamList ) Terminator Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
+    o('DEF IDENTIFIER . MethodName Terminator Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF IDENTIFIER . MethodName ( ParamList ) Terminator Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
+    o('DEF BareConstantRef . MethodName Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF BareConstantRef . MethodName ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
   ],
 
   BlockParamList: [
@@ -196,14 +210,22 @@ var grammar = {
   ],
 
   ParamList: [
-    o('',                                         "$$ = {type: 'ParamList', required: [], optional: [], splat: null};"),
-    o('ReqParamList',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: null};"),
-    o('OptParamList',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: null};"),
-    o('SplatParam',                               "$$ = {type: 'ParamList', required: [], optional: [], splat: $1};"),
-    o('ReqParamList , OptParamList',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null};"),
-    o('ReqParamList , OptParamList , SplatParam', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5};"),
-    o('ReqParamList , SplatParam',                "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3};"),
-    o('OptParamList , SplatParam',                "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3};")
+    o('',                                                      "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: null};"),
+    o('ReqParamList',                                          "$$ = {type: 'ParamList', required: $1, optional: [], splat: null, block: null};"),
+    o('ReqParamList , OptParamList',                           "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null, block: null};"),
+    o('ReqParamList , OptParamList , SplatParam',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5,   block: null};"),
+    o('ReqParamList , OptParamList , SplatParam , BlockParam', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5,   block: $7};"),
+    o('ReqParamList , SplatParam',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3,   block: null};"),
+    o('ReqParamList , SplatParam , BlockParam',                "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3,   block: $5};"),
+    o('ReqParamList , OptParamList , BlockParam',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null, block: $5};"),
+    o('ReqParamList , BlockParam',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: null, block: $3};"),
+    o('OptParamList',                                          "$$ = {type: 'ParamList', required: [], optional: $1, splat: null, block: null};"),
+    o('OptParamList , SplatParam',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3,   block: null};"),
+    o('OptParamList , SplatParam , BlockParam',                "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3,   block: $5};"),
+    o('OptParamList , BlockParam',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: null, block: $3};"),
+    o('SplatParam',                                            "$$ = {type: 'ParamList', required: [], optional: [], splat: $1,   block: null};"),
+    o('SplatParam , BlockParam',                               "$$ = {type: 'ParamList', required: [], optional: [], splat: $1,   block: $3};"),
+    o('BlockParam',                                            "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: $1};")
   ],
 
   ReqParamList: [
@@ -218,6 +240,10 @@ var grammar = {
 
   SplatParam: [
     o('* IDENTIFIER', "$$ = $2;")
+  ],
+
+  BlockParam: [
+    o('& IDENTIFIER', "$$ = $2;")
   ],
 
   Assignment: [
