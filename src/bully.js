@@ -255,6 +255,18 @@ Bully.make_class = function(name, _super) {
   Bully.make_metaclass(klass, _super.klass);
   return klass;
 };
+// Private: Calls the inherited method on the superclass if it responds to it.
+// This method is called when a Class instance is initialized.
+//
+// _super - A reference to the superclass.
+// klass  - A reference to the class.
+//
+// Returns nothing.
+Bully.class_inherited = function(_super, klass) {
+  if (Bully.respond_to(_super, 'inherited')) {
+    Bully.dispatch_method(_super, 'inherited', [klass]);
+  }
+};
 // Defines a new Class instance in the global scope with the given superclass.
 //
 // name   - A js string containing the name of the class.
@@ -281,9 +293,7 @@ Bully.define_class = function(name, _super) {
   klass = Bully.make_class(name, _super);
   Bully.define_global_const(name, klass);
   Bully.ivar_set(klass, '__classpath__', name);
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
-  }
+  Bully.class_inherited(_super, klass);
   return klass;
 };
 // Defines a new Class instance under the given module.
@@ -300,9 +310,7 @@ Bully.define_class_under = function(outer, name, _super) {
   klass = Bully.make_class(name, _super);
   Bully.define_const(outer, name, klass);
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
-  }
+  Bully.class_inherited(_super, klass);
   return klass;
 };
 // Private: Creates an include class for the given module.  Include classes are
@@ -615,15 +623,16 @@ Bully.init = function() {
   Bully.init_proc();
 };Bully.init_object = function() {
   Bully.Kernel = Bully.define_module('Kernel');
-  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
-    return Bully.real_class_of(self);
-  }, 0, 0);
-  Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
+  Bully.Kernel.to_s = function(self) {
     var klass = Bully.real_class_of(self),
         name = Bully.dispatch_method(klass, 'name', []).data,
         object_id = Bully.dispatch_method(self, 'object_id', []);
     return Bully.String.make('#<' + name + ':' + object_id + '>');
+  };
+  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
+    return Bully.real_class_of(self);
   }, 0, 0);
+  Bully.define_method(Bully.Kernel, 'to_s', Bully.Kernel.to_s, 0, 0);
   Bully.define_method(Bully.Kernel, 'inspect', function(self, args) {
     return Bully.dispatch_method(self, 'to_s', args);
   }, 0, 0);
@@ -746,19 +755,18 @@ Bully.init = function() {
     }
     return Bully.Array.make(a);
   };
-  Bully.define_method(Bully.Module, 'name', function(self, args) {
-  }, 0, 0);
   Bully.define_method(Bully.Module, 'ancestors', Bully.Module.ancestors, 0, 0);
   Bully.define_method(Bully.Module, 'name', function(self, args) {
-    return Bully.String.make(Bully.ivar_get(self, '__classpath__'));
+    return Bully.String.make(Bully.ivar_get(self, '__classpath__') || "");
   }, 0, 0);
   Bully.define_method(Bully.Module, 'to_s', function(self, args) {
-    var obj;
+    var obj, name;
     if (self.is_singleton_class) {
       obj = Bully.ivar_get(self, '__attached__');
       return Bully.String.make('#<Class:' + Bully.dispatch_method(obj, 'to_s', []).data + '>');
     }
-    return Bully.dispatch_method(self, 'name', args);
+    name = Bully.dispatch_method(self, 'name', args);
+    return name.data === "" ? Bully.Kernel.to_s(self, args) : name;
   }, 0, 0);
   Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
     var methods = [],
@@ -789,6 +797,14 @@ Bully.init = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.make_object();
   });
+  Bully.define_method(Bully.Class, 'initialize', function(self, args) {
+    var _super = args[0] || Bully.Object;
+    self._super = _super;
+    Bully.make_metaclass(self, _super.klass);
+    Bully.ivar_set(self, '__classpath__', "");
+    Bully.class_inherited(_super, self);
+    return self;
+  }, 0, 1);
   Bully.define_method(Bully.Class, 'new', function(self, args) {
     var o = Bully.dispatch_method(self, 'allocate', []);
     o.klass = self;

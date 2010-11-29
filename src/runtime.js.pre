@@ -291,6 +291,19 @@ Bully.make_class = function(name, _super) {
   return klass;
 };
 
+// Private: Calls the inherited method on the superclass if it responds to it.
+// This method is called when a Class instance is initialized.
+//
+// _super - A reference to the superclass.
+// klass  - A reference to the class.
+//
+// Returns nothing.
+Bully.class_inherited = function(_super, klass) {
+  if (Bully.respond_to(_super, 'inherited')) {
+    send(_super, 'inherited', klass);
+  }
+};
+
 // Defines a new Class instance in the global scope with the given superclass.
 //
 // name   - A js string containing the name of the class.
@@ -322,10 +335,7 @@ Bully.define_class = function(name, _super) {
   klass = Bully.make_class(name, _super);
   Bully.define_global_const(name, klass);
   Bully.ivar_set(klass, '__classpath__', name);
-
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    send(_super, 'inherited', klass);
-  }
+  Bully.class_inherited(_super, klass);
 
   return klass;
 };
@@ -348,9 +358,7 @@ Bully.define_class_under = function(outer, name, _super) {
   Bully.define_const(outer, name, klass);
   Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
-  if (_super && Bully.respond_to(_super, 'inherited')) {
-    send(_super, 'inherited', klass);
-  }
+  Bully.class_inherited(_super, klass);
 
   return klass;
 };

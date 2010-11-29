@@ -3,6 +3,17 @@ Bully.init_class = function() {
     return Bully.make_object();
   });
 
+  Bully.define_method(Bully.Class, 'initialize', function(self, args) {
+    var _super = args[0] || Bully.Object;
+
+    self._super = _super;
+    Bully.make_metaclass(self, _super.klass);
+    Bully.ivar_set(self, '__classpath__', "");
+    Bully.class_inherited(_super, self);
+
+    return self;
+  }, 0, 1);
+
   Bully.define_method(Bully.Class, 'new', function(self, args) {
     var o = send(self, 'allocate');
     o.klass = self;

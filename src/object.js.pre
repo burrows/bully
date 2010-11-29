@@ -1,17 +1,19 @@
 Bully.init_object = function() {
   Bully.Kernel = Bully.define_module('Kernel');
 
-  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
-    return Bully.real_class_of(self);
-  }, 0, 0);
-
-  Bully.define_method(Bully.Kernel, 'to_s', function(self, args) {
+  Bully.Kernel.to_s = function(self) {
     var klass     = Bully.real_class_of(self),
         name      = send(klass, 'name').data,
         object_id = send(self, 'object_id');
 
     return Bully.String.make('#<' + name + ':' + object_id + '>');
+  };
+
+  Bully.define_method(Bully.Kernel, 'class', function(self, args) {
+    return Bully.real_class_of(self);
   }, 0, 0);
+
+  Bully.define_method(Bully.Kernel, 'to_s', Bully.Kernel.to_s, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'inspect', function(self, args) {
     return Bully.dispatch_method(self, 'to_s', args);

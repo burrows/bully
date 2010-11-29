@@ -16,24 +16,23 @@ Bully.init_module = function() {
     return Bully.Array.make(a);
   };
 
-  Bully.define_method(Bully.Module, 'name', function(self, args) {
-  }, 0, 0);
-
   Bully.define_method(Bully.Module, 'ancestors', Bully.Module.ancestors, 0, 0);
 
   Bully.define_method(Bully.Module, 'name', function(self, args) {
-    return Bully.String.make(Bully.ivar_get(self, '__classpath__'));
+    return Bully.String.make(Bully.ivar_get(self, '__classpath__') || "");
   }, 0, 0);
 
   Bully.define_method(Bully.Module, 'to_s', function(self, args) {
-    var obj;
+    var obj, name;
 
     if (self.is_singleton_class) {
       obj = Bully.ivar_get(self, '__attached__');
       return Bully.String.make('#<Class:' + send(obj, 'to_s').data + '>');
     }
 
-    return Bully.dispatch_method(self, 'name', args);
+    name = Bully.dispatch_method(self, 'name', args);
+
+    return name.data === "" ? Bully.Kernel.to_s(self, args) : name;
   }, 0, 0);
 
   Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
