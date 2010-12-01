@@ -148,7 +148,7 @@ Bully.init_object = function() {
     Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
 
-  Bully.define_method(Bully.Object, 'instance_eval', function(self, args, block) {
+  Bully.define_method(Bully.Kernel, 'instance_eval', function(self, args, block) {
     return block.call(null, args, self);
   });
 

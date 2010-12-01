@@ -3,6 +3,12 @@ require('unit_test')
 class ObjectTestClass1
   def foo; 'ObjectTestClass1#foo'; end
   def bar(*args); args; end
+  def baz
+    @baz
+  end
+  def baz=(stuff)
+    @baz = stuff
+  end
 end
 
 class ObjectTestClass2 < ObjectTestClass1
@@ -111,6 +117,19 @@ class ObjectTest < UnitTest
   def test_class_method_should_return_objects_class_for_non_immediate_objects
     assert_equal(Object, Object.new.class)
     assert_equal(ObjectTestClass2, ObjectTestClass2.new.class)
+  end
+
+  def test_instance_eval_method_should_execute_the_given_block_in_the_context_of_the_reciever
+    o = ObjectTestClass1.new
+    o.baz = 'easy'
+    assert_equal('easy', o.baz)
+    o.instance_eval { @baz = 'peasy' }
+    assert_equal('peasy', o.baz)
+  end
+
+  def test_instance_eval_method_should_return_the_value_returned_by_the_block
+    o = Object.new
+    assert_equal(:x, o.instance_eval { :x })
   end
 end
 
