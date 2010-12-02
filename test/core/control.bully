@@ -122,6 +122,16 @@ class ControlTest < UnitTest
     assert_equal('elsif body', result)
   end
 
+  def test_single_line_if_should_evaluate_body_only_if_expression_is_truthy
+    x = y = false
+
+    x = true if true
+    y = true if false
+
+    assert_equal(true, x)
+    assert_equal(false, y)
+  end
+
   def test_ternary_expression_should_execute_first_expression_when_test_expression_is_truthy
     assert_equal(:first, true ? :first : :second)
     assert_equal(:first, 9 ? :first : :second)
@@ -140,6 +150,30 @@ class ControlTest < UnitTest
       3 + 4
     assert_equal(3, r1)
     assert_equal(7, r2)
+  end
+
+  def test_unless_should_evaluate_body_only_if_condition_is_falsy
+    w = x = false
+
+    unless true
+      w = true
+    end
+    assert_equal(false, w, 'w')
+
+    unless false
+      x = true
+    end
+    assert_equal(true, x, 'x')
+  end
+
+  def test_single_line_unless_should_evaluate_body_only_if_condition_is_falsy
+    y = z = false
+
+    y = true unless 'a'
+    assert_equal(false, y)
+
+    z = true unless nil
+    assert_equal(true, z, 'z')
   end
 end
 

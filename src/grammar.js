@@ -46,6 +46,7 @@ var grammar = {
     o('Operation'),
     o('Logical'),
     o('If'),
+    o('Unless'),
     o('Ternary'),
     o('Self'),
     o('BeginBlock'),
@@ -139,7 +140,9 @@ var grammar = {
 
   If: [
     o('IfStart END'),
-    o('IfStart ELSE NEWLINE Body END', '$1.else_body = $4;')
+    o('IfStart ELSE NEWLINE Body END', "$1.else_body = $4;"),
+    o('Expression IF Expression',      "$$ = {type: 'If', conditions: [$3], bodies: [$1], else_body: null};"),
+    o('Statement IF Expression',       "$$ = {type: 'If', conditions: [$3], bodies: [$1], else_body: null};")
   ],
 
   IfStart: [
@@ -149,6 +152,12 @@ var grammar = {
 
   ElsIf: [
     o('ELSIF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};")
+  ],
+
+  Unless: [
+    o('UNLESS Expression Then Body END', "$$ = {type: 'Unless', condition: $2, body: $4};"),
+    o('Expression UNLESS Expression',    "$$ = {type: 'Unless', condition: $3, body: $1};"),
+    o('Statement UNLESS Expression',     "$$ = {type: 'Unless', condition: $3, body: $1};")
   ],
 
   Ternary: [
@@ -353,7 +362,9 @@ var operators = [
   [ 'left',  '!~' ],
   [ 'left',  '&&' ],
   [ 'left',  '||' ],
-  [ 'right', '=' ]
+  [ 'right', '=' ],
+  [ 'nonassoc', 'IF' ],
+  [ 'nonassoc', 'UNLESS' ]
 ];
 
 var tokens = [], name, symbols, token, i, j;

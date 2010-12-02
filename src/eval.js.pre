@@ -484,6 +484,16 @@ Bully.Evaluator = {
     }
 
     return rv;
+  },
+
+  evaluateUnless: function(node, ctx) {
+    var rv = null;
+
+    if (!Bully.test(this._evaluate(node.condition, ctx))) {
+      rv = this._evaluate(node.body, ctx);
+    }
+
+    return rv;
   }
 };
 
