@@ -100,7 +100,7 @@ Bully.Lexer.prototype = {
         pos += match.length;
       }
       // match symbols
-      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
+      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*[?=!]?)/))) {
         match = match[1];
         tokens.push(['SYMBOL', match, line]);
         pos += match.length;

@@ -23,6 +23,12 @@ end
 class TestModuleClass3
 end
 
+class TestModuleClass4
+  attr_reader(:reader)
+  attr_writer(:writer)
+  attr_accessor(:accessor)
+end
+
 module TestModuleNesting
   def self.outer_nesting
     Module.nesting
@@ -114,6 +120,33 @@ class ModuleTest < UnitTest
     assert_equal([TestModuleNesting], TestModuleNesting.outer_nesting)
     assert_equal([TestModuleNesting::Foo, TestModuleNesting],
       TestModuleNesting::Foo.inner_nesting)
+  end
+
+  def test_attr_reader_method_should_define_a_method_that_returns_value_of_instance_variable_with_same_name
+    o = TestModuleClass4.new
+    assert_equal(true, o.respond_to?(:reader))
+    assert_equal(false, o.respond_to?(:reader=))
+    assert_equal(nil, o.reader)
+    o.instance_eval { @reader = 1234 }
+    assert_equal(1234, o.reader)
+  end
+
+  def test_attr_writer_method_should_define_a_method_that_sets_value_of_instance_variable_with_same_name
+    o = TestModuleClass4.new
+    assert_equal(true, o.respond_to?(:writer=))
+    assert_equal(false, o.respond_to?(:writer))
+    assert_equal(nil, o.instance_eval { @writer })
+    o.writer = 4321
+    assert_equal(4321, o.instance_eval { @writer })
+  end
+
+  def test_attr_accessor_method_should_define_both_reader_and_writer_methods
+    o = TestModuleClass4.new
+    assert_equal(true, o.respond_to?(:accessor=))
+    assert_equal(true, o.respond_to?(:accessor))
+    assert_equal(nil, o.instance_eval { @writer })
+    o.accessor = :abc
+    assert_equal(:abc, o.accessor)
   end
 end
 

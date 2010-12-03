@@ -2,7 +2,7 @@ $cpp      = 'clang'
 $cpp_opts = '-x c -E -P -undef -Wundef -nostdinc -Wtrigraphs -fdollars-in-identifiers -C' 
 
 desc 'Run all tests'
-task :test => ['lint', 'build:preprocess'] do
+task :test => ['build:preprocess'] do
   files = FileList['test/**/*.bully']
   sh "./bin/bully #{files.join(' ')}"
 end

@@ -796,6 +796,38 @@ Bully.init = function() {
   Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
     return Bully.Array.make(Bully.Evaluator.current_ctx.modules.slice().reverse());
   }, 0, 0);
+  Bully.Module.attr_reader = function(self, args) {
+    var len = args.length, i;
+    for (i = 0; i < len; i += 1) {
+      (function() {
+        var method = args[i], ivar = '@' + args[i];
+        Bully.define_method(self, method, function(self) {
+          return Bully.ivar_get(self, ivar);
+        }, 0, 0);
+      }());
+    }
+    return null;
+  };
+  Bully.define_method(Bully.Module, 'attr_reader', Bully.Module.attr_reader, 1, -1);
+  Bully.Module.attr_writer = function(self, args) {
+    var len = args.length, i;
+    for (i = 0; i < len; i += 1) {
+      (function() {
+        var method = args[i] + '=', ivar = '@' + args[i];
+        Bully.define_method(self, method, function(self, args) {
+          return Bully.ivar_set(self, ivar, args[0]);
+        }, 1, 1);
+      }());
+    }
+    return null;
+  };
+  Bully.define_method(Bully.Module, 'attr_writer', Bully.Module.attr_writer, 1, -1);
+  Bully.Module.attr_accessor = function(self, args) {
+    Bully.Module.attr_reader(self, args);
+    Bully.Module.attr_writer(self, args);
+    return null;
+  };
+  Bully.define_method(Bully.Module, 'attr_accessor', Bully.Module.attr_accessor, 1, -1);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.make_object();
@@ -1715,7 +1747,7 @@ Bully.Lexer.prototype = {
         pos += match.length;
       }
       // match symbols
-      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*)/))) {
+      else if ((match = chunk.match(/^(:[a-zA-Z_]\w*[?=!]?)/))) {
         match = match[1];
         tokens.push(['SYMBOL', match, line]);
         pos += match.length;
