@@ -279,7 +279,10 @@ Bully.class_inherited = function(_super, klass) {
 Bully.define_class = function(name, _super) {
   var klass = Bully.const_defined(Bully.Object, name) ?
     Bully.const_get(Bully.Object, name) : undefined;
-  _super = _super || Bully.Object;
+  // set the default superclass if its not specified, normally this is Object,
+  // but in the case where we are opening the Object class itself the superclass
+  // is nil.
+  _super = _super || (klass === Bully.Object ? null : Bully.Object);
   // check to see if a constant with this name is alredy defined
   if (typeof klass !== 'undefined') {
     if (!Bully.dispatch_method(klass, 'is_a?', [Bully.Class])) {
@@ -303,6 +306,7 @@ Bully.define_class = function(name, _super) {
 // _super - A Class reference to assign as the superclass of this class.
 //
 // Returns the new class instance.
+// FIXME: allow re-opening of nested classes
 Bully.define_class_under = function(outer, name, _super) {
   var classpath = Bully.ivar_get(outer, '__classpath__'),
       klass;
@@ -388,6 +392,7 @@ Bully.define_module = function(name) {
 // name  - A js string containing the name of the module.
 //
 // Returns the new Module instance.
+// FIXME: allow re-opening of nested modules
 Bully.define_module_under = function(outer, name) {
   var classpath = Bully.ivar_get(outer, '__classpath__'),
       mod = Bully.module_new();
@@ -486,11 +491,11 @@ Bully.real_class_of = function(obj) {
 };
 // Returns the "real" class of a given Class instance.
 //
-// klass - The Class instance to get the real class off.
+// klass - The Class instance to get the real class of.
 //
 // Returns a reference to the real class.
 Bully.real_class = function(klass) {
-  while (klass.is_singleton_class || klass.is_include_class) {
+  while (klass && (klass.is_singleton_class || klass.is_include_class)) {
     klass = klass._super;
   }
   return klass;
