@@ -6,6 +6,11 @@ Bully.init_object = function() {
         name      = send(klass, 'name').data,
         object_id = send(self, 'object_id');
 
+    // handle the case where class is an anonymous class, which don't have names
+    if (name === "") {
+      name = send(klass, 'to_s').data;
+    }
+
     return Bully.String.make('#<' + name + ':' + object_id + '>');
   };
 

@@ -1,6 +1,6 @@
 Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
-    return Bully.make_object();
+    return Bully.class_boot();
   });
 
   Bully.define_method(Bully.Class, 'initialize', function(self, args) {

@@ -154,7 +154,7 @@ Bully.respond_to = function(obj, name) {
 Bully.class_boot = function(_super) {
   var klass = Bully.make_object();
   klass.klass = Bully.Class;
-  klass._super = _super;
+  klass._super = _super || null;
   klass.m_tbl = {};
   return klass;
 };
@@ -632,6 +632,10 @@ Bully.init = function() {
     var klass = Bully.real_class_of(self),
         name = Bully.dispatch_method(klass, 'name', []).data,
         object_id = Bully.dispatch_method(self, 'object_id', []);
+    // handle the case where class is an anonymous class, which don't have names
+    if (name === "") {
+      name = Bully.dispatch_method(klass, 'to_s', []).data;
+    }
     return Bully.String.make('#<' + name + ':' + object_id + '>');
   };
   Bully.define_method(Bully.Kernel, 'class', function(self, args) {
@@ -835,7 +839,7 @@ Bully.init = function() {
   Bully.define_method(Bully.Module, 'attr_accessor', Bully.Module.attr_accessor, 1, -1);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
-    return Bully.make_object();
+    return Bully.class_boot();
   });
   Bully.define_method(Bully.Class, 'initialize', function(self, args) {
     var _super = args[0] || Bully.Object;

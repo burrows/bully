@@ -172,7 +172,7 @@ Bully.class_boot = function(_super) {
   var klass = Bully.make_object();
 
   klass.klass  = Bully.Class;
-  klass._super = _super;
+  klass._super = _super || null;
   klass.m_tbl  = {};
 
   return klass;

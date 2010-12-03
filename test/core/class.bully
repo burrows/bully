@@ -97,5 +97,16 @@ class ClassTest < UnitTest
     c = Class.new
     assert_equal('#<Class:' + c.object_id + '>', c.to_s)
   end
+
+  def test_anonymous_classes_should_be_able_to_be_instantiated
+    c = Class.new
+    assert_equal(c, c.new.class)
+  end
+
+  def test_to_s_method_on_instances_of_anonymous_class_should_contain_the_class_object_id_and_the_instance_object_id
+    c = Class.new
+    o = c.new
+    assert_equal('#<#<Class:' + c.object_id + '>:' + o.object_id + '>', o.to_s)
+  end
 end
 
