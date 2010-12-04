@@ -1,0 +1,438 @@
+# Provides a basic spec framework similar to RSpec.  Specs are defined with
+# 'describe' and 'it' blocks as follows:
+#
+#   describe(Stack) do
+#     before do
+#       @stack = Stack.new
+#     end
+#   
+#     describe('#peek method') do
+#       it "should return the top element" do
+#         @stack.peek.should == :item
+#       end
+#     end
+#   end
+#
+# 'Before' blocks are executed before each 'it' block is run and 'after' blocks
+# are executed after each 'it' block.  Nested describe blocks inherit the outer
+# 'before' and 'after' blocks.
+#
+# Assertions are made with the 'should' and 'should_not' methods (which are mixed
+# into 'Object') and a matcher.  A matcher is either an operator like '==' or
+# '>=', or a matcher method such as 'raise_error' or 'be_nil'.
+#
+# Helper methods can be defined directly in the 'describe' blocks.  They are
+# accessible from within 'it' blocks in the same 'describe' block and any nested
+# 'describe' blocks.
+module Spec
+  # Private: The exception that gets raised whenever a match fails.
+  class MatchFailureError < RuntimeError; end
+
+  @groups = []
+
+  class << self
+    # The list of all globally scoped ExampleGroups.
+    def groups; @groups; end
+
+    # Runs all defined specs using the given runner object.
+    #
+    # runner - A spec runner object, defaults to Spec::ConsoleRunner (optional).
+    #
+    # Returns nil.
+    def run(runner = ConsoleRunner.new)
+      #t1 = Time.now
+      @groups.each { |g| g.run(runner) }
+      # FIXME: Time is not yet implemented
+      #runner.finish(Time.now - t1)
+      runner.finish(99)
+      nil
+    end
+
+    # Raises a MatchFailureError.  This method should be called whenever a
+    # matcher fails.
+    def fail(message)
+      raise(MatchFailureError, message)
+    end
+  end
+
+  # Represents an 'it' block.
+  class Example
+    attr_reader(:group, :desc, :blk)
+
+    def initialize(group, desc, blk)
+      @group = group
+      @desc  = desc
+      @blk   = blk
+    end
+
+    # Returns a string containing the description of this example.  The
+    # description is the combination of all the parent example group's
+    # description and this example's description.
+    def description
+      group.description + ' ' + desc
+    end
+
+    # Runs this example using the given runner object.  The '#post_result'
+    # method is invoked on the runner with a hash containing the following
+    # attributes:
+    #
+    #   :example - This example's description
+    #   :status  - :pass, :fail, or :error
+    #   :message - The failure message if the example fails
+    #
+    # The begin block chain is executed before the example block and the after
+    # block chain is executed immediately after even if the example fails.
+    #
+    # runner - The runner object to use.
+    #
+    # Returns nil.
+    def run(runner)
+      result = { :example => self.description, :status => :pass, :message => nil }
+      ctx = group.new
+
+      begin
+        group.setup(ctx)
+        ctx.instance_eval(&blk)
+      rescue MatchFailureError => e
+        result[:status]  = :fail
+        result[:message] = e.message
+      rescue Exception => e
+        result[:status]  = :error
+        result[:message] = e.message
+      end
+
+      runner.post_result(result)
+
+      nil
+    end
+  end
+
+  # Represents a 'describe' block.
+  #
+  # The ExampleGroup class is subclassed for each 'describe' block defined.  The
+  # subclasses contain the helper method definitions as well as a reference to
+  # any 'before', 'after', or 'it' blocks.  When an 'it' block (Example
+  # instance) is run, it is run in the context of an ExampleGroup subclass
+  # instance.  Nested 'describe' blocks result in further subclassing of the
+  # direct ExampleGroup subclasses.  This is what allows a helper method defined
+  # in a globally scoped 'describe' block to be available in nested 'describe'
+  # blocks.
+  class ExampleGroup
+    class << self
+      attr_accessor(:examples, :desc, :befores)
+
+      # Generates a subclass of the current ExampleGroup class.
+      #
+      # desc - A string containing the description of this example group.
+      # proc - A Proc object containing the definition of this example group.
+      #
+      # Returns a Class instance whose superclass is the current class.
+      def subclass(desc, proc)
+        klass = Class.new(self)
+        klass.desc = desc.to_s
+        klass.examples = []
+        klass.befores = []
+        klass.instance_eval(&proc)
+        klass
+      end
+
+      # Returns the description of this example group.  The description is the
+      # combination of all the parent example group's descriptions and this
+      # groups 'desc' property.
+      def description
+        d = superclass.respond_to?(:description) ? superclass.description : ''
+        d + (desc || '')
+      end
+
+      # Defines a 'before' block.
+      #
+      # Multiple 'before' blocks are allowed and will be executed in the order
+      # they were defined.
+      #
+      # blk - A block containg the code to run before each example defined in
+      #       this group.
+      #
+      # Returns nil.
+      def before(&blk)
+        befores << blk
+        nil
+      end
+
+      # Defines an Example.  Examples are executed in the order they are defined
+      # when the group is run.
+      #
+      # desc - A string containing the description of this example.
+      # blk  - A block containing the example code.
+      #
+      # Returns nil.
+      def it(desc, &blk)
+        examples << Example.new(self, desc, blk)
+        nil
+      end
+
+      # Defines a nested ExampleGroup.  Nested example groups inherit the
+      # 'before' and 'after' blocks defined in the outer example groups as well
+      # as any helper methods.
+      #
+      # desc - A string containing the description of the example group.
+      # blk  - A block containing the example group definition.
+      #
+      # Returns nil.
+      def describe(desc, &blk)
+        klass = subclass(desc, blk)
+        examples << klass
+        nil
+      end
+
+      # Executes the 'begin' block chain from out to in.  The 'begin' blocks are
+      # executed in the context of the given object.
+      #
+      # o - The object to use as the context.  This should be an instance of an
+      #     ExampleGroup subclass.
+      #
+      # Returns nil.
+      def setup(o)
+        superclass.setup(o) if superclass.respond_to?(:setup)
+        befores && befores.each { |b| o.instance_eval(&b); }
+        nil
+      end
+
+      # Runs each example and example group defined in this group.
+      #
+      # runner - The runner object to use.
+      #
+      # Return nil.
+      def run(runner)
+        examples.each { |e| e.run(runner) }
+        nil
+      end
+    end
+  end
+
+  # Implements all positive operator matches.  In other words it implements all
+  # of the available operators to use on the result of calling 'Object#should'.
+  #
+  # For example, when you have an example like the following:
+  #
+  #   x.should == 2
+  #
+  # The 'should' method returns an instance of PositiveOperatorMatcher that has
+  # a reference to the 'x' object.  The '==' method will then be called on the
+  # instance of PositiveOperatorMatcher.
+  class PositiveOperatorMatcher
+    # Constructor.
+    #
+    # actual - The object being tested.
+    #
+    # Returns the new instance.
+    def initialize(actual)
+      @actual = actual
+    end
+
+    # Performs a positive match using the '==' operator.
+    def ==(expected)
+      if !(@actual == expected)
+        Spec.fail("expected " + @actual.inspect + " to equal " + expected.inspect)
+      end
+    end
+  end
+
+  # Similar to PositiveOperatorMatcher but is used when the 'Object#should_not'
+  # method is called.
+  class NegativeOperatorMatcher
+    def initialize(actual)
+      @actual = actual
+    end
+
+    # Performs a negative match using the '==' operator.
+    def ==(expected)
+      if @actual == expected
+        Spec.fail("expected " + @actual.inspect + " to not equal " + expected.inspect)
+      end
+    end
+  end
+
+  # This matcher can be used to assert that an exception was or was not raised.
+  # The exception's message can also optionally be checked.
+  class RaiseErrorMatcher
+    # Constructor.
+    #
+    # type    - The expected type of exception.
+    # message - The expected exception message (optional).
+    #
+    # Returns the new instance.
+    def initialize(type, message = nil)
+      @type    = type
+      @message = message
+      @actual  = nil
+    end
+
+    # Performs a match on any exception raised by running the given Proc object.
+    #
+    # proc - A proc containing the code to execute.
+    #
+    # Returns true if the expected exception was raised and false otherwise.
+    def matches?(proc)
+      begin
+        proc.call
+        return false
+      rescue Exception => e
+        @actual = e
+        return false unless @actual.is_a?(@type)
+
+        if @message
+          return false unless @message == @actual.message
+        end
+      end
+
+      true
+    end
+
+    # The message to use when a positive match fails.
+    def failure_message
+      if !@actual
+        'expected ' + expected_name + ' to be raised but none was thrown'
+      else
+        'expected ' + expected_name + ' but got ' + @actual.inspect + ' instead'
+      end
+    end
+
+    # The message to use when a negative match fails.
+    def negative_failure_message
+      'expected ' + expected_name + ' not to be raised'
+    end
+
+    # FIXME
+    #private
+
+    def expected_name
+      @message ? @type.name + '(' + @message + ')' : @type.inspect
+    end
+  end
+
+  # Contains a list of methods to get mixed into Object.
+  module ObjectMethods
+    # Defines a global ExampleGroup.
+    #
+    # desc - The string containing the description of the ExampleGroup.
+    # blk  - A block containing the definition of the ExampleGroup.
+    #
+    # Returns nil.
+    def describe(desc, &blk)
+      Spec.groups << ExampleGroup.subclass(desc, blk)
+      nil
+    end
+
+    # Performs a positive match on the receiver object using the given matcher
+    # object.  If no matcher object is given, then a PostiveOperatorMatcher is
+    # returned.
+    #
+    # matcher - The matcher object to use (optional).
+    #
+    # Returns PositiveOperatorMatcher if no matcher is given.
+    # Returns nil if matcher is given.
+    def should(matcher = nil)
+      return PositiveOperatorMatcher.new(self) unless matcher
+
+      unless matcher.matches?(self)
+        Spec.fail(matcher.failure_message)
+      end
+
+      nil
+    end
+
+    # Performs a negative match on the receiver object using the given matcher
+    # object.  If no matcher object is given, then a NegativeOperatorMatcher is
+    # returned.
+    #
+    # matcher - The matcher object to use (optional).
+    #
+    # Returns NegativeOperatorMatcher if no matcher is given.
+    # Returns nil if matcher is given.
+    def should_not(matcher = nil)
+      return NegativeOperatorMatcher.new(self) unless matcher
+
+      if matcher.matches?(self)
+        Spec.fail(matcher.negative_failure_message)
+      end
+
+      nil
+    end
+
+    # Returns a RaiseErrorMatcher instance.
+    #
+    # type    - The type of exception to match against, StandardError is used if
+    #           none is given (optional).
+    # message - The exception message to match against (optional).
+    def raise_error(type = StandardError, message = nil)
+      RaiseErrorMatcher.new(type, message)
+    end
+  end
+
+  # Implements a console based spec runner.
+  #
+  # A spec runner must implement the following two methods:
+  #
+  #   post_result - Accepts a hash containing the following keys:
+  #     :example - This example's description
+  #     :status  - :pass, :fail, or :error
+  #     :message - The failure message if the example fails
+  #   finish - Displays summary information for all specs run.  The total
+  #     running time is passed as an argument.
+  class ConsoleRunner
+    def initialize
+      @totals   = { :examples => 0, :pass => 0, :fail => 0, :error => 0 }
+      @messages = []
+    end
+
+    # Processes the result of a completed example.  Prints a '.' to the console
+    # if the example passed, an 'F' if it failed, and an 'E' if there was an
+    # error.
+    #
+    # result - The result hash.
+    #
+    # Returns nil.
+    def post_result(result)
+      if result[:status] == :pass
+        print('.')
+      elsif result[:status] == :fail
+        print('F')
+        @messages << 'Failure: ' + result[:example] + ":\n  " + result[:message]
+      elsif result[:status] == :error
+        print('E')
+        @messages << 'Error: ' + result[:example] + ":\n  " + result[:message]
+      end
+
+      # FIXME: use += here
+      @totals[result[:status]] = @totals[result[:status]] + 1
+      @totals[:examples]       = @totals[:examples] + 1
+
+      nil
+    end
+
+    # Prints summary information on all specs run and exits the process.  If all
+    # examples passed then an exit status of 0 will be used, otherwise a non-zero
+    # exit status will be used.
+    #
+    # time - The total number of seconds taken to run all examples.
+    #
+    # Exits with a status of the number of failure and errors.
+    def finish(time)
+      if @messages.any?
+        puts("\n\n" + @messages.join("\n\n"))
+      end
+
+      puts("\n\nFinished in " + time.to_s + " seconds")
+      puts(@totals[:examples].to_s + ' examples, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors')
+
+      exit(@totals[:fail] + @totals[:error])
+    end
+  end
+end
+
+class Object
+  include(Spec::ObjectMethods)
+end
+
+at_exit { Spec.run }
+

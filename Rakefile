@@ -7,6 +7,12 @@ task :test => ['build:preprocess'] do
   sh "./bin/bully #{files.join(' ')}"
 end
 
+desc 'Run all specs'
+task :spec => ['build:preprocess'] do
+  files = FileList['specs/**/*_spec.bully']
+  sh "./bin/bully #{files.join(' ')}"
+end
+
 namespace :lint do
   task :preprocess do
     FileUtils.rm_rf('./tmp')
@@ -44,5 +50,5 @@ end
 desc 'Build the project'
 task :build => ['build:parser', 'build:preprocess']
 
-task :default => :test
+task :default => :spec
 

@@ -1,0 +1,74 @@
+require('spec')
+
+describe(Array) do
+  before do
+    @array = [4, 'foo', :stuff, false]
+  end
+
+  describe('#include?') do
+    it('should return true if array contains argument') do
+      @array.include?(4).should == true
+      @array.include?('foo').should == true
+      @array.include?(:stuff).should == true
+      @array.include?(false).should == true
+    end
+
+    it('should return false if array does not contain argument') do
+      @array.include?(9).should == false
+      @array.include?('bar').should == false
+      @array.include?(:things).should == false
+      @array.include?(true).should == false
+    end
+  end
+
+  describe('#==') do
+    it('should return false if lengths differ') do
+      a1 = [1,2,3]
+      a2 = [1,2,3,4]
+
+      (a1 == a2).should == false
+      (a2 == a1).should == false
+    end
+
+    it('should return false if lengths are same but items differ') do
+      a1 = ['foo','bar','baz']
+      a2 = ['foo','bar','quux']
+
+      (a1 == a2).should == false
+      (a2 == a1).should == false
+    end
+
+    it('should return false if other argument is not an array') do
+      ([] == 9).should == false
+    end
+
+    it('should return true if lengths are the same and items are equal') do
+      a1 = [1,:two,'three']
+      a2 = [1,:two,'three']
+
+      (a1 == a2).should == true
+      (a2 == a1).should == true
+    end
+  end
+
+  describe('#first') do
+    it('should return nil when array is empty') do
+      [].first.should == nil
+    end
+
+    it('should return first item of the array') do
+      [:a, :b, :c].first.should == :a
+    end
+  end
+
+  describe('#last') do
+    it('should return nil when array is empty') do
+      [].last.should == nil
+    end
+
+    it('should return last item of the array') do
+      [:a, :b, :c].last.should == :c
+    end
+  end
+end
+
