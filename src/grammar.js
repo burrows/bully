@@ -75,20 +75,20 @@ var grammar = {
 
   Call: [
     o('IDENTIFIER OptBlock',                              "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: null, block: $2};"),
-    o('IDENTIFIER ( BlockParam )',                        "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: $3,   block: null};"),
+    o('IDENTIFIER ( BlockArg )',                          "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: $3,   block: null};"),
     o('IDENTIFIER ( ArgList ) OptBlock',                  "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: null, block: $5};"),
-    o('IDENTIFIER ( ArgList , BlockParam )',              "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: $5,   block: null};"),
+    o('IDENTIFIER ( ArgList , BlockArg )',                "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: $5,   block: null};"),
     o('Expression . IDENTIFIER OptBlock',                 "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: null, block: $4};"),
-    o('Expression . IDENTIFIER ( BlockParam )',           "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: $5,   block: null};"),
+    o('Expression . IDENTIFIER ( BlockArg )',             "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: $5,   block: null};"),
     o('Expression . IDENTIFIER ( ArgList ) OptBlock',     "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: null, block: $7};"),
-    o('Expression . IDENTIFIER ( ArgList , BlockParam )', "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: $7,   block: null};"),
+    o('Expression . IDENTIFIER ( ArgList , BlockArg )',   "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: $7,   block: null};"),
     o('Expression . IDENTIFIER = Expression',             "$$ = {type: 'Call', expression: $1,   name: $3+'=', args: [$5],     block_arg: null, block: null};"),
     o('Expression [ Expression ]',                        "$$ = {type: 'Call', expression: $1,   name: '[]',   args: [$3],     block_arg: null, block: null};"),
     o('Expression [ Expression ] = Expression',           "$$ = {type: 'Call', expression: $1,   name: '[]=',  args: [$3, $6], block_arg: null, block: null};"),
     o('SUPER OptBlock',                                   "$$ = {type: 'SuperCall', args: null, block_arg: null, block: $2};"),
-    o('SUPER ( BlockParam )',                             "$$ = {type: 'SuperCall', args: null, block_arg: $2, block: $2};"),
+    o('SUPER ( BlockArg )',                               "$$ = {type: 'SuperCall', args: null, block_arg: $2,   block: $2};"),
     o('SUPER ( ArgList ) OptBlock',                       "$$ = {type: 'SuperCall', args: $3,   block_arg: null, block: $5};"),
-    o('SUPER ( ArgList , BlockParam )',                   "$$ = {type: 'SuperCall', args: $3,   block_arg: $5, block: null};"),
+    o('SUPER ( ArgList , BlockArg )',                     "$$ = {type: 'SuperCall', args: $3,   block_arg: $5,   block: null};"),
     o('YIELD',                                            "$$ = {type: 'YieldCall', args: null};"),
     o('YIELD ( ArgList )',                                "$$ = {type: 'YieldCall', args: $3};")
   ],
@@ -280,6 +280,10 @@ var grammar = {
     o('& IDENTIFIER', "$$ = $2;")
   ],
 
+  BlockArg: [
+    o('& Expression', "$$ = $2;")
+  ],
+
   Assignment: [
     o('IDENTIFIER = Expression',     "$$ = {type: 'LocalAssign',    name: $1,        expression: $3};"),
     o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: '@' + $2,  expression: $4};"),
@@ -388,6 +392,7 @@ var operators = [
   [ 'left',  '&&' ],
   [ 'left',  '||' ],
   [ 'right', '=' ],
+  [ 'nonassoc', 'RETURN' ],
   [ 'nonassoc', 'IF' ],
   [ 'nonassoc', 'UNLESS' ]
 ];

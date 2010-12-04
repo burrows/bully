@@ -192,7 +192,7 @@ Bully.Evaluator = {
 
     if (node.block_arg) {
       // FIXME: make sure object is a Proc
-      block = ctx.get_var(node.block_arg);
+      block = this._evaluate(node.block_arg, ctx);
     }
     else if (node.block) {
       block = this._evaluate(node.block, ctx);

@@ -103,5 +103,15 @@ Bully.init_array = function() {
 
     return true;
   }, 1, 1);
+
+  Bully.define_method(Bully.Array, 'first', function(self, args) {
+    var len = self.length;
+    return len > 0 ? self[0] : null;
+  }, 0, 0);
+
+  Bully.define_method(Bully.Array, 'last', function(self, args) {
+    var len = self.length;
+    return len > 0 ? self[len - 1] : null;
+  }, 0, 0);
 };
 
