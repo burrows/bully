@@ -277,10 +277,6 @@ Bully.define_class_under = function(outer, name, _super) {
   if (Bully.const_defined(outer, name)) {
     klass = Bully.const_get(outer, name);
   }
-  // set the default superclass if its not specified, normally this is Object,
-  // but in the case where we are opening the Object class itself the superclass
-  // is nil.
-  _super = _super || (klass === Bully.Object ? null : Bully.Object);
   if (_super && _super === Bully.Class) {
     Bully.raise(Bully.TypeError, "can't make subclass of Class");
   }
@@ -292,14 +288,14 @@ Bully.define_class_under = function(outer, name, _super) {
     if (!Bully.dispatch_method(klass, 'is_a?', [Bully.Class])) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
-    if (Bully.real_class(klass._super) !== _super) {
+    if (_super && Bully.real_class(klass._super) !== _super) {
       Bully.raise(Bully.TypeError, 'superclass mismatch for class ' + name);
     }
     return klass;
   }
   // the class is not already defined, so define it here
-  klass = Bully.class_boot(_super);
-  Bully.make_metaclass(klass, _super.klass);
+  klass = Bully.class_boot(_super || Bully.Object);
+  Bully.make_metaclass(klass, (_super || Bully.Object).klass);
   Bully.define_const(outer, name, klass);
   // set the name of the class, if outer is Object then we are declaring a
   // class at the global scope so we just use its base named, otherwise we set
@@ -874,6 +870,9 @@ Bully.init = function() {
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.String.make('main');
   });
+  Bully.define_singleton_method(Bully.main, 'include', function(self, args) {
+    return Bully.include_module(Bully.Object, args[0]);
+  }, 1, 1);
 };Bully.init_nil = function() {
   Bully.NilClass = Bully.define_class('NilClass');
   Bully.define_method(Bully.NilClass, 'to_i', function() {

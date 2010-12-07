@@ -310,11 +310,6 @@ Bully.define_class_under = function(outer, name, _super) {
     klass = Bully.const_get(outer, name);
   }
 
-  // set the default superclass if its not specified, normally this is Object,
-  // but in the case where we are opening the Object class itself the superclass
-  // is nil.
-  _super = _super || (klass === Bully.Object ? null : Bully.Object);
-
   if (_super && _super === Bully.Class) {
     Bully.raise(Bully.TypeError, "can't make subclass of Class");
   }
@@ -329,7 +324,7 @@ Bully.define_class_under = function(outer, name, _super) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
 
-    if (Bully.real_class(klass._super) !== _super) {
+    if (_super && Bully.real_class(klass._super) !== _super) {
       Bully.raise(Bully.TypeError, 'superclass mismatch for class ' + name);
     }
 
@@ -337,8 +332,8 @@ Bully.define_class_under = function(outer, name, _super) {
   }
 
   // the class is not already defined, so define it here
-  klass = Bully.class_boot(_super);
-  Bully.make_metaclass(klass, _super.klass);
+  klass = Bully.class_boot(_super || Bully.Object);
+  Bully.make_metaclass(klass, (_super || Bully.Object).klass);
   Bully.define_const(outer, name, klass);
 
   // set the name of the class, if outer is Object then we are declaring a

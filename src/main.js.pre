@@ -4,5 +4,9 @@ Bully.init_main = function() {
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.String.make('main');
   });
+
+  Bully.define_singleton_method(Bully.main, 'include', function(self, args) {
+    return Bully.include_module(Bully.Object, args[0]);
+  }, 1, 1);
 };
 
