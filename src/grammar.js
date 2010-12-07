@@ -294,27 +294,22 @@ var grammar = {
   VariableRef: [
     o('@ IDENTIFIER',   "$$ = {type: 'InstanceRef', name: '@' + $2};"),
     o('@ @ IDENTIFIER', "$$ = {type: 'ClassRef',    name: '@@' + $3};"),
-    o('ConstantRef'),
-  ],
-
-  ConstantRef: [
-    o('BareConstantRef'),
-    o('ScopedConstantRef')
+    o('ConstantRef')
   ],
 
   BareConstantRef: [
-    o('CONSTANT', "$$ = {type: 'ConstantRef', global: false, names: [$1]};")
+    o('CONSTANT', "$$ = {type: 'ConstantRef', global: false, names: [$1]};"),
   ],
 
-  ScopedConstantRef: [
-    o(':: CONSTANT',                   "$$ = {type: 'ConstantRef', global: true,  names: [$2]};"),
-    o('CONSTANT :: CONSTANT',          "$$ = {type: 'ConstantRef', global: false, names: [$1, $3]};"),
-    o('ScopedConstantRef :: CONSTANT', "$1.names.push($3);")
+  ConstantRef: [
+    o('CONSTANT',                "$$ = {type: 'ConstantRef', global: false, names: [$1]};"),
+    o(':: CONSTANT',             "$$ = {type: 'ConstantRef', global: true,  names: [$2]};"),
+    o('ConstantRef :: CONSTANT', "$1.names.push($3);")
   ],
 
   Class: [
-    o('CLASS CONSTANT Terminator Body END',              "$$ = {type: 'Class', name: $2, super_expr: null, body: $4};"),
-    o('CLASS CONSTANT < Expression Terminator Body END', "$$ = {type: 'Class', name: $2, super_expr: $4, body: $6};")
+    o('CLASS ConstantRef Terminator Body END',              "$$ = {type: 'Class', constant: $2, super_expr: null, body: $4};"),
+    o('CLASS ConstantRef < Expression Terminator Body END', "$$ = {type: 'Class', constant: $2, super_expr: $4,   body: $6};")
   ],
 
   SingletonClass: [
@@ -322,7 +317,7 @@ var grammar = {
   ],
 
   Module: [
-    o('MODULE CONSTANT Terminator Body END', "$$ = {type: 'Module', name: $2, body: $4};")
+    o('MODULE ConstantRef Terminator Body END', "$$ = {type: 'Module', constant: $2, body: $4};")
   ],
 
   BeginBlock: [

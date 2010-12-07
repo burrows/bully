@@ -179,11 +179,12 @@ Bully.class_boot = function(_super) {
 };
 
 // Private: Used to create the default Bully classes: (Object, Module, and
-// Class).  This method differs from make_class in that it does not create the
-// metaclass since we won't have all of the necessary parts constructed yet
-// when the default classes are created (e.g. when creating the Object class we
-// can't yet define its class yet since we've yet to define Class).  The
-// metaclasses for the default classes are built manually in the init method.
+// Class).  This method differs from define_class_under in that it does not
+// create the metaclass since we won't have all of the necessary parts
+// constructed yet when the default classes are created (e.g. when creating the
+// Object class we can't yet define its class yet since we've yet to define
+// Class).  The metaclasses for the default classes are built manually in the
+// init method.
 //
 // name   - The name of the default class to construct.
 // _super - A reference to the superclass of the default class.
@@ -264,33 +265,6 @@ Bully.make_metaclass = function(klass, _super) {
   return sklass;
 };
 
-// Private: Constructs a new Class instance and its metaclass.  This is simply
-// the common behavior between the define_class and define_class_under methods.
-//
-// name   - A js string representing the name of the class.
-// _super - A Class reference to assign as the superclass of this class.
-//
-// Returns the new class instance.
-Bully.make_class = function(name, _super) {
-  var klass;
-
-  // TODO: check for existance of class
-
-  if (_super === Bully.Class) {
-    Bully.raise(Bully.TypeError, "can't make subclass of Class");
-  }
-
-  if (_super.is_singleton_class) {
-    Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
-  }
-
-  klass = Bully.class_boot(_super);
-
-  Bully.make_metaclass(klass, _super.klass);
-
-  return klass;
-};
-
 // Private: Calls the inherited method on the superclass if it responds to it.
 // This method is called when a Class instance is initialized.
 //
@@ -314,13 +288,40 @@ Bully.class_inherited = function(_super, klass) {
 // Raises TypeError if a constant with the same name is already defined.
 // Raises TypeError if class is already defined with a different superclass.
 Bully.define_class = function(name, _super) {
-  var klass = Bully.const_defined(Bully.Object, name) ?
-    Bully.const_get(Bully.Object, name) : undefined;
+  return Bully.define_class_under(Bully.Object, name, _super);
+};
+
+// Defines a new Class instance under the given module.
+//
+// outer  - A module or class reference to define the new class under.
+// name   - A js string containing the name of the class.
+// _super - A Class reference to assign as the superclass of this class.
+//
+// Returns the new class instance if it doesn't already exist or a reference to
+// the class if it does already exist.
+// Raises TypeError if a constant with the same name is already defined and is
+// not a class.
+// Raises TypeError if class is already defined with a different superclass.
+Bully.define_class_under = function(outer, name, _super) {
+  var klass, classpath;
+
+  // check to see if we already have a constant by the given name
+  if (Bully.const_defined(outer, name)) {
+    klass = Bully.const_get(outer, name);
+  }
 
   // set the default superclass if its not specified, normally this is Object,
   // but in the case where we are opening the Object class itself the superclass
   // is nil.
   _super = _super || (klass === Bully.Object ? null : Bully.Object);
+
+  if (_super && _super === Bully.Class) {
+    Bully.raise(Bully.TypeError, "can't make subclass of Class");
+  }
+
+  if (_super && _super.is_singleton_class) {
+    Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
+  }
 
   // check to see if a constant with this name is alredy defined
   if (typeof klass !== 'undefined') {
@@ -335,34 +336,22 @@ Bully.define_class = function(name, _super) {
     return klass;
   }
 
-  klass = Bully.make_class(name, _super);
-  Bully.define_global_const(name, klass);
-  Bully.ivar_set(klass, '__classpath__', name);
-  Bully.class_inherited(_super, klass);
-
-  return klass;
-};
-
-// Defines a new Class instance under the given module.
-//
-// outer  - A module or class reference to define the new class under.
-// name   - A js string containing the name of the class.
-// _super - A Class reference to assign as the superclass of this class.
-//
-// Returns the new class instance.
-// FIXME: allow re-opening of nested classes
-Bully.define_class_under = function(outer, name, _super) {
-  var classpath = Bully.ivar_get(outer, '__classpath__'),
-      klass;
-
-  _super = _super || Bully.Object;
-
-  klass = Bully.make_class(name, _super);
-
+  // the class is not already defined, so define it here
+  klass = Bully.class_boot(_super);
+  Bully.make_metaclass(klass, _super.klass);
   Bully.define_const(outer, name, klass);
-  Bully.ivar_set(klass, '__classpath__', classpath + '::' + name);
 
-  Bully.class_inherited(_super, klass);
+  // set the name of the class, if outer is Object then we are declaring a
+  // class at the global scope so we just use its base named, otherwise we set
+  // a fully qualified name
+  if (outer === Bully.Object) {
+    Bully.ivar_set(klass, '__classpath__', name);
+  }
+  else {
+    Bully.ivar_set(klass, '__classpath__', Bully.ivar_get(outer, '__classpath__') + '::' + name);
+  }
+
+  if (_super) { Bully.class_inherited(_super, klass); }
 
   return klass;
 };
@@ -434,20 +423,10 @@ Bully.module_new = function() {
 // name - A js string containing the name of the module.
 //
 // Returns the new Module instance.
+// Raises TypeError if a constant with the same name is already defined and is
+// not a module.
 Bully.define_module = function(name) {
-  var mod = Bully.const_defined(Bully.Object, name) ?
-    Bully.const_get(Bully.Object, name) : undefined;
-
-  if (typeof mod !== 'undefined') {
-    // TODO: do same checks here as in define_class
-    return mod;
-  }
-
-  mod = Bully.module_new();
-  Bully.define_global_const(name, mod);
-  Bully.ivar_set(mod, '__classpath__', name);
-
-  return mod;
+  return Bully.define_module_under(Bully.Object, name);
 };
 
 // Creates a new Module instance under the given class or module.
@@ -456,15 +435,33 @@ Bully.define_module = function(name) {
 // name  - A js string containing the name of the module.
 //
 // Returns the new Module instance.
-// FIXME: allow re-opening of nested modules
+// Raises TypeError if a constant with the same name is already defined and is
+// not a module.
 Bully.define_module_under = function(outer, name) {
-  var classpath = Bully.ivar_get(outer, '__classpath__'),
-      mod       = Bully.module_new();
+  var mod, classpath;
 
-  // TODO: check for existance of module
+  // check to see if we already have a constant by the given name
+  if (Bully.const_defined(outer, name)) {
+    mod = Bully.const_get(outer, name);
+  }
 
+  if (typeof mod !== 'undefined') {
+    if (!send(mod, 'is_a?', Bully.Module)) {
+      Bully.raise(Bully.TypeError, name + ' is not a module');
+    }
+
+    return mod;
+  }
+
+  mod = Bully.module_new();
   Bully.define_const(outer, name, mod);
-  Bully.ivar_set(mod, '__classpath__', classpath + '::' + name);
+
+  if (outer === Bully.Object) {
+    Bully.ivar_set(mod, '__classpath__', name);
+  }
+  else {
+    Bully.ivar_set(mod, '__classpath__', Bully.ivar_get(outer, '__classpath__') + '::' + name);
+  }
 
   return mod;
 };
