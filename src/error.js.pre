@@ -26,6 +26,7 @@ Bully.init_error = function() {
     return Bully.String.make('#<' + name.data + ': ' + send(self, 'message').data + '>');
   });
 
+  Bully.LoadError     = Bully.define_class('LoadError', Bully.Exception);
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
   Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
   Bully.RuntimeError  = Bully.define_class('RuntimeError', Bully.StandardError);

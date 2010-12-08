@@ -278,17 +278,20 @@ Bully.Evaluator = {
     var i, modules, constant;
 
     if (global) {
-      modules = [Bully.Object];
+      modules = Bully.Module.ancestors(Bully.Object);
     }
     else {
       // FIXME: some modules are being checked more than once here
       modules = ctx.modules.slice().reverse();
       modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
-      modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+
+      if (modules.indexOf(Bully.Object) === -1) {
+        modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+      }
     }
 
     for (i = 0; i < modules.length; i += 1) {
-      if (Bully.const_defined(modules[i], names[0])) {
+      if (Bully.const_defined(modules[i], names[0], false)) {
         constant = Bully.const_get(modules[i], names[0]);
         break;
       }
@@ -340,9 +343,12 @@ Bully.Evaluator = {
         last   = names.pop(),
         outer, klass, ret;
 
-    outer = names.length > 0 ?
-      this._resolveConstant(names, node.constant.global, ctx) :
-      ctx.current_module();
+    if (names.length === 0) {
+      outer = node.constant.global ? Bully.Object : ctx.current_module();
+    }
+    else {
+      outer = this._resolveConstant(names, node.constant.global, ctx);
+    }
 
     klass = Bully.define_class_under(outer, last, _super);
 
@@ -371,9 +377,12 @@ Bully.Evaluator = {
         last  = names.pop(),
         outer, mod, ret;
 
-    outer = names.length > 0 ?
-      this._resolveConstant(names, node.constant.global, ctx) :
-      ctx.current_module();
+    if (names.length === 0) {
+      outer = node.constant.global ? Bully.Object : ctx.current_module();
+    }
+    else {
+      outer = this._resolveConstant(names, node.constant.global, ctx);
+    }
 
     mod = Bully.define_module_under(outer, last);
 

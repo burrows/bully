@@ -7,8 +7,16 @@ Bully.platform = {
   print: sys.print,
   exit: process.exit,
   locate_lib: function(lib) {
+    var paths = ['lib', process.cwd()], file, i;
     // FIXME: don't hardcode lib path
-    return path.join('./lib', lib) + '.bully';
+
+    for (i = 0; i < paths.length; i += 1) {
+      file = path.join(paths[i], lib) + '.bully';
+      console.log(file);
+      if (path.existsSync(file)) { return file; }
+    }
+
+    Bully.raise(Bully.LoadError, 'no such file to load -- ' + lib);
   },
   read_file: function(path) {
     return fs.readFileSync(path, 'ascii');

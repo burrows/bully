@@ -274,7 +274,7 @@ Bully.define_class = function(name, _super) {
 Bully.define_class_under = function(outer, name, _super) {
   var klass, classpath;
   // check to see if we already have a constant by the given name
-  if (Bully.const_defined(outer, name)) {
+  if (Bully.const_defined(outer, name, false)) {
     klass = Bully.const_get(outer, name);
   }
   if (_super && _super === Bully.Class) {
@@ -323,6 +323,7 @@ Bully.make_include_class = function(module, _super) {
   var iklass = Bully.class_boot(_super);
   iklass.is_include_class = true;
   iklass.m_tbl = module.m_tbl;
+  iklass.iv_tbl = module.iv_tbl;
   iklass.klass = module;
   return iklass;
 };
@@ -382,7 +383,7 @@ Bully.define_module = function(name) {
 Bully.define_module_under = function(outer, name) {
   var mod, classpath;
   // check to see if we already have a constant by the given name
-  if (Bully.const_defined(outer, name)) {
+  if (Bully.const_defined(outer, name, false)) {
     mod = Bully.const_get(outer, name);
   }
   if (typeof mod !== 'undefined') {
@@ -546,14 +547,24 @@ Bully.const_set = function(module, name, val) {
   module.iv_tbl[name] = val;
   return val;
 };
-Bully.const_defined = function(module, name) {
-  return module.iv_tbl.hasOwnProperty(name);
+Bully.const_defined = function(module, name, traverse) {
+  traverse = traverse === undefined ? true : traverse;
+  do {
+    if (module.iv_tbl.hasOwnProperty(name)) {
+      return true;
+    }
+    module = module._super
+  } while (traverse && module);
+  return false;
 };
 Bully.const_get = function(module, name) {
   // TODO: check constant name
-  if (module.iv_tbl.hasOwnProperty(name)) {
-    return module.iv_tbl[name];
-  }
+  do {
+    if (module.iv_tbl.hasOwnProperty(name)) {
+      return module.iv_tbl[name];
+    }
+    module = module._super
+  } while (module);
   Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
 };
 // Defines a constant under the given module's namespace.  Constants are stored
@@ -986,6 +997,7 @@ Bully.init_string = function() {
     var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
     return Bully.String.make('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
   });
+  Bully.LoadError = Bully.define_class('LoadError', Bully.Exception);
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
   Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
   Bully.RuntimeError = Bully.define_class('RuntimeError', Bully.StandardError);
@@ -1206,8 +1218,14 @@ Bully.platform = {
   print: sys.print,
   exit: process.exit,
   locate_lib: function(lib) {
+    var paths = ['lib', process.cwd()], file, i;
     // FIXME: don't hardcode lib path
-    return path.join('./lib', lib) + '.bully';
+    for (i = 0; i < paths.length; i += 1) {
+      file = path.join(paths[i], lib) + '.bully';
+      console.log(file);
+      if (path.existsSync(file)) { return file; }
+    }
+    Bully.raise(Bully.LoadError, 'no such file to load -- ' + lib);
   },
   read_file: function(path) {
     return fs.readFileSync(path, 'ascii');
@@ -1426,16 +1444,18 @@ Bully.Evaluator = {
   _resolveConstant: function(names, global, ctx) {
     var i, modules, constant;
     if (global) {
-      modules = [Bully.Object];
+      modules = Bully.Module.ancestors(Bully.Object);
     }
     else {
       // FIXME: some modules are being checked more than once here
       modules = ctx.modules.slice().reverse();
       modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
-      modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+      if (modules.indexOf(Bully.Object) === -1) {
+        modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+      }
     }
     for (i = 0; i < modules.length; i += 1) {
-      if (Bully.const_defined(modules[i], names[0])) {
+      if (Bully.const_defined(modules[i], names[0], false)) {
         constant = Bully.const_get(modules[i], names[0]);
         break;
       }
@@ -1475,9 +1495,12 @@ Bully.Evaluator = {
         names = node.constant.names.slice(),
         last = names.pop(),
         outer, klass, ret;
-    outer = names.length > 0 ?
-      this._resolveConstant(names, node.constant.global, ctx) :
-      ctx.current_module();
+    if (names.length === 0) {
+      outer = node.constant.global ? Bully.Object : ctx.current_module();
+    }
+    else {
+      outer = this._resolveConstant(names, node.constant.global, ctx);
+    }
     klass = Bully.define_class_under(outer, last, _super);
     ctx.push_module(klass);
     ret = this._evaluate(node.body, new Bully.Evaluator.Context(klass, ctx.modules));
@@ -1498,9 +1521,12 @@ Bully.Evaluator = {
     var names = node.constant.names.slice(),
         last = names.pop(),
         outer, mod, ret;
-    outer = names.length > 0 ?
-      this._resolveConstant(names, node.constant.global, ctx) :
-      ctx.current_module();
+    if (names.length === 0) {
+      outer = node.constant.global ? Bully.Object : ctx.current_module();
+    }
+    else {
+      outer = this._resolveConstant(names, node.constant.global, ctx);
+    }
     mod = Bully.define_module_under(outer, last);
     ctx.push_module(mod);
     ret = this._evaluate(node.body, new Bully.Evaluator.Context(mod, ctx.modules));

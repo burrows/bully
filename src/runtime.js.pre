@@ -306,7 +306,7 @@ Bully.define_class_under = function(outer, name, _super) {
   var klass, classpath;
 
   // check to see if we already have a constant by the given name
-  if (Bully.const_defined(outer, name)) {
+  if (Bully.const_defined(outer, name, false)) {
     klass = Bully.const_get(outer, name);
   }
 
@@ -366,6 +366,7 @@ Bully.make_include_class = function(module, _super) {
 
   iklass.is_include_class = true;
   iklass.m_tbl = module.m_tbl;
+  iklass.iv_tbl = module.iv_tbl;
   iklass.klass = module;
 
   return iklass;
@@ -436,7 +437,7 @@ Bully.define_module_under = function(outer, name) {
   var mod, classpath;
 
   // check to see if we already have a constant by the given name
-  if (Bully.const_defined(outer, name)) {
+  if (Bully.const_defined(outer, name, false)) {
     mod = Bully.const_get(outer, name);
   }
 
@@ -626,16 +627,30 @@ Bully.const_set = function(module, name, val) {
   return val;
 };
 
-Bully.const_defined = function(module, name) {
-  return module.iv_tbl.hasOwnProperty(name);
+Bully.const_defined = function(module, name, traverse) {
+  traverse = traverse === undefined ? true : traverse;
+
+  do {
+    if (module.iv_tbl.hasOwnProperty(name)) {
+      return true;
+    }
+
+    module = module._super
+  } while (traverse && module);
+
+  return false;
 };
 
 Bully.const_get = function(module, name) {
   // TODO: check constant name
 
-  if (module.iv_tbl.hasOwnProperty(name)) {
-    return module.iv_tbl[name];
-  }
+  do {
+    if (module.iv_tbl.hasOwnProperty(name)) {
+      return module.iv_tbl[name];
+    }
+
+    module = module._super
+  } while (module);
 
   Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
 };
