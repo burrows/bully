@@ -199,8 +199,6 @@ var grammar = {
   MethodName: [
     o('IDENTIFIER',   "$$ = $1;"),
     o('IDENTIFIER =', "$$ = $1 + '=';"),
-    o('IDENTIFIER ?', "$$ = $1 + '?';"),
-    o('IDENTIFIER !', "$$ = $1 + '!';"),
     o('[ ]',          "$$ = '[]';"),
     o('[ ] =',        "$$ = '[]=';"),
     o('**'),

@@ -6,11 +6,15 @@ Bully.Rewriter = function(tokens) {
 };
 
 Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
+Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE  = [ 'IDENTIFIER', 'SUPER', 'YIELD' ];
+Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER   = [ 'IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@' ];
+Bully.Rewriter.IMPLICIT_CLOSE_PAREN        = [ 'NEWLINE', ';', 'DO', 'END', '{', '}' ];
 
 Bully.Rewriter.prototype = {
   rewrite: function() {
     this.remove_extra_newlines();
     this.rewrite_keyword_method_calls();
+    this.add_implicit_parentheses();
     return this.tokens;
   },
 
@@ -28,8 +32,8 @@ Bully.Rewriter.prototype = {
     return this.tokens[this.index + 1];
   },
 
-  reset: function() {
-    this.index = -1;
+  reset: function(index) {
+    this.index = index === undefined ? -1 : index;
   },
 
   insert_before: function(token) {
@@ -42,19 +46,6 @@ Bully.Rewriter.prototype = {
 
   remove: function() {
     this.tokens.splice(this.index, 1);
-  },
-
-  remove_next_of_type: function(type) {
-    while (this.tokens[this.index][0] === type) {
-      this.tokens.splice(this.index, 1);
-    }
-  },
-
-  remove_prev_of_type: function(type) {
-    while (this.tokens[this.index - 2][0] === type) {
-      this.tokens.splice(this.index - 2, 1);
-      this.index -= 1;
-    }
   },
 
   remove_extra_newlines: function() {
@@ -85,6 +76,40 @@ Bully.Rewriter.prototype = {
       if ((t1[0] === '.' || t1[0] === 'DEF') &&
           Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
         t2[0] = 'IDENTIFIER';
+      }
+    }
+
+    this.reset();
+  },
+
+  add_implicit_parentheses: function() {
+    var cur, next, idx, found_close;
+
+    while ((cur = this.next()) && (next = this.peak())) {
+      if (Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE.indexOf(cur[0]) !== -1 &&
+          Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER.indexOf(next[0]) !== -1) {
+
+        this.insert_after(['(', '(', cur[2]]);
+        this.next();
+        idx = this.index;
+
+        found_close = false;
+
+        while ((cur = this.next())) {
+          if (Bully.Rewriter.IMPLICIT_CLOSE_PAREN.indexOf(cur[0]) !== -1) {
+            this.insert_before([')', ')', cur[2]]);
+            this.reset(idx);
+            found_close = true;
+            break;
+          }
+        }
+
+        // this should only happen at the end of a file
+        if (!found_close) {
+          cur = this.prev();
+          this.insert_after([')', ')', cur[2]]);
+          this.reset(idx);
+        }
       }
     }
 

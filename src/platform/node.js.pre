@@ -12,7 +12,6 @@ Bully.platform = {
 
     for (i = 0; i < paths.length; i += 1) {
       file = path.join(paths[i], lib) + '.bully';
-      console.log(file);
       if (path.existsSync(file)) { return file; }
     }
 

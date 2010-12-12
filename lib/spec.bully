@@ -41,23 +41,23 @@ module Spec
     # Returns nil.
     def run(runner = ConsoleRunner.new)
       #t1 = Time.now
-      @groups.each { |g| g.run(runner) }
+      @groups.each { |g| g.run runner }
       # FIXME: Time is not yet implemented
       #runner.finish(Time.now - t1)
-      runner.finish(99)
+      runner.finish 99
       nil
     end
 
     # Raises a MatchFailureError.  This method should be called whenever a
     # matcher fails.
     def fail(message)
-      raise(MatchFailureError, message)
+      raise MatchFailureError, message
     end
   end
 
   # Represents an 'it' block.
   class Example
-    attr_reader(:group, :desc, :blk)
+    attr_reader :group, :desc, :blk
 
     def initialize(group, desc, blk)
       @group = group
@@ -91,7 +91,7 @@ module Spec
       ctx = group.new
 
       begin
-        group.setup(ctx)
+        group.setup ctx
         ctx.instance_eval(&blk)
       rescue MatchFailureError => e
         result[:status]  = :fail
@@ -101,7 +101,7 @@ module Spec
         result[:message] = e.message
       end
 
-      runner.post_result(result)
+      runner.post_result result
 
       nil
     end
@@ -119,7 +119,7 @@ module Spec
   # blocks.
   class ExampleGroup
     class << self
-      attr_accessor(:examples, :desc, :befores)
+      attr_accessor :examples, :desc, :befores
 
       # Generates a subclass of the current ExampleGroup class.
       #
@@ -128,7 +128,7 @@ module Spec
       #
       # Returns a Class instance whose superclass is the current class.
       def subclass(desc, proc)
-        klass = Class.new(self)
+        klass = Class.new self
         klass.desc = desc.to_s
         klass.examples = []
         klass.befores = []
@@ -166,7 +166,7 @@ module Spec
       #
       # Returns nil.
       def it(desc, &blk)
-        examples << Example.new(self, desc, blk)
+        examples << Example.new self, desc, blk
         nil
       end
 
@@ -192,7 +192,7 @@ module Spec
       #
       # Returns nil.
       def setup(o)
-        superclass.setup(o) if superclass.respond_to?(:setup)
+        superclass.setup(o) if superclass.respond_to? :setup
         befores && befores.each { |b| o.instance_eval(&b); }
         nil
       end
@@ -203,7 +203,7 @@ module Spec
       #
       # Return nil.
       def run(runner)
-        examples.each { |e| e.run(runner) }
+        examples.each { |e| e.run runner }
         nil
       end
     end
@@ -232,7 +232,7 @@ module Spec
     # Performs a positive match using the '==' operator.
     def ==(expected)
       if !(@actual == expected)
-        Spec.fail("expected " + @actual.inspect + " to equal " + expected.inspect)
+        Spec.fail "expected " + @actual.inspect + " to equal " + expected.inspect
       end
     end
   end
@@ -247,7 +247,7 @@ module Spec
     # Performs a negative match using the '==' operator.
     def ==(expected)
       if @actual == expected
-        Spec.fail("expected " + @actual.inspect + " to not equal " + expected.inspect)
+        Spec.fail "expected " + @actual.inspect + " to not equal " + expected.inspect
       end
     end
   end
@@ -278,7 +278,7 @@ module Spec
         return false
       rescue Exception => e
         @actual = e
-        return false unless @actual.is_a?(@type)
+        return false unless @actual.is_a? @type
 
         if @message
           return false unless @message == @actual.message
@@ -335,7 +335,7 @@ module Spec
       return PositiveOperatorMatcher.new(self) unless matcher
 
       unless matcher.matches?(self)
-        Spec.fail(matcher.failure_message)
+        Spec.fail matcher.failure_message
       end
 
       nil
@@ -353,7 +353,7 @@ module Spec
       return NegativeOperatorMatcher.new(self) unless matcher
 
       if matcher.matches?(self)
-        Spec.fail(matcher.negative_failure_message)
+        Spec.fail matcher.negative_failure_message
       end
 
       nil
@@ -365,7 +365,7 @@ module Spec
     #           none is given (optional).
     # message - The exception message to match against (optional).
     def raise_error(type = StandardError, message = nil)
-      RaiseErrorMatcher.new(type, message)
+      RaiseErrorMatcher.new type, message
     end
   end
 
@@ -394,12 +394,12 @@ module Spec
     # Returns nil.
     def post_result(result)
       if result[:status] == :pass
-        print('.')
+        print '.'
       elsif result[:status] == :fail
-        print('F')
+        print 'F'
         @messages << 'Failure: ' + result[:example] + ":\n  " + result[:message]
       elsif result[:status] == :error
-        print('E')
+        print 'E'
         @messages << 'Error: ' + result[:example] + ":\n  " + result[:message]
       end
 
@@ -419,19 +419,19 @@ module Spec
     # Exits with a status of the number of failure and errors.
     def finish(time)
       if @messages.any?
-        puts("\n\n" + @messages.join("\n\n"))
+        puts "\n\n" + @messages.join("\n\n")
       end
 
-      puts("\n\nFinished in " + time.to_s + " seconds")
-      puts(@totals[:examples].to_s + ' examples, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors')
+      puts "\n\nFinished in " + time.to_s + " seconds"
+      puts @totals[:examples].to_s + ' examples, ' + @totals[:fail].to_s + ' failures, ' + @totals[:error].to_s + ' errors'
 
-      exit(@totals[:fail] + @totals[:error])
+      exit @totals[:fail] + @totals[:error]
     end
   end
 end
 
 class Object
-  include(Spec::ObjectMethods)
+  include Spec::ObjectMethods
 end
 
 at_exit { Spec.run }
