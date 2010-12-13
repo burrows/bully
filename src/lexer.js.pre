@@ -134,9 +134,10 @@ Bully.Lexer.prototype = {
         line += 1;
         pos += 1;
       }
-      // ignore whitespace
-      else if (chunk.match(/^ /)) {
-        pos += 1;
+      // convert strings of spaces and tabs to a single SPACE token
+      else if ((match = chunk.match(/^[ \t]+/))) {
+        tokens.push(["SPACE", " ", line]);
+        pos += match[0].length;
       }
       // ignore comments
       else if ((match = chunk.match(/^#.*\n/))) {

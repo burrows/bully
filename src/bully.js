@@ -1833,9 +1833,10 @@ Bully.Lexer.prototype = {
         line += 1;
         pos += 1;
       }
-      // ignore whitespace
-      else if (chunk.match(/^ /)) {
-        pos += 1;
+      // convert strings of spaces and tabs to a single SPACE token
+      else if ((match = chunk.match(/^[ \t]+/))) {
+        tokens.push(["SPACE", " ", line]);
+        pos += match[0].length;
       }
       // ignore comments
       else if ((match = chunk.match(/^#.*\n/))) {
@@ -1862,9 +1863,10 @@ Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER = [ 'IDENTIFIER', 'SELF', 'NUMBER', 'ST
 Bully.Rewriter.IMPLICIT_CLOSE_PAREN = [ 'NEWLINE', ';', 'DO', 'END', '{', '}' ];
 Bully.Rewriter.prototype = {
   rewrite: function() {
-    this.remove_extra_newlines();
     this.rewrite_keyword_method_calls();
     this.add_implicit_parentheses();
+    this.remove_spaces();
+    this.remove_extra_newlines();
     return this.tokens;
   },
   next: function() {
@@ -1875,8 +1877,9 @@ Bully.Rewriter.prototype = {
     this.index -= 1;
     return this.tokens[this.index];
   },
-  peak: function() {
-    return this.tokens[this.index + 1];
+  peek: function(offset) {
+    offset = offset === undefined ? 1 : offset;
+    return this.tokens[this.index + offset];
   },
   reset: function(index) {
     this.index = index === undefined ? -1 : index;
@@ -1910,7 +1913,7 @@ Bully.Rewriter.prototype = {
   },
   rewrite_keyword_method_calls: function() {
     var t1, t2;
-    while ((t1 = this.next()) && (t2 = this.peak())) {
+    while ((t1 = this.next()) && (t2 = this.peek())) {
       if ((t1[0] === '.' || t1[0] === 'DEF') &&
           Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
         t2[0] = 'IDENTIFIER';
@@ -1919,13 +1922,21 @@ Bully.Rewriter.prototype = {
     this.reset();
   },
   add_implicit_parentheses: function() {
-    var cur, next, idx, found_close;
-    while ((cur = this.next()) && (next = this.peak())) {
-      if (Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE.indexOf(cur[0]) !== -1 &&
-          Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER.indexOf(next[0]) !== -1) {
-        this.insert_after(['(', '(', cur[2]]);
-        this.next();
-        idx = this.index;
+    var cur, prev, next, idx, before_match, after_match, found_close;
+    while ((cur = this.next())) {
+      if (cur[0] !== 'SPACE') { continue; }
+      idx = this.index + 1;
+      prev = this.peek(-1);
+      next = this.peek();
+      before_match = prev && Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE.indexOf(prev[0]) !== -1;
+      after_match = next && Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER.indexOf(next[0]) !== -1;
+      // special case when splat or block params are the first param or argument
+      if (!after_match) {
+        after_match = (next[0] === '*' || next[0] === '&') && this.peek(2)
+          && this.peek(2)[0] !== 'SPACE';
+      }
+      if (before_match && after_match) {
+        this.insert_before(['(', '(', cur[2]]);
         found_close = false;
         while ((cur = this.next())) {
           if (Bully.Rewriter.IMPLICIT_CLOSE_PAREN.indexOf(cur[0]) !== -1) {
@@ -1942,6 +1953,13 @@ Bully.Rewriter.prototype = {
           this.reset(idx);
         }
       }
+    }
+    this.reset();
+  },
+  remove_spaces: function() {
+    var token;
+    while ((token = this.next())) {
+      if (token[0] === 'SPACE') { this.remove(); }
     }
     this.reset();
   }

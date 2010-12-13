@@ -92,7 +92,7 @@ module Spec
 
       begin
         group.setup ctx
-        ctx.instance_eval(&blk)
+        ctx.instance_eval &blk
       rescue MatchFailureError => e
         result[:status]  = :fail
         result[:message] = e.message
@@ -132,7 +132,7 @@ module Spec
         klass.desc = desc.to_s
         klass.examples = []
         klass.befores = []
-        klass.instance_eval(&proc)
+        klass.instance_eval &proc
         klass
       end
 
@@ -193,7 +193,7 @@ module Spec
       # Returns nil.
       def setup(o)
         superclass.setup(o) if superclass.respond_to? :setup
-        befores && befores.each { |b| o.instance_eval(&b); }
+        befores && befores.each { |b| o.instance_eval &b }
         nil
       end
 
