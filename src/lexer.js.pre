@@ -117,10 +117,11 @@ Bully.Lexer.prototype = {
         pos += match.length;
       }
       // double quoted strings
-      else if ((match = chunk.match(/^"([^"\\]*(\\.[^"\\]*)*)"/))) {
-        match = match[1];
-        tokens.push(['STRING', match, line]);
-        pos += match.length + 2;
+      else if ((match = chunk.match(/^"[^"\\]*(\\.[^"\\]*)*"/))) {
+        match = match[0];
+        // FIXME: don't use eval here
+        tokens.push(['STRING', eval(match), line]);
+        pos += match.length;
       }
       // single quoted strings
       else if ((match = chunk.match(/^'([^'\\]*(\\.[^'\\]*)*)'/))) {

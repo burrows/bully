@@ -2,7 +2,13 @@ Bully.init_symbol = function() {
   Bully.Symbol = Bully.define_class('Symbol');
 
   Bully.define_method(Bully.Symbol, 'inspect', function(self, args) {
-    return Bully.String.make(':' + self);
+    var s = self;
+
+    if (!s.match(/^[a-zA-Z_]\w*[?=!]?$/)) {
+      s = JSON.stringify(self);
+    }
+
+    return Bully.String.make(':' + s);
   }, 0, 0);
 
   Bully.define_method(Bully.Symbol, '==', function(self, args) {

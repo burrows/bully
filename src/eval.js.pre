@@ -394,12 +394,17 @@ Bully.Evaluator = {
   },
 
   evaluateStringLiteral: function(node, ctx) {
-    var s = node.value.replace(/\\n/g, "\n");
-    return Bully.String.make(s);
+    return Bully.String.make(node.value);
   },
 
   evaluateSymbolLiteral: function(node, ctx) {
     return node.value.slice(1);
+  },
+
+  evaluateQuotedSymbol: function(node, ctx) {
+    var s = this.evaluateStringLiteral(node.string, ctx);
+
+    return Bully.String.to_sym(s);
   },
 
   evaluateTrueLiteral: function(node, ctx) {

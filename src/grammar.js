@@ -35,7 +35,15 @@ var grammar = {
   ],
 
   Expression: [
-    o('Literal'),
+    o('NumberLiteral'),
+    o('StringLiteral'),
+    o('SymbolLiteral'),
+    o('NilLiteral'),
+    o('TrueLiteral'),
+    o('FalseLiteral'),
+    o('ArrayLiteral'),
+    o('HashLiteral'),
+    o('QuotedSymbol'),
     o('Assignment'),
     o('VariableRef'),
     o('Def'),
@@ -62,15 +70,32 @@ var grammar = {
     o('RETURN',            "$$ = {type: 'Return', expression: null};")
   ],
 
-  Literal: [
-    o('NUMBER', "$$ = {type: 'NumberLiteral', value: $1};"),
-    o('STRING', "$$ = {type: 'StringLiteral', value: $1};"),
+  NumberLiteral: [
+    o('NUMBER', "$$ = {type: 'NumberLiteral', value: $1};")
+  ],
+
+  StringLiteral: [
+    o('STRING', "$$ = {type: 'StringLiteral', value: $1};")
+  ],
+
+  SymbolLiteral: [
     o('SYMBOL', "$$ = {type: 'SymbolLiteral', value: $1};"),
-    o('NIL',    "$$ = {type: 'NilLiteral'};"),
-    o('TRUE',   "$$ = {type: 'TrueLiteral'};"),
-    o('FALSE',  "$$ = {type: 'FalseLiteral'};"),
-    o('ArrayLiteral'),
-    o('HashLiteral'),
+  ],
+
+  NilLiteral: [
+    o('NIL', "$$ = {type: 'NilLiteral'};"),
+  ],
+
+  TrueLiteral: [
+    o('TRUE', "$$ = {type: 'TrueLiteral'};"),
+  ],
+
+  FalseLiteral: [
+    o('FALSE', "$$ = {type: 'FalseLiteral'};"),
+  ],
+
+  QuotedSymbol: [
+    o(': StringLiteral', "$$ = {type: 'QuotedSymbol', string: $2};")
   ],
 
   Call: [

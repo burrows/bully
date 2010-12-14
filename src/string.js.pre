@@ -49,18 +49,19 @@ Bully.init_string = function() {
     return self;
   }, 0, 0);
 
-  Bully.define_method(Bully.String, 'inspect', function(self, args) {
-    return Bully.String.make('"' + self.data + '"');
-  }, 0, 0);
+  Bully.String.inspect = function(self) {
+    return Bully.String.make(JSON.stringify(self.data));
+  };
+
+  Bully.define_method(Bully.String, 'inspect', Bully.String.inspect, 0, 0);
 
   Bully.define_method(Bully.String, '<<', function(self, args) {
     Bully.String.cat(self, send(args[0], 'to_s').data);
     return self;
   }, 1, 1);
 
-  Bully.define_method(Bully.String, 'to_sym', function(self, args) {
-    return self.data;
-  }, 0, 0);
+  Bully.String.to_sym = function(self) { return self.data; };
+  Bully.define_method(Bully.String, 'to_sym', Bully.String.to_sym, 0, 0);
 
   // FIXME: properly alias this method
   Bully.define_method(Bully.String, '+', Bully.String.m_tbl['<<']);
