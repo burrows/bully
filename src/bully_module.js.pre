@@ -1,0 +1,16 @@
+Bully.init_bully_module = function() {
+  Bully.Bully = Bully.define_module('Bully');
+
+  Bully.define_const(Bully.Bully, 'VERSION', Bully.String.make('0.0'));
+
+  Bully.define_singleton_method(Bully.Bully, 'lex', function(self, args) {
+    var i, tokens = (new Bully.Lexer()).tokenize(args[0].data);
+
+    for (i = 0; i < tokens.length; i += 1) {
+      tokens[i][1] = Bully.String.make(tokens[i][1]);
+      tokens[i] = Bully.Array.make(tokens[i]);
+    }
+
+    return Bully.Array.make(tokens);
+  }, 1, 1);
+};

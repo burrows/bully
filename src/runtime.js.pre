@@ -735,5 +735,6 @@ Bully.init = function() {
   Bully.init_array();
   Bully.init_hash();
   Bully.init_proc();
+  Bully.init_bully_module();
 };
 

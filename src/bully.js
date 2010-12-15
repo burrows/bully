@@ -637,6 +637,7 @@ Bully.init = function() {
   Bully.init_array();
   Bully.init_hash();
   Bully.init_proc();
+  Bully.init_bully_module();
 };Bully.init_object = function() {
   Bully.Kernel = Bully.define_module('Kernel');
   Bully.Kernel.to_s = function(self) {
@@ -1767,7 +1768,6 @@ Bully.Lexer.OPERATORS = [
   '=>',
   '::'
 ];
-Bully.Lexer.SYMBOL_RE = /^(:[a-zA-Z_]\w*[?=!]?)/;
 Bully.Lexer.regex_escape = function(text) {
   return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
 };
@@ -1820,7 +1820,7 @@ Bully.Lexer.prototype = {
       }
       else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
         match = match[1];
-        tokens.push(['NUMBER', parseFloat(match), line]);
+        tokens.push(['NUMBER', match, line]);
         pos += match.length;
       }
       // double quoted strings
@@ -1868,7 +1868,7 @@ Bully.Rewriter = function(tokens) {
 };
 Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
 Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE = [ 'IDENTIFIER', 'SUPER', 'YIELD' ];
-Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER = [ 'IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@' ];
+Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER = [ 'IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '[' ];
 Bully.Rewriter.IMPLICIT_CLOSE_PAREN = [ 'NEWLINE', ';', 'DO', 'END', '{', '}' ];
 Bully.Rewriter.prototype = {
   rewrite: function() {
@@ -1899,14 +1899,15 @@ Bully.Rewriter.prototype = {
   insert_after: function(token) {
     this.tokens.splice(this.index + 1, 0, token);
   },
-  remove: function() {
-    this.tokens.splice(this.index, 1);
+  remove: function(offset) {
+    offset = offset === undefined ? 0 : offset;
+    this.tokens.splice(this.index + offset, 1);
   },
   remove_extra_newlines: function() {
     var token;
     while ((token = this.next())) {
       if (token[0] === '{' || token[0] === '[') {
-        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+        while ((token = this.peek()) && token[0] === 'NEWLINE') { this.remove(1); }
       }
       else if (token[0] === '}' || token[0] === ']') {
         while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
@@ -1915,7 +1916,7 @@ Bully.Rewriter.prototype = {
       else if (token[0] === ',') {
         while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
         this.next();
-        while ((token = this.next()) && token[0] === 'NEWLINE') { this.remove(); }
+        while ((token = this.peek()) && token[0] === 'NEWLINE') { this.remove(1); }
       }
     }
     this.reset();
@@ -1941,8 +1942,14 @@ Bully.Rewriter.prototype = {
       after_match = next && Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER.indexOf(next[0]) !== -1;
       // special case when splat or block params are the first param or argument
       if (!after_match) {
-        after_match = (next[0] === '*' || next[0] === '&') && this.peek(2)
-          && this.peek(2)[0] !== 'SPACE';
+        // when splat or block params are the first param or argument
+        if ((next[0] === '*' || next[0] === '&') && this.peek(2) && this.peek(2)[0] !== 'SPACE') {
+          after_match = true;
+        }
+        // quoted symbol
+        else if (next[0] === ':' && this.peek(2) && this.peek(2)[0] === 'STRING') {
+          after_match = true;
+        }
       }
       if (before_match && after_match) {
         this.insert_before(['(', '(', cur[2]]);
@@ -2580,6 +2587,18 @@ if (typeof module !== 'undefined' && require.main === module) {
   exports.main(typeof process !== 'undefined' ? process.argv.slice(1) : require("system").args);
 }
 }
+Bully.init_bully_module = function() {
+  Bully.Bully = Bully.define_module('Bully');
+  Bully.define_const(Bully.Bully, 'VERSION', Bully.String.make('0.0'));
+  Bully.define_singleton_method(Bully.Bully, 'lex', function(self, args) {
+    var i, tokens = (new Bully.Lexer()).tokenize(args[0].data);
+    for (i = 0; i < tokens.length; i += 1) {
+      tokens[i][1] = Bully.String.make(tokens[i][1]);
+      tokens[i] = Bully.Array.make(tokens[i]);
+    }
+    return Bully.Array.make(tokens);
+  }, 1, 1);
+};
 Bully.parser.lexer = {
   lex: function() {
     var token = this.tokens[this.pos] || [""];

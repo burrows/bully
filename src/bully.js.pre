@@ -23,6 +23,8 @@ exports.Bully = Bully = {};
 #include "rewriter.js.pre"
 #include "parser.js"
 
+#include "bully_module.js.pre"
+
 Bully.parser.lexer = {
   lex: function() {
     var token = this.tokens[this.pos] || [""];

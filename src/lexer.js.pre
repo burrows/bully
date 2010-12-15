@@ -113,7 +113,7 @@ Bully.Lexer.prototype = {
       }
       else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
         match = match[1];
-        tokens.push(['NUMBER', parseFloat(match), line]);
+        tokens.push(['NUMBER', match, line]);
         pos += match.length;
       }
       // double quoted strings

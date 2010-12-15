@@ -1,0 +1,370 @@
+require('spec')
+
+describe 'Lexer rewriter' do
+  it 'should convert keywords used as method calls to identifiers' do
+    Bully.lex('x.class').should == [
+      [:IDENTIFIER, 'x', 1],
+      [:".", '.', 1],
+      [:IDENTIFIER, 'class', 1]
+    ]
+  end
+
+  describe 'NEWLINE removal' do
+    it 'should remove NEWLINE tokens after { tokens' do
+      Bully.lex("{\n\n\n\n:foo => 1}").should == [
+        [:"{", '{', 1],
+        [:SYMBOL, ':foo', 5],
+        [:"=>", '=>', 5],
+        [:NUMBER, '1', 5],
+        [:"}", '}', 5]
+      ]
+    end
+
+    it 'should remove NEWLINE tokens before } tokens' do
+      Bully.lex("{:foo => 1\n\n\n}").should == [
+        [:"{", '{', 1],
+        [:SYMBOL, ':foo', 1],
+        [:"=>", '=>', 1],
+        [:NUMBER, '1', 1],
+        [:"}", '}', 4]
+      ]
+    end
+
+    it 'should remove NEWLINE tokens after [ tokens' do
+      Bully.lex("[\n\n\n:a, :b]").should == [
+        [:"[", '[', 1],
+        [:SYMBOL, ':a', 4],
+        [:",", ',', 4],
+        [:SYMBOL, ':b', 4],
+        [:"]", ']', 4]
+      ]
+    end
+
+    it 'should remove NEWLINE tokens before ] tokens' do
+      Bully.lex("[:a, :b\n\n\n\n]").should == [
+        [:"[", '[', 1],
+        [:SYMBOL, ':a', 1],
+        [:",", ',', 1],
+        [:SYMBOL, ':b', 1],
+        [:"]", ']', 5]
+      ]
+    end
+
+    it 'should remove NEWLINE tokens before and after , tokens' do
+      Bully.lex("[1\n\n,2,\n\n3\n\n,\n\n4]").should == [
+        [:"[", '[', 1],
+        [:NUMBER, '1', 1],
+        [:",", ',', 3],
+        [:NUMBER, '2', 3],
+        [:",", ',', 3],
+        [:NUMBER, '3', 5],
+        [:",", ',', 7],
+        [:NUMBER, '4', 9],
+        [:"]", ']', 9]
+      ]
+    end
+  end
+
+  # TODO: Implicit parentheses insertion works for the easy cases, but fails on
+  # some of the harder ones.  Here are some cases that don't currently work:
+  #
+  #   foo { :a => 1 }  # note that this causes a syntax error in ruby too
+  #   foo x, { :a => 1 }
+  #   def foo a = {}; end
+  describe 'implicit parentheses insertion' do
+    it 'should not insert parens for calls without arguments or a receiver' do
+      Bully.lex('foo + 2').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"+", '+', 1],
+        [:"NUMBER", '2', 1]
+      ]
+    end
+
+    it 'should not insert parens for calls without arguments and with a receiver' do
+      Bully.lex('x.foo + 2').should == [
+        [:IDENTIFIER, 'x', 1],
+        [:".", '.', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"+", '+', 1],
+        [:"NUMBER", '2', 1]
+      ]
+    end
+
+    it 'should insert parens for method definitions with only required parameters' do
+      Bully.lex("def foo a, b\nend").should == [
+        [:DEF, 'def', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'a', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'b', 1],
+        [:")", ')', 1],
+        [:NEWLINE, "\n", 1],
+        [:END, 'end', 2]
+      ]
+    end
+
+    it 'should insert parens for method definitions with only optional parameters' do
+      Bully.lex("def foo a = 1\nend").should == [
+        [:DEF, 'def', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'a', 1],
+        [:"=", '=', 1],
+        [:NUMBER, '1', 1],
+        [:")", ')', 1],
+        [:NEWLINE, "\n", 1],
+        [:END, 'end', 2]
+      ]
+    end
+
+    it 'should insert parens for method definitions with only a splat parameter' do
+      Bully.lex("def foo *a\nend").should == [
+        [:DEF, 'def', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"*", '*', 1],
+        [:IDENTIFIER, 'a', 1],
+        [:")", ')', 1],
+        [:NEWLINE, "\n", 1],
+        [:END, 'end', 2]
+      ]
+    end
+
+    it 'should insert parens for method definitions with only a block parameter' do
+      Bully.lex("def foo &a\nend").should == [
+        [:DEF, 'def', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"&", '&', 1],
+        [:IDENTIFIER, 'a', 1],
+        [:")", ')', 1],
+        [:NEWLINE, "\n", 1],
+        [:END, 'end', 2]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is an identifier' do
+      Bully.lex('foo x, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'x', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is self' do
+      Bully.lex('foo self, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:SELF, 'self', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is a number' do
+      Bully.lex('foo 9.2, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:NUMBER, '9.2', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is a string' do
+      Bully.lex('foo "abc", y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:STRING, 'abc', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is a symbol literal' do
+      Bully.lex('foo :abc, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:SYMBOL, ':abc', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is a quoted symbol' do
+      Bully.lex('foo :"abc", y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:":", ':', 1],
+        [:STRING, 'abc', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is a constant' do
+      Bully.lex('foo Bar, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:CONSTANT, 'Bar', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is an instance variable' do
+      Bully.lex('foo @stuff, y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"@", '@', 1],
+        [:IDENTIFIER, 'stuff', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument is an array literal' do
+      Bully.lex('foo [1,2], y').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"[", '[', 1],
+        [:NUMBER, '1', 1],
+        [:",", ',', 1],
+        [:NUMBER, '2', 1],
+        [:"]", ']', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for calls where the first argument a block argument' do
+      Bully.lex('foo &b').should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"&", '&', 1],
+        [:IDENTIFIER, 'b', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for super calls' do
+      Bully.lex('super x, y').should == [
+        [:SUPER, 'super', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'x', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert parens for yield calls' do
+      Bully.lex('yield x, y').should == [
+        [:YIELD, 'yield', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'x', 1],
+        [:",", ',', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert closing paren before end of string' do
+      Bully.lex('x.foo y').should == [
+        [:IDENTIFIER, 'x', 1],
+        [:".", '.', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should insert closing paren before newlines' do
+      Bully.lex("x.foo y\nbar").should == [
+        [:IDENTIFIER, 'x', 1],
+        [:".", '.', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1],
+        [:NEWLINE, "\n", 1],
+        [:IDENTIFIER, 'bar', 2]
+      ]
+    end
+
+    it 'should insert closing paren before semicolons' do
+      Bully.lex("x.foo y ; bar").should == [
+        [:IDENTIFIER, 'x', 1],
+        [:".", '.', 1],
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1],
+        [:";", ';', 1],
+        [:IDENTIFIER, 'bar', 1]
+      ]
+    end
+
+    it 'should insert closing paren before do/end block' do
+      Bully.lex("foo y do\nend").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1],
+        [:DO, 'do', 1],
+        [:NEWLINE, "\n", 1],
+        [:END, 'end', 2]
+      ]
+    end
+
+    it 'should insert closing paren before {} block' do
+      Bully.lex("foo y {}").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1],
+        [:"{", '{', 1],
+        [:"}", '}', 1]
+      ]
+    end
+
+    it 'should insert closing paren before end of do/end block' do
+      Bully.lex("foo { bar y }").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"{", '{', 1],
+        [:IDENTIFIER, 'bar', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'y', 1],
+        [:")", ')', 1],
+        [:"}", '}', 1]
+      ]
+    end
+
+    it 'should insert closing paren before end of do/end block' do
+      Bully.lex("foo do\nbar y\nend").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:DO, 'do', 1],
+        [:NEWLINE, "\n", 1],
+        [:IDENTIFIER, 'bar', 2],
+        [:"(", '(', 2],
+        [:IDENTIFIER, 'y', 2],
+        [:")", ')', 2],
+        [:NEWLINE, "\n", 2],
+        [:END, 'end', 3]
+      ]
+    end
+  end
+end
