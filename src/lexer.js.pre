@@ -152,11 +152,6 @@ Bully.Lexer.prototype = {
       }
     }
 
-    // ensure that file ends with a new line
-    if (tokens[tokens.length - 1][0] !== 'NEWLINE') {
-      tokens.push(['NEWLINE', "\n", line]);
-    }
-
     return (new Bully.Rewriter(tokens)).rewrite();
   }
 };

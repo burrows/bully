@@ -1858,19 +1858,9 @@ Bully.Lexer.prototype = {
         pos += 1;
       }
     }
-    // ensure that file ends with a new line
-    if (tokens[tokens.length - 1][0] !== 'NEWLINE') {
-      tokens.push(['NEWLINE', "\n", line]);
-    }
     return (new Bully.Rewriter(tokens)).rewrite();
   }
-};// paren open:
-//  [ IDENTIFIER | SUPER | YIELD ] followed by [ IDENTIFIER | SELF | NUMBER | STRING | ... ]
-//
-// paren close:
-//   <not a comma or equal followed by [ NEWLINE | ; | DO | END | { | } ]
-//
-Bully.Rewriter = function(tokens) {
+};Bully.Rewriter = function(tokens) {
   this.tokens = tokens;
   this.index = -1;
   return this;
@@ -1879,9 +1869,9 @@ Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
 Bully.Rewriter.prototype = {
   rewrite: function() {
     this.rewrite_keyword_method_calls();
+    this.remove_extra_newlines();
     this.add_implicit_parentheses();
     this.remove_spaces();
-    this.remove_extra_newlines();
     return this.tokens;
   },
   current: function() {
@@ -1916,16 +1906,16 @@ Bully.Rewriter.prototype = {
     var token;
     while ((token = this.next())) {
       if (token[0] === '{' || token[0] === '[') {
-        while ((token = this.peek()) && token[0] === 'NEWLINE') { this.remove(1); }
+        while ((token = this.peek()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(1); }
       }
       else if (token[0] === '}' || token[0] === ']') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        while ((token = this.prev()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(); }
         this.next();
       }
       else if (token[0] === ',') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE') { this.remove(); }
+        while ((token = this.prev()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(); }
         this.next();
-        while ((token = this.peek()) && token[0] === 'NEWLINE') { this.remove(1); }
+        while ((token = this.peek()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(1); }
       }
     }
     this.reset();
@@ -1945,14 +1935,10 @@ Bully.Rewriter.prototype = {
     while ((cur = this.next())) {
       if (this._is_open_paren_match()) {
         idx = this.index;
-        if (this._advance_to_implicit_close_paren()) {
-          this.insert_before([')', ')', this.current()[2]]);
-          this.reset(idx);
-          this.insert_before(['(', '(', this.current()[2]]);
-        }
-        else {
-          this.reset(idx);
-        }
+        this.insert_before(['(', '(', cur[2]]);
+        this._advance_to_implicit_close_paren();
+        this.insert_after([')', ')', this.current()[2]]);
+        this.reset(idx);
       }
     }
     this.reset();
@@ -1961,24 +1947,34 @@ Bully.Rewriter.prototype = {
     var prev = this.peek(-1),
         cur = this.current(),
         next = this.peek(),
+        next2 = this.peek(2),
         before = ['IDENTIFIER', 'SUPER', 'YIELD'],
         after = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '['];
     if (!prev || !cur || !next) { return false; }
-    if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE' && after.indexOf(next[0]) !== -1) {
-      return true;
+    if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE') {
+      if (after.indexOf(next[0]) !== -1) { return true; }
+      // handle block and splat params
+      //   foo *x
+      //   foo &b
+      if ((next[0] === '&' || next[0] === '*') && next2 && next2[0] !== 'SPACE') {
+        return true;
+      }
+      if (next[0] === ':' && next2 && next2[0] === 'STRING') {
+        return true;
+      }
     }
     return false;
   },
   _advance_to_implicit_close_paren: function() {
-    var cur, prev, opens;
+    var end_tokens = [';', 'NEWLINE', '}', 'DO', 'END'],
+        cur, prev, opens;
     while ((cur = this.next())) {
       prev = this.peek(-1);
       prev = prev[0] === 'SPACE' ? this.peek(-2) : prev;
-      if (cur[0] === ';') { return cur; }
-      if (cur[0] === '}') { return cur; }
-      if (cur[0] === 'DO') { return cur; }
-      if (cur[0] === 'END') { return cur; }
-      if (cur[0] === 'NEWLINE' && prev[0] !== ',') { return cur; }
+      if (end_tokens.indexOf(cur[0]) !== -1) {
+        this.prev();
+        return;
+      }
       if (cur[0] === '[') {
         // advance to matching close bracket
         opens = 1;
@@ -2006,11 +2002,15 @@ Bully.Rewriter.prototype = {
           }
         }
         else {
-          return cur;
+          this.prev();
+          return;
         }
       }
     }
-    return null;
+    // we made it to the end of the file, back up one so that we can insert the
+    // close paren after the current token
+    this.prev();
+    return;
   },
   remove_spaces: function() {
     var token;
