@@ -65,12 +65,6 @@ describe 'Lexer rewriter' do
     end
   end
 
-  # TODO: Implicit parentheses insertion works for the easy cases, but fails on
-  # some of the harder ones.  Here are some cases that don't currently work:
-  #
-  #   foo { :a => 1 }  # note that this causes a syntax error in ruby too
-  #   foo x, { :a => 1 }
-  #   def foo a = {}; end
   describe 'implicit parentheses insertion' do
     it 'should not insert parens for calls without arguments or a receiver' do
       Bully.lex('foo + 2').should == [
@@ -364,6 +358,63 @@ describe 'Lexer rewriter' do
         [:")", ')', 2],
         [:NEWLINE, "\n", 2],
         [:END, 'end', 3]
+      ]
+    end
+
+    it 'should insert closing paren after hash literal argument' do
+      Bully.lex("foo x, { :a => 1 }").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:IDENTIFIER, 'x', 1],
+        [:",", ',', 1],
+        [:"{", '{', 1],
+        [:SYMBOL, ':a', 1],
+        [:"=>", '=>', 1],
+        [:NUMBER, '1', 1],
+        [:"}", '}', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should properly handle hash literal inside of array literals' do
+      Bully.lex("foo [{}]").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:"[", '[', 1],
+        [:"{", '{', 1],
+        [:"}", '}', 1],
+        [:"]", ']', 1],
+        [:")", ')', 1]
+      ]
+    end
+
+    it 'should properly handle argument lists with newlines' do
+      Bully.lex("foo 1,\n  2").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:NUMBER, '1', 1],
+        [:",", ',', 1],
+        [:NUMBER, '2', 2],
+        [:")", ')', 2]
+      ]
+    end
+
+    it 'should properly handle argument lists with nested hash literals' do
+      Bully.lex("foo :a, { :b => { :c => :d } }").should == [
+        [:IDENTIFIER, 'foo', 1],
+        [:"(", '(', 1],
+        [:SYMBOL, ':a', 1],
+        [:",", ',', 1],
+        [:"{", '{', 1],
+        [:SYMBOL, ':b', 1],
+        [:"=>", '=>', 1],
+        [:"{", '{', 1],
+        [:SYMBOL, ':c', 1],
+        [:"=>", '=>', 1],
+        [:SYMBOL, ':d', 1],
+        [:"}", '}', 1],
+        [:"}", '}', 1],
+        [:")", ')', 1]
       ]
     end
   end
