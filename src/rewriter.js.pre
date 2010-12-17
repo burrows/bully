@@ -1,4 +1,9 @@
-
+// paren open:
+//  [ IDENTIFIER | SUPER | YIELD ] followed by [ IDENTIFIER | SELF | NUMBER | STRING | ... ]
+//
+// paren close:
+//   <not a comma or equal followed by [ NEWLINE | ; | DO | END | { | } ]
+//
 Bully.Rewriter = function(tokens) {
   this.tokens = tokens;
   this.index  = -1;
@@ -6,9 +11,6 @@ Bully.Rewriter = function(tokens) {
 };
 
 Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
-Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE  = [ 'IDENTIFIER', 'SUPER', 'YIELD' ];
-Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER   = [ 'IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '[' ];
-Bully.Rewriter.IMPLICIT_CLOSE_PAREN        = [ 'NEWLINE', ';', 'DO', 'END', '{', '}' ];
 
 Bully.Rewriter.prototype = {
   rewrite: function() {
@@ -17,6 +19,10 @@ Bully.Rewriter.prototype = {
     this.remove_spaces();
     this.remove_extra_newlines();
     return this.tokens;
+  },
+
+  current: function() {
+    return this.tokens[this.index];
   },
 
   next: function() {
@@ -86,58 +92,91 @@ Bully.Rewriter.prototype = {
   },
 
   add_implicit_parentheses: function() {
-    var cur, prev, next, idx, before_match, after_match, found_close;
+    var cur, idx;
 
     while ((cur = this.next())) {
-      if (cur[0] !== 'SPACE') { continue; }
+      if (this._is_open_paren_match()) {
+        idx = this.index;
 
-      idx  = this.index + 1;
-      prev = this.peek(-1);
-      next = this.peek();
-
-      before_match = prev && Bully.Rewriter.IMPLICIT_OPEN_PAREN_BEFORE.indexOf(prev[0]) !== -1;
-      after_match  = next && Bully.Rewriter.IMPLICIT_OPEN_PAREN_AFTER.indexOf(next[0]) !== -1;
-
-      // special case when splat or block params are the first param or argument
-      if (!after_match) {
-
-        // when splat or block params are the first param or argument
-        if ((next[0] === '*' || next[0] === '&') && this.peek(2) && this.peek(2)[0] !== 'SPACE') {
-          after_match = true;
+        if (this._advance_to_implicit_close_paren()) {
+          this.insert_before([')', ')', this.current()[2]]);
+          this.reset(idx);
+          this.insert_before(['(', '(', this.current()[2]]);
         }
-        // quoted symbol
-        else if (next[0] === ':' && this.peek(2) && this.peek(2)[0] === 'STRING') {
-          after_match = true;
-        }
-      }
-
-      if (before_match && after_match) {
-        this.insert_before(['(', '(', cur[2]]);
-
-        found_close = false;
-
-        while ((cur = this.next())) {
-          if (Bully.Rewriter.IMPLICIT_CLOSE_PAREN.indexOf(cur[0]) !== -1) {
-            this.insert_before([')', ')', cur[2]]);
-            this.reset(idx);
-            found_close = true;
-            break;
-          }
-
-        }
-
-        // this should only happen at the end of a file
-        if (!found_close) {
-          cur = this.prev();
-          this.insert_after([')', ')', cur[2]]);
+        else {
           this.reset(idx);
         }
       }
-
     }
 
     this.reset();
   },
+
+  _is_open_paren_match: function() {
+    var prev   = this.peek(-1),
+        cur    = this.current(),
+        next   = this.peek(),
+        before = ['IDENTIFIER', 'SUPER', 'YIELD'],
+        after  = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '['];
+
+    if (!prev || !cur || !next) { return false; }
+
+    if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE' && after.indexOf(next[0]) !== -1) {
+      return true;
+    }
+
+    return false;
+  },
+
+  _advance_to_implicit_close_paren: function() {
+    var cur, prev, opens;
+
+    while ((cur = this.next())) {
+      prev = this.peek(-1);
+      prev = prev[0] === 'SPACE' ? this.peek(-2) : prev;
+
+      if (cur[0] === ';') { return cur; }
+      if (cur[0] === '}') { return cur; }
+      if (cur[0] === 'DO') { return cur; }
+      if (cur[0] === 'END') { return cur; }
+      if (cur[0] === 'NEWLINE' && prev[0] !== ',') { return cur; }
+
+      if (cur[0] === '[') {
+        // advance to matching close bracket
+        opens = 1;
+        while (opens > 0 && (cur = this.next())) {
+          if (cur[0] === '[') {
+            opens += 1;
+          }
+          else if (cur[0] === ']') {
+            opens -= 1;
+          }
+        }
+        continue;
+      }
+
+      if (cur[0] === '{') {
+        if (prev[0] === ',' || prev[0] === '=') {
+          // advance to matching close bracket
+          opens = 1;
+          while (opens > 0 && (cur = this.next())) {
+            if (cur[0] === '{') {
+              opens += 1;
+            }
+            else if (cur[0] === '}') {
+              opens -= 1;
+            }
+          }
+        }
+        else {
+          return cur;
+        }
+      }
+    }
+
+    return null;
+  },
+
 
   remove_spaces: function() {
     var token;
