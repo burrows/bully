@@ -297,8 +297,8 @@ Bully.Evaluator = {
       }
     }
 
-    if (typeof constant === 'undefined') {
-      Bully.raise(Bully.NameError, 'uninitialized constant ' + names[0]);
+    if (constant === undefined) {
+      return send(modules[0], 'const_missing', names[0]);
     }
 
     for (i = 1; i < names.length; i += 1) {

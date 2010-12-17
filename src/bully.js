@@ -558,6 +558,7 @@ Bully.const_defined = function(module, name, traverse) {
   return false;
 };
 Bully.const_get = function(module, name) {
+  var orig = module;
   // TODO: check constant name
   do {
     if (module.iv_tbl.hasOwnProperty(name)) {
@@ -565,7 +566,7 @@ Bully.const_get = function(module, name) {
     }
     module = module._super
   } while (module);
-  Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+  return Bully.dispatch_method(orig, 'const_missing', [name]);
 };
 // Defines a constant under the given module's namespace.  Constants are stored
 // in the moduel's iv_tbl just like instance and class variables.  Naming
@@ -849,6 +850,9 @@ Bully.init = function() {
     return null;
   };
   Bully.define_method(Bully.Module, 'attr_accessor', Bully.Module.attr_accessor, 1, -1);
+  Bully.define_method(Bully.Module, 'const_missing', function(self, args) {
+    Bully.raise(Bully.NameError, 'uninitialized constant ' + args[0]);
+  }, 1, 1);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.class_boot();
@@ -1464,8 +1468,8 @@ Bully.Evaluator = {
         break;
       }
     }
-    if (typeof constant === 'undefined') {
-      Bully.raise(Bully.NameError, 'uninitialized constant ' + names[0]);
+    if (constant === undefined) {
+      return Bully.dispatch_method(modules[0], 'const_missing', [names[0]]);
     }
     for (i = 1; i < names.length; i += 1) {
       constant = Bully.const_get(constant, names[i]);

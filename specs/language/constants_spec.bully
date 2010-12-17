@@ -136,9 +136,9 @@ describe "Literal (A::X) constant resolution" do
     Proc.new { ConstantSpecs::ParentA::CS_CONSTX }.should raise_error(NameError)
   end
 
-  #it "sends #const_missing to the original class or module scope" do
-  #  ConstantSpecs::ClassA::CS_CONSTX.should == :CS_CONSTX
-  #end
+  it "sends #const_missing to the original class or module scope" do
+    ConstantSpecs::ClassA::CS_CONSTX.should == :CS_CONSTX
+  end
 
   #it "evaluates the qualifier" do
   #  ConstantSpecs.get_const::CS_CONST2.should == :const2
@@ -327,9 +327,9 @@ describe "Constant resolution within methods" do
     Proc.new { ConstantSpecs::ParentA.constx }.should raise_error(NameError)
   end
 
-  #it "sends #const_missing to the original class or module scope" do
-  #  ConstantSpecs::ClassA.constx.should == :CS_CONSTX
-  #  ConstantSpecs::ClassA.new.constx.should == :CS_CONSTX
-  #end
+  it "sends #const_missing to the original class or module scope" do
+    ConstantSpecs::ClassA.constx.should == :CS_CONSTX
+    ConstantSpecs::ClassA.new.constx.should == :CS_CONSTX
+  end
 end
 

@@ -642,6 +642,8 @@ Bully.const_defined = function(module, name, traverse) {
 };
 
 Bully.const_get = function(module, name) {
+  var orig = module;
+
   // TODO: check constant name
 
   do {
@@ -652,7 +654,7 @@ Bully.const_get = function(module, name) {
     module = module._super
   } while (module);
 
-  Bully.raise(Bully.NameError, 'uninitialized constant ' + name);
+  return send(orig, 'const_missing', name);
 };
 
 // Defines a constant under the given module's namespace.  Constants are stored

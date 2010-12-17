@@ -107,5 +107,9 @@ Bully.init_module = function() {
     return null;
   };
   Bully.define_method(Bully.Module, 'attr_accessor', Bully.Module.attr_accessor, 1, -1);
+
+  Bully.define_method(Bully.Module, 'const_missing', function(self, args) {
+    Bully.raise(Bully.NameError, 'uninitialized constant ' + args[0]);
+  }, 1, 1);
 };
 
