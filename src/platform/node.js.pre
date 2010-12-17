@@ -3,8 +3,28 @@ var sys  = require('sys'),
     fs   = require('fs');
 
 Bully.platform = {
-  puts: sys.puts,
-  print: sys.print,
+  puts: function(s) {
+    var s2 = s[s.length - 1] === "\n" ? s : s + "\n";
+
+    this.print(s2);
+
+    return null;
+  },
+  print: function(s) {
+    var len = s.length, total = 0;
+
+    while (total < len) {
+      try {
+        total += fs.writeSync(process.stdout.fd, s.slice(total));
+      }
+      catch (e) {
+        // EAGAIN
+        if (e.errno !== 35) { break; }
+      }
+    }
+
+    return null;
+  },
   exit: process.exit,
   locate_lib: function(lib) {
     var paths = ['lib', process.cwd()], file, i;
