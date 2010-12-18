@@ -1,3 +1,4 @@
+(function() {
 
 Bully.Lexer = function() {};
 
@@ -51,32 +52,55 @@ Bully.Lexer.OPERATORS = [
   '&&',
   '||',
   '=>',
-  '::'
+  '::',
+  '||=',
+  '&&='
 ];
 
-Bully.Lexer.regex_escape = function(text) {
+Bully.Lexer.COMPOUND_ASSIGN_OPERATORS = [
+  '||=',
+  '&&=',
+  '+=',
+  '-=',
+  '*=',
+  '/=',
+  '%=',
+  '<<=',
+  '>>=',
+  '&=',
+  '|=',
+  '^='
+];
+
+function regex_escape(text) {
   return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
-};
+}
+
+function build_regex(array) {
+  var res = [], sorted;
+
+  sorted = array.sort(function(a, b) {
+    if      (a.length < b.length) { return 1; }
+    else if (a.length > b.length) { return -1;  }
+    return 0;
+  });
+
+  for (i = 0; i < sorted.length; i += 1) {
+    res.push(regex_escape(sorted[i]));
+  }
+
+  return new RegExp('^(' + res.join('|') + ')');
+}
 
 Bully.Lexer.prototype = {
   tokenize: function(code) {
-    var pos     = 0,  // current character position
-        tokens  = [], // list of the parsed tokens, form is: [tag, value, lineno]
-        line    = 1,  // the current source line number
-        opRegex = [],
-        sortedOps, chunk, match, i;
+    var pos        = 0,  // current character position
+        tokens     = [], // list of the parsed tokens, form is: [tag, value, lineno]
+        line       = 1,  // the current source line number
+        opRe       = build_regex(Bully.Lexer.OPERATORS),
+        compoundRe = build_regex(Bully.Lexer.COMPOUND_ASSIGN_OPERATORS),
+        chunk, match, i;
 
-    sortedOps = Bully.Lexer.OPERATORS.sort(function(a, b) {
-      if      (a.length < b.length) { return 1; }
-      else if (a.length > b.length) { return -1;  }
-      return 0;
-    });
-
-    for (i = 0; i < sortedOps.length; i += 1) {
-      opRegex.push(Bully.Lexer.regex_escape(sortedOps[i]));
-    }
-
-    opRegex = new RegExp('^(' + opRegex.join('|') + ')');
 
     while (pos < code.length) {
       chunk = code.substr(pos);
@@ -93,8 +117,14 @@ Bully.Lexer.prototype = {
 
         pos += match.length;
       }
+      // match compound assignment operators
+      else if ((match = chunk.match(compoundRe))) {
+        match = match[1];
+        tokens.push(['COMPOUND_ASSIGN', match, line]);
+        pos += match.length;
+      }
       // match operators
-      else if ((match = chunk.match(opRegex))) {
+      else if ((match = chunk.match(opRe))) {
         match = match[1];
         tokens.push([match, match, line]);
         pos += match.length;
@@ -156,3 +186,4 @@ Bully.Lexer.prototype = {
   }
 };
 
+}());

@@ -45,6 +45,7 @@ var grammar = {
     o('HashLiteral'),
     o('QuotedSymbol'),
     o('Assignment'),
+    o('CompoundAssignment'),
     o('VariableRef'),
     o('Def'),
     o('Class'),
@@ -218,6 +219,7 @@ var grammar = {
   Def: [
     o('DEF MethodName Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
     o('DEF MethodName ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $7};"),
+    o('DEF MethodName ( ParamList ) Body END',            "$$ = {type: 'Def', name: $2, params: $4,   body: $6};"),
     o('SingletonDef')
   ],
 
@@ -312,6 +314,10 @@ var grammar = {
     o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: '@' + $2,  expression: $4};"),
     o('@ @ IDENTIFIER = Expression', "$$ = {type: 'ClassAssign',    name: '@@' + $3, expression: $5};"),
     o('ConstantRef = Expression',    "$$ = {type: 'ConstantAssign', constant: $1,    expression: $3};")
+  ],
+
+  CompoundAssignment: [
+    o('IDENTIFIER COMPOUND_ASSIGN Expression', "$$ = yy.buildLocalCompoundAssign($2, $1, $3);")
   ],
 
   VariableRef: [
@@ -410,6 +416,8 @@ var operators = [
   [ 'left',  '&&' ],
   [ 'left',  '||' ],
   [ 'right', '=' ],
+  [ 'right', '||=' ],
+  [ 'right', '&&=' ],
   [ 'nonassoc', 'RETURN' ],
   [ 'nonassoc', 'IF' ],
   [ 'nonassoc', 'UNLESS' ]

@@ -62,6 +62,16 @@ class NumberTest < UnitTest
     assert_equal(0, 1 >> 1)
   end
 
+  def test_boolean_and
+    assert_equal(4, 132 & 54)
+    assert_equal(288, 1832 & 497)
+  end
+
+  def test_boolean_or
+    assert_equal(182, 132 | 54)
+    assert_equal(2041, 1832 | 497)
+  end
+
   def test_exponential
     assert_equal(8, 2 ** 3)
   end

@@ -41,5 +41,20 @@ Bully.parser.lexer = {
   showPosition: function() { return this.pos; }
 };
 
+Bully.parser.yy = {
+  buildLocalCompoundAssign: function (op, name, expr) {
+    var basic_op = op.slice(0, op.length - 1),
+        logical  = ['||=', '&&='],
+        math     = ['+=', '-=', '*=', '/=', '%=', '<<=', '>>=', '&=', '|=', '^='];
+
+    if (logical.indexOf(op) !== -1) {
+      return {type: 'LocalAssign', name: name, expression: {type: 'Logical', operator: basic_op, expressions: [{type: 'Call', expression: null, name: name, args: null, block_arg: null, block: null}, expr]}};
+    }
+    else if (math.indexOf(op) !== -1) {
+      return {type: 'LocalAssign', name: name, expression: {type: 'Call', expression: {type: 'Call', expression: null, name: name, args: null, block_arg: null, block: null}, name: basic_op, args: [expr], block: null}};
+    }
+  }
+};
+
 Bully.init();
 
