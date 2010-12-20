@@ -310,14 +310,17 @@ var grammar = {
   ],
 
   Assignment: [
-    o('IDENTIFIER = Expression',     "$$ = {type: 'LocalAssign',    name: $1,        expression: $3};"),
-    o('@ IDENTIFIER = Expression',   "$$ = {type: 'InstanceAssign', name: '@' + $2,  expression: $4};"),
-    o('@ @ IDENTIFIER = Expression', "$$ = {type: 'ClassAssign',    name: '@@' + $3, expression: $5};"),
-    o('ConstantRef = Expression',    "$$ = {type: 'ConstantAssign', constant: $1,    expression: $3};")
+    o('IDENTIFIER = Expression',   "$$ = {type: 'LocalAssign',    name: $1,       expression: $3};"),
+    o('@ IDENTIFIER = Expression', "$$ = {type: 'InstanceAssign', name: '@' + $2, expression: $4};"),
+    o('ConstantRef = Expression',  "$$ = {type: 'ConstantAssign', constant: $1,   expression: $3};")
   ],
 
   CompoundAssignment: [
-    o('IDENTIFIER COMPOUND_ASSIGN Expression', "$$ = yy.buildLocalCompoundAssign($2, $1, $3);")
+    o('IDENTIFIER COMPOUND_ASSIGN Expression',                "$$ = yy.buildLocalCompoundAssign($2, $1, $3);"),
+    o('@ IDENTIFIER COMPOUND_ASSIGN Expression',              "$$ = yy.buildInstanceCompoundAssign($3, '@' + $2, $4);"),
+    o('ConstantRef COMPOUND_ASSIGN Expression',               "$$ = yy.buildConstantCompoundAssign($2, $1, $3);"),
+    o('Expression [ Expression ] COMPOUND_ASSIGN Expression', "$$ = yy.buildIndexedCompoundAssign($5, $1, $3, $6);"),
+    o('Expression . IDENTIFIER COMPOUND_ASSIGN Expression',   "$$ = yy.buildMethodCompoundAssign($4, $1, $3, $5);")
   ],
 
   VariableRef: [

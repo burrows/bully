@@ -69,7 +69,8 @@ Bully.Lexer.COMPOUND_ASSIGN_OPERATORS = [
   '>>=',
   '&=',
   '|=',
-  '^='
+  '^=',
+  '**='
 ];
 
 function regex_escape(text) {

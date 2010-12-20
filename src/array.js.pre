@@ -28,7 +28,8 @@ Bully.init_array = function() {
   });
 
   Bully.define_method(Bully.Array, 'at', function(self, args) {
-    return self[args[0]];
+    var i = args[0];
+    return self[i] !== undefined ? self[i] : null;
   });
 
   // FIXME: properly alias this method
