@@ -1186,6 +1186,9 @@ Bully.init_string = function() {
   Bully.define_method(Bully.Number, '|', function(self, args) {
     return self | args[0];
   }, 1, 1);
+  Bully.define_method(Bully.Number, '^', function(self, args) {
+    return self ^ args[0];
+  }, 1, 1);
   Bully.define_method(Bully.Number, '**', function(self, args) {
     return Math.pow(self, args[0]);
   }, 1, 1);
@@ -1395,6 +1398,10 @@ Bully.Evaluator = {
       list.push(this._evaluate(args[i], ctx));
     }
     return list;
+  },
+  evaluateLocalRef: function(node, ctx) {
+    var value = ctx.get_var(node.name);
+    return value !== undefined ? value : null;
   },
   evaluateCall: function(node, ctx) {
     var block = null, receiver, args, rv;
@@ -2735,7 +2742,7 @@ Bully.parser.yy = {
     }
   },
   buildLocalCompoundAssign: function(op, name, expr) {
-    var left = {type: 'Call', expression: null, name: name, args: null, block_arg: null, block: null};
+    var left = {type: 'LocalRef', name: name};
     return {type: 'LocalAssign', name: name, expression: this._buildCompoundAssignExpression(op, left, expr) };
   },
   buildInstanceCompoundAssign: function(op, name, expr) {

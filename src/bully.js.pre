@@ -56,7 +56,7 @@ Bully.parser.yy = {
   },
 
   buildLocalCompoundAssign: function(op, name, expr) {
-    var left = {type: 'Call', expression: null, name: name, args: null, block_arg: null, block: null};
+    var left = {type: 'LocalRef', name: name};
 
     return {type: 'LocalAssign', name: name, expression: this._buildCompoundAssignExpression(op, left, expr) };
   },

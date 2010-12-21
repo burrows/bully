@@ -178,6 +178,11 @@ Bully.Evaluator = {
     return list;
   },
 
+  evaluateLocalRef: function(node, ctx) {
+    var value = ctx.get_var(node.name);
+    return value !== undefined ? value : null;
+  },
+
   evaluateCall: function(node, ctx) {
     var block = null, receiver, args, rv;
 
