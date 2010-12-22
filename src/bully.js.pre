@@ -41,48 +41,5 @@ Bully.parser.lexer = {
   showPosition: function() { return this.pos; }
 };
 
-Bully.parser.yy = {
-  _buildCompoundAssignExpression: function(op, left, right) {
-    var basic_op = op.slice(0, op.length - 1),
-        logical  = ['||=', '&&='],
-        call     = ['+=', '-=', '*=', '/=', '%=', '<<=', '>>=', '&=', '|=', '^=', '**='];
-
-    if (logical.indexOf(op) !== -1) {
-      return {type: 'Logical', operator: basic_op, expressions: [left, right]}
-    }
-    else if (call.indexOf(op) !== -1) {
-      return {type: 'Call', expression: left, name: basic_op, args: [right], block: null}
-    }
-  },
-
-  buildLocalCompoundAssign: function(op, name, expr) {
-    var left = {type: 'LocalRef', name: name};
-
-    return {type: 'LocalAssign', name: name, expression: this._buildCompoundAssignExpression(op, left, expr) };
-  },
-
-  buildInstanceCompoundAssign: function(op, name, expr) {
-    var left = {type: 'InstanceRef', name: name};
-
-    return {type: 'InstanceAssign', name: name, expression: this._buildCompoundAssignExpression(op, left, expr) };
-  },
-
-  buildConstantCompoundAssign: function(op, constant, expr) {
-    return {type: 'ConstantAssign', constant: constant, expression: this._buildCompoundAssignExpression(op, constant, expr) };
-  },
-
-  buildIndexedCompoundAssign: function(op, object, index, value) {
-    var left = {type: 'Call', expression: object, name: '[]', args: [index], block_arg: null, block: null};
-
-    return {type: 'Call', expression: object, name: '[]=', args: [index, this._buildCompoundAssignExpression(op, left, value)], block_arg: null, block: null};
-  },
-
-  buildMethodCompoundAssign: function(op, object, name, value) {
-    var left = {type: 'Call', expression: object, name: name, args: null, block_arg: null, block: null};
-
-    return {type: 'Call', expression: object,  name: name + '=', args: [this._buildCompoundAssignExpression(op, left, value)], block_arg: null, block: null};
-  }
-};
-
 Bully.init();
 

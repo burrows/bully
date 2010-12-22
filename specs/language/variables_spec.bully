@@ -781,14 +781,15 @@ describe "Conditional operator assignment 'obj.meth op= expr'" do
   end
 
   it "may not assign at all, depending on the truthiness of lhs" do
-    m = mock("object")
-    m.should_receive(:foo).and_return(:truthy)
-    m.should_not_receive(:foo=)
-    m.foo ||= 42
+    x = VariablesSpecs::OpAsgn.new
+    x.a = true
+    x.a ||= 11
+    x.a.should == true
 
-    m.should_receive(:bar).and_return(false)
-    m.should_not_receive(:bar=)
-    m.bar &&= 42
+    x = VariablesSpecs::OpAsgn.new
+    x.a = false
+    x.a &&= 11
+    x.a.should == false
   end
 
   it "uses short-circuit arg evaluation" do
@@ -956,17 +957,15 @@ describe "Conditional operator assignment 'obj[idx] op= expr'" do
     x.should == [false, false, false]
   end
 
-  #it "may not assign at all, depending on the truthiness of lhs" do
-  #  m = mock("object")
-  #  m.should_receive(:[]).and_return(:truthy)
-  #  m.should_not_receive(:[]=)
-  #  m[:foo] ||= 42
+  it "may not assign at all, depending on the truthiness of lhs" do
+    a = [true, false]
 
-  #  m = mock("object")
-  #  m.should_receive(:[]).and_return(false)
-  #  m.should_not_receive(:[]=)
-  #  m[:bar] &&= 42
-  #end
+    a[0] ||= :foo
+    a[0].should == true
+
+    a[1] &&= :foo
+    a[1].should == false
+  end
 
   it "uses short-circuit arg evaluation" do
     x = 8
@@ -1006,7 +1005,6 @@ describe "Operator assignment 'obj[idx] op= expr'" do
   #  h.should == {'key1' => 3, 'key2' => 'value'}
   #end
   
-  # This example fails on 1.9 because of bug #2050
   it "returns result of rhs not result of []=" do
     a = VariablesSpecs::Hashalike.new
 
@@ -1014,12 +1012,7 @@ describe "Operator assignment 'obj[idx] op= expr'" do
     (a[123] +=  2).should == 125
     (a[123] -=  2).should == 121
     (a[123] *=  2).should == 246
-    # Guard against the Mathn library
-    # TODO: Make these specs not rely on specific behaviour / result values
-    # by using mocks.
-    conflicts_with :Prime do
-      (a[123] /=  2).should == 61
-    end
+    (a[123] /=  2).should == 61.5
     (a[123] %=  2).should == 1
     (a[123] **= 2).should == 15129
     (a[123] |=  2).should == 123

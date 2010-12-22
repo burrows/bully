@@ -178,11 +178,6 @@ Bully.Evaluator = {
     return list;
   },
 
-  evaluateLocalRef: function(node, ctx) {
-    var value = ctx.get_var(node.name);
-    return value !== undefined ? value : null;
-  },
-
   evaluateCall: function(node, ctx) {
     var block = null, receiver, args, rv;
 
@@ -270,6 +265,154 @@ Bully.Evaluator = {
   evaluateLocalAssign: function(node, ctx) {
     var value = this._evaluate(node.expression, ctx);
     ctx.set_var(node.name, value);
+    return value;
+  },
+
+  evaluateCallAssign: function(node, ctx) {
+    var receiver = this._evaluate(node.expression, ctx),
+        args     = this.evaluateArgs(node.args, ctx);
+
+    try {
+      rv = Bully.dispatch_method(receiver, node.name, args);
+    }
+    catch (e) {
+      if (e !== Bully.Evaluator.ReturnException) { throw e; }
+    }
+
+    // always return the assigned value
+    return args[args.length - 1];
+  },
+
+  evaluateLocalCompoundAssign: function(node, ctx) {
+    var op    = node.operator.slice(0, node.operator.length - 1),
+        value = ctx.get_var(node.name);
+
+    if (value === undefined) {
+      value = ctx.set_var(node.name, null);
+    }
+
+    switch (op) {
+      case '&&':
+        if (Bully.test(value)) {
+          value = ctx.set_var(node.name, this._evaluate(node.expression, ctx));
+        }
+        break;
+      case '||':
+        if (!Bully.test(value)) {
+          value = ctx.set_var(node.name, this._evaluate(node.expression, ctx));
+        }
+        break;
+      default:
+        value = send(value, op, this._evaluate(node.expression, ctx));
+        ctx.set_var(node.name, value);
+    }
+
+    return value;
+  },
+
+  evaluateInstanceCompoundAssign: function(node, ctx) {
+    var op    = node.operator.slice(0, node.operator.length - 1),
+        value = Bully.ivar_get(ctx.self, node.name);
+
+    if (value === undefined) {
+      value = Bully.ivar_set(ctx.self, node.name, null);
+    }
+
+    switch (op) {
+      case '&&':
+        if (Bully.test(value)) {
+          value = Bully.ivar_set(ctx.self, node.name, this._evaluate(node.expression, ctx));
+        }
+        break;
+      case '||':
+        if (!Bully.test(value)) {
+          value = Bully.ivar_set(ctx.self, node.name, this._evaluate(node.expression, ctx));
+        }
+        break;
+      default:
+        value = Bully.ivar_set(ctx.self, node.name, send(value, op, this._evaluate(node.expression, ctx)));
+    }
+
+    return value;
+  },
+
+  evaluateConstantCompoundAssign: function(node, ctx) {
+    var op          = node.operator.slice(0, node.operator.length - 1),
+        value       = this._resolveConstant(node.constant.names, node.constant.global, ctx),
+        assign_node = {type: 'ConstantAssign', constant: node.constant, expression: node.expression};
+
+    switch (op) {
+      case '&&':
+        if (Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          this._evaluate(assign_node, ctx);
+        }
+        break;
+      case '||':
+        if (!Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          this._evaluate(assign_node, ctx);
+        }
+        break;
+      default:
+        assign_node.expression = {type: 'Call', expression: node.constant, name: op, args: [node.expression], block_arg: null, block: null};
+        value = this._evaluate(assign_node, ctx);
+    }
+
+    return value;
+  },
+
+  evaluateIndexedCallCompoundAssign: function(node, ctx) {
+    var op     = node.operator.slice(0, node.operator.length - 1),
+        object = this._evaluate(node.object, ctx),
+        index  = this._evaluate(node.index, ctx),
+        value  = send(object, '[]', index);
+
+    switch (op) {
+      case '&&':
+        if (Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          send(object, '[]=', index, value);
+        }
+        break;
+      case '||':
+        if (!Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          send(object, '[]=', index, value);
+        }
+        break;
+      default:
+        value = send(value, op, this._evaluate(node.expression, ctx));
+        send(object, '[]=', index, value);
+    }
+
+    return value;
+  },
+
+  evaluateCallCompoundAssign: function(node, ctx) {
+    var op     = node.operator.slice(0, node.operator.length - 1),
+        object = this._evaluate(node.object, ctx),
+        value  = send(object, node.name);
+
+    switch (op) {
+      case '&&':
+        if (Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          send(object, node.name + '=', value);
+        }
+        break;
+      case '||':
+        if (!Bully.test(value)) {
+          value = this._evaluate(node.expression, ctx);
+          send(object, node.name + '=', value);
+        }
+        break;
+      default:
+        value = send(value, op, this._evaluate(node.expression, ctx));
+        send(object, node.name + '=', value);
+        
+    }
+
     return value;
   },
 
@@ -579,6 +722,7 @@ Bully.Evaluator.Context.prototype = {
   set_var: function(name, value) {
     var scope = this.find_scope(name);
     scope[name] = value;
+    return value;
   },
 
   get_var: function(name) {
