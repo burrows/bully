@@ -299,27 +299,45 @@ Bully.define_class = function(name, _super) {
 //
 // Returns the new class instance if it doesn't already exist or a reference to
 // the class if it does already exist.
+// Raises TypeError if passed something other than a class or module as the
+// outer parameter.
 // Raises TypeError if a constant with the same name is already defined and is
 // not a class.
 // Raises TypeError if class is already defined with a different superclass.
 Bully.define_class_under = function(outer, name, _super) {
-  var klass, classpath;
+  var outer_class = Bully.real_class_of(outer), super_class, klass, classpath;
+
+  // make sure the outer module is actually a module
+  if (outer_class !== Bully.Module && outer_class !== Bully.Class) {
+    Bully.raise(Bully.TypeError, send(outer, 'inspect').data + ' is not a class/module');
+  }
 
   // check to see if we already have a constant by the given name
   if (Bully.const_defined(outer, name, false)) {
     klass = Bully.const_get(outer, name);
   }
 
-  if (_super && _super === Bully.Class) {
-    Bully.raise(Bully.TypeError, "can't make subclass of Class");
-  }
+  if (_super) {
+    super_class = Bully.real_class_of(_super);
 
-  if (_super && _super.is_singleton_class) {
-    Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
+    // make sure we're not subclassing Class
+    if (_super === Bully.Class) {
+      Bully.raise(Bully.TypeError, "can't make subclass of Class");
+    }
+
+    // make sure super is actually a Class
+    if (super_class !== Bully.Class) {
+      Bully.raise(Bully.TypeError, 'wrong argument type ' + send(super_class, 'to_s').data +  ' (expected Class)');
+    }
+
+    // make sure super is not a singleton class
+    if (_super.is_singleton_class) {
+      Bully.raise(Bully.TypeError, "can't make subclass of virtual class");
+    }
   }
 
   // check to see if a constant with this name is alredy defined
-  if (typeof klass !== 'undefined') {
+  if (klass !== undefined) {
     if (!send(klass, 'is_a?', Bully.Class)) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
@@ -431,17 +449,24 @@ Bully.define_module = function(name) {
 // name  - A js string containing the name of the module.
 //
 // Returns the new Module instance.
+// Raises TypeError if passed something other than a class or module as the
+// outer parameter.
 // Raises TypeError if a constant with the same name is already defined and is
 // not a module.
 Bully.define_module_under = function(outer, name) {
-  var mod, classpath;
+  var outer_class = Bully.real_class_of(outer), mod, classpath;
+
+  // make sure the outer module is actually a module
+  if (outer_class !== Bully.Module && outer_class !== Bully.Class) {
+    Bully.raise(Bully.TypeError, send(outer, 'inspect').data + ' is not a class/module');
+  }
 
   // check to see if we already have a constant by the given name
   if (Bully.const_defined(outer, name, false)) {
     mod = Bully.const_get(outer, name);
   }
 
-  if (typeof mod !== 'undefined') {
+  if (mod !== undefined) {
     if (!send(mod, 'is_a?', Bully.Module)) {
       Bully.raise(Bully.TypeError, name + ' is not a module');
     }
@@ -479,8 +504,8 @@ Bully.define_module_under = function(outer, name) {
 Bully.define_method = function(klass, name, fn, min_args, max_args) {
   klass.m_tbl[name] = fn;
   klass.m_tbl[name].klass = klass;
-  klass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  klass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  klass.m_tbl[name].min_args = min_args === undefined ? 0  : min_args;
+  klass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
 
 // Private: Defines a "module" method.  A module method is a method that can be
@@ -513,8 +538,8 @@ Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
 
   sklass.m_tbl[name] = fn;
   sklass.m_tbl[name].klass = sklass;
-  sklass.m_tbl[name].min_args = typeof min_args === 'undefined' ? 0  : min_args;
-  sklass.m_tbl[name].max_args = typeof max_args === 'undefined' ? -1 : max_args;
+  sklass.m_tbl[name].min_args = min_args === undefined ? 0  : min_args;
+  sklass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
 
 // Private: Searches the given class and its superclass chain for a method
@@ -615,7 +640,7 @@ Bully.ivar_get = function(obj, name) {
     val = obj.iv_tbl[name];
   }
 
-  return typeof val === 'undefined' ? null : val;
+  return val === undefined ? null : val;
 };
 
 }());

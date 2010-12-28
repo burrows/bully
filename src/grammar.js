@@ -216,8 +216,7 @@ var grammar = {
 
   Def: [
     o('DEF MethodName Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
-    o('DEF MethodName ( ParamList ) Terminator Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $7};"),
-    o('DEF MethodName ( ParamList ) Body END',            "$$ = {type: 'Def', name: $2, params: $4,   body: $6};"),
+    o('DEF MethodName ( ParamList ) Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $6};"),
     o('SingletonDef')
   ],
 
@@ -252,12 +251,12 @@ var grammar = {
   ],
 
   SingletonDef: [
-    o('DEF Self . MethodName Terminator Body END',                          "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF Self . MethodName ( ParamList ) Terminator Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF IDENTIFIER . MethodName Terminator Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF IDENTIFIER . MethodName ( ParamList ) Terminator Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};"),
-    o('DEF BareConstantRef . MethodName Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF BareConstantRef . MethodName ( ParamList ) Terminator Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $9, object: $2};")
+    o('DEF Self . MethodName Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF Self . MethodName ( ParamList ) Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};"),
+    o('DEF IDENTIFIER . MethodName Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $5, object: $2};"),
+    o('DEF IDENTIFIER . MethodName ( ParamList ) Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};"),
+    o('DEF BareConstantRef . MethodName Terminator Body END',    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
+    o('DEF BareConstantRef . MethodName ( ParamList ) Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};")
   ],
 
   BlockParamList: [

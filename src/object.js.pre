@@ -118,7 +118,12 @@ Bully.init_object = function() {
     var test_klass = args[0], klass = Bully.class_of(self);
 
     while (klass) {
-      if (test_klass === klass) { return true; }
+      if (test_klass === klass) {
+        return true;
+      }
+      else if (klass.is_include_class && klass.klass === test_klass) {
+        return true;
+      }
 
       klass = klass._super;
     }
@@ -156,6 +161,12 @@ Bully.init_object = function() {
   Bully.define_method(Bully.Kernel, 'instance_eval', function(self, args, block) {
     return block.call(null, args, self);
   });
+
+  Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, blk) {
+    // FIXME: procs produced by lambda need to check number of parameters
+    // received.
+    return Bully.dispatch_method(Bully.Proc, 'new', args, blk);
+  }, 0, 0);
 
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);

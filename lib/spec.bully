@@ -310,6 +310,41 @@ module Spec
     end
   end
 
+  # This matcher can be used to check the class of a given object.  It matches
+  # successfully if the object's class is the same as the given class or the
+  # given class is one of the superclasses of the given object.
+  class BeKindOfMatcher
+    # Constructor.
+    #
+    # type - The expected type of the tested object.
+    #
+    # Returns the new instance.
+    def initialize(type)
+      @expected = type
+    end
+
+    # Performs a match on the given object.
+    #
+    # obj - The object who's type is being tested.
+    #
+    # Returns true if the object's class is the expected class or a subclass of
+    # the given class and false otherwise.
+    def matches?(obj)
+      @actual = obj
+      @actual.is_a? @expected
+    end
+
+    # The message to use when a positive match fails.
+    def failure_message
+      'expected ' + @actual.inspect + '(' + @actual.class.to_s + ') to be kind of ' + @expected.to_s
+    end
+
+    # The message to use when a negative match fails.
+    def negative_failure_message
+      'expected ' + @actual.inspect + '(' + @actual.class.to_s + ') not to be kind of ' + @expected.to_s
+    end
+  end
+
   # Contains a list of methods to get mixed into Object.
   module ObjectMethods
     # Defines a global ExampleGroup.
@@ -366,6 +401,13 @@ module Spec
     # message - The exception message to match against (optional).
     def raise_error(type = StandardError, message = nil)
       RaiseErrorMatcher.new type, message
+    end
+
+    # Returns a BeKindOfMatcher instance.
+    #
+    # type - The class to match against.
+    def be_kind_of(type)
+      BeKindOfMatcher.new type
     end
   end
 
