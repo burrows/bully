@@ -157,21 +157,15 @@ Bully.Rewriter.prototype = {
       }
 
       if (cur[0] === '{') {
-        if (prev[0] === ',' || prev[0] === '=') {
-          // advance to matching close bracket
-          opens = 1;
-          while (opens > 0 && (cur = this.next())) {
-            if (cur[0] === '{') {
-              opens += 1;
-            }
-            else if (cur[0] === '}') {
-              opens -= 1;
-            }
+        // advance to matching close bracket
+        opens = 1;
+        while (opens > 0 && (cur = this.next())) {
+          if (cur[0] === '{') {
+            opens += 1;
           }
-        }
-        else {
-          this.prev();
-          return;
+          else if (cur[0] === '}') {
+            opens -= 1;
+          }
         }
       }
     }

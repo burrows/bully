@@ -655,6 +655,8 @@ Bully.const_set = function(module, name, val) {
 Bully.const_defined = function(module, name, traverse) {
   traverse = traverse === undefined ? true : traverse;
 
+  // TODO: check constant name
+
   do {
     if (module.iv_tbl.hasOwnProperty(name)) {
       return true;

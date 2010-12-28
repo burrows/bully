@@ -570,6 +570,7 @@ Bully.const_set = function(module, name, val) {
 };
 Bully.const_defined = function(module, name, traverse) {
   traverse = traverse === undefined ? true : traverse;
+  // TODO: check constant name
   do {
     if (module.iv_tbl.hasOwnProperty(name)) {
       return true;
@@ -795,6 +796,25 @@ Bully.init = function() {
     // received.
     return Bully.dispatch_method(Bully.Proc, 'new', args, blk);
   }, 0, 0);
+  Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {
+    var ivars = [],
+        iv_tbl = Bully.is_immediate(self) ? immediate_iv_tbl[self] : self.iv_tbl,
+        iv;
+    if (iv_tbl) {
+      for (iv in iv_tbl) { ivars.push(iv); }
+    }
+    return Bully.Array.make(ivars);
+  }, 0, 0);
+  Bully.define_method(Bully.Kernel, 'instance_variable_set', function(self, args) {
+    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    // FIXME: make sure id is a valid id
+    return Bully.ivar_set(self, id, args[1]);
+  }, 2, 2);
+  Bully.define_method(Bully.Kernel, 'instance_variable_get', function(self, args) {
+    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    // FIXME: make sure id is a valid id
+    return Bully.ivar_get(self, id);
+  }, 1, 1);
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);
 };Bully.init_module = function() {
@@ -884,6 +904,24 @@ Bully.init = function() {
   Bully.define_method(Bully.Module, 'const_missing', function(self, args) {
     Bully.raise(Bully.NameError, 'uninitialized constant ' + args[0]);
   }, 1, 1);
+  Bully.define_method(Bully.Module, 'const_defined?', function(self, args) {
+    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    return Bully.const_defined(self, id, true);
+  }, 1, 1);
+  Bully.define_method(Bully.Module, 'constants', function(self, args) {
+    var ids = {}, ary = [], mod = self, name;
+    do {
+      for (name in mod.iv_tbl) {
+        if (name[0] >= 'A' && name[0] <= 'Z') {
+          ids[name] = 1;
+        }
+      }
+    } while (mod = mod._super);
+    for (name in ids) {
+      ary.push(name);
+    }
+    return Bully.Array.make(ary);
+  }, 0, 0);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
     return Bully.class_boot();
@@ -961,6 +999,9 @@ Bully.init = function() {
   }, 1, 1);
   Bully.define_method(Bully.Symbol, 'to_s', function(self) {
     return Bully.String.make(self);
+  }, 0, 0);
+  Bully.define_method(Bully.Symbol, 'to_sym', function(self) {
+    return self;
   }, 0, 0);
 };
 Bully.init_string = function() {
@@ -1253,13 +1294,23 @@ Bully.init_enumerable = function() {
   Bully.define_method(Bully.Enumerable, 'select', function(self, args, block) {
     var results = [];
     Bully.dispatch_method(self, 'each', [], function(args) {
-      var x = args[0], r;
+      var x = args[0];
       if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
         results.push(x);
       }
     });
     return Bully.Array.make(results);
   }, 0, 0);
+  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, block) {
+    var r = true;
+    Bully.dispatch_method(self, 'each', [], function(args) {
+      // FIXME: need to be able to break out of iterator here
+      if (!Bully.test(Bully.Evaluator._yield(block, [args[0]]))) {
+        r = false;
+      }
+    });
+    return r;
+  });
 };var sys = require('sys'),
     path = require('path'),
     fs = require('fs');
@@ -2207,21 +2258,15 @@ Bully.Rewriter.prototype = {
         continue;
       }
       if (cur[0] === '{') {
-        if (prev[0] === ',' || prev[0] === '=') {
-          // advance to matching close bracket
-          opens = 1;
-          while (opens > 0 && (cur = this.next())) {
-            if (cur[0] === '{') {
-              opens += 1;
-            }
-            else if (cur[0] === '}') {
-              opens -= 1;
-            }
+        // advance to matching close bracket
+        opens = 1;
+        while (opens > 0 && (cur = this.next())) {
+          if (cur[0] === '{') {
+            opens += 1;
           }
-        }
-        else {
-          this.prev();
-          return;
+          else if (cur[0] === '}') {
+            opens -= 1;
+          }
         }
       }
     }

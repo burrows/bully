@@ -324,14 +324,14 @@ describe 'Lexer rewriter' do
       ]
     end
 
-    it 'should insert closing paren before {} block' do
+    it 'should insert closing paren after {} block' do
       Bully.lex("foo y {}").should == [
         [:IDENTIFIER, 'foo', 1],
         [:"(", '(', 1],
         [:IDENTIFIER, 'y', 1],
-        [:")", ')', 1],
         [:"{", '{', 1],
-        [:"}", '}', 1]
+        [:"}", '}', 1],
+        [:")", ')', 1]
       ]
     end
 

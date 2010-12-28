@@ -111,5 +111,29 @@ Bully.init_module = function() {
   Bully.define_method(Bully.Module, 'const_missing', function(self, args) {
     Bully.raise(Bully.NameError, 'uninitialized constant ' + args[0]);
   }, 1, 1);
+
+  Bully.define_method(Bully.Module, 'const_defined?', function(self, args) {
+    var id = send(args[0], 'to_sym');
+
+    return Bully.const_defined(self, id, true);
+  }, 1, 1);
+
+  Bully.define_method(Bully.Module, 'constants', function(self, args) {
+    var ids = {}, ary = [], mod = self, name;
+
+    do {
+      for (name in mod.iv_tbl) {
+        if (name[0] >= 'A' && name[0] <= 'Z') {
+          ids[name] = 1;
+        }
+      }
+    } while (mod = mod._super);
+
+    for (name in ids) {
+      ary.push(name);
+    }
+
+    return Bully.Array.make(ary);
+  }, 0, 0);
 };
 

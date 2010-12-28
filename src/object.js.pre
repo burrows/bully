@@ -168,6 +168,34 @@ Bully.init_object = function() {
     return Bully.dispatch_method(Bully.Proc, 'new', args, blk);
   }, 0, 0);
 
+  Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {
+    var ivars = [],
+        iv_tbl = Bully.is_immediate(self) ? immediate_iv_tbl[self] : self.iv_tbl,
+        iv;
+
+    if (iv_tbl) {
+      for (iv in iv_tbl) { ivars.push(iv); }
+    }
+
+    return Bully.Array.make(ivars);
+  }, 0, 0);
+
+  Bully.define_method(Bully.Kernel, 'instance_variable_set', function(self, args) {
+    var id = send(args[0], 'to_sym');
+
+    // FIXME: make sure id is a valid id
+
+    return Bully.ivar_set(self, id, args[1]);
+  }, 2, 2);
+
+  Bully.define_method(Bully.Kernel, 'instance_variable_get', function(self, args) {
+    var id = send(args[0], 'to_sym');
+
+    // FIXME: make sure id is a valid id
+
+    return Bully.ivar_get(self, id);
+  }, 1, 1);
+
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);
 };

@@ -6,7 +6,7 @@ Bully.init_enumerable = function() {
     var results = [];
 
     Bully.dispatch_method(self, 'each', [], function(args) {
-      var x = args[0], r;
+      var x = args[0];
       if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
         results.push(x);
       }
@@ -14,4 +14,17 @@ Bully.init_enumerable = function() {
 
     return Bully.Array.make(results);
   }, 0, 0);
+
+  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, block) {
+    var r = true;
+
+    Bully.dispatch_method(self, 'each', [], function(args) {
+      // FIXME: need to be able to break out of iterator here
+      if (!Bully.test(Bully.Evaluator._yield(block, [args[0]]))) {
+        r = false;
+      }
+    });
+
+    return r;
+  });
 };

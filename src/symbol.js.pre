@@ -18,5 +18,9 @@ Bully.init_symbol = function() {
   Bully.define_method(Bully.Symbol, 'to_s', function(self) {
     return Bully.String.make(self);
   }, 0, 0);
+
+  Bully.define_method(Bully.Symbol, 'to_sym', function(self) {
+    return self;
+  }, 0, 0);
 };
 
