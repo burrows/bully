@@ -169,8 +169,8 @@ Bully.init_object = function() {
   }, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {
-    var ivars = [],
-        iv_tbl = Bully.is_immediate(self) ? immediate_iv_tbl[self] : self.iv_tbl,
+    var ivars  = [],
+        iv_tbl = Bully.is_immediate(self) ? Bully.immediate_iv_tbl[self] : self.iv_tbl,
         iv;
 
     if (iv_tbl) {

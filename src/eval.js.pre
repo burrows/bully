@@ -273,7 +273,7 @@ Bully.Evaluator = {
         args     = this.evaluateArgs(node.args, ctx);
 
     try {
-      rv = Bully.dispatch_method(receiver, node.name, args);
+      Bully.dispatch_method(receiver, node.name, args);
     }
     catch (e) {
       if (e !== Bully.Evaluator.ReturnException) { throw e; }

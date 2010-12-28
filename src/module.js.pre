@@ -127,7 +127,7 @@ Bully.init_module = function() {
           ids[name] = 1;
         }
       }
-    } while (mod = mod._super);
+    } while ((mod = mod._super));
 
     for (name in ids) {
       ary.push(name);

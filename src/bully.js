@@ -522,8 +522,8 @@ Bully.real_class = function(klass) {
   }
   return klass;
 };
-(function() {
-var immediate_iv_tbl = {};
+// Stores instance variables for objects represented by immediate types.
+Bully.immediate_iv_tbl = {};
 // Sets an instance variable for the given object.
 //
 // For non-immediate objects the variable is stored on the object's iv_tbl
@@ -537,8 +537,8 @@ var immediate_iv_tbl = {};
 // Returns the value.
 Bully.ivar_set = function(obj, name, val) {
   if (Bully.is_immediate(obj)) {
-    immediate_iv_tbl[obj] = immediate_iv_tbl[obj] || {};
-    immediate_iv_tbl[obj][name] = val;
+    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
+    Bully.immediate_iv_tbl[obj][name] = val;
   }
   else {
     obj.iv_tbl[name] = val;
@@ -555,14 +555,13 @@ Bully.ivar_set = function(obj, name, val) {
 Bully.ivar_get = function(obj, name) {
   var val;
   if (Bully.is_immediate(obj)) {
-    val = immediate_iv_tbl[obj] ? immediate_iv_tbl[obj][name] : null;
+    val = Bully.immediate_iv_tbl[obj] ? Bully.immediate_iv_tbl[obj][name] : null;
   }
   else {
     val = obj.iv_tbl[name];
   }
   return val === undefined ? null : val;
 };
-}());
 Bully.const_set = function(module, name, val) {
   // TODO: check constant name
   module.iv_tbl[name] = val;
@@ -575,7 +574,7 @@ Bully.const_defined = function(module, name, traverse) {
     if (module.iv_tbl.hasOwnProperty(name)) {
       return true;
     }
-    module = module._super
+    module = module._super;
   } while (traverse && module);
   return false;
 };
@@ -586,7 +585,7 @@ Bully.const_get = function(module, name) {
     if (module.iv_tbl.hasOwnProperty(name)) {
       return module.iv_tbl[name];
     }
-    module = module._super
+    module = module._super;
   } while (module);
   return Bully.dispatch_method(orig, 'const_missing', [name]);
 };
@@ -798,7 +797,7 @@ Bully.init = function() {
   }, 0, 0);
   Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {
     var ivars = [],
-        iv_tbl = Bully.is_immediate(self) ? immediate_iv_tbl[self] : self.iv_tbl,
+        iv_tbl = Bully.is_immediate(self) ? Bully.immediate_iv_tbl[self] : self.iv_tbl,
         iv;
     if (iv_tbl) {
       for (iv in iv_tbl) { ivars.push(iv); }
@@ -916,7 +915,7 @@ Bully.init = function() {
           ids[name] = 1;
         }
       }
-    } while (mod = mod._super);
+    } while ((mod = mod._super));
     for (name in ids) {
       ary.push(name);
     }
@@ -1557,7 +1556,7 @@ Bully.Evaluator = {
     var receiver = this._evaluate(node.expression, ctx),
         args = this.evaluateArgs(node.args, ctx);
     try {
-      rv = Bully.dispatch_method(receiver, node.name, args);
+      Bully.dispatch_method(receiver, node.name, args);
     }
     catch (e) {
       if (e !== Bully.Evaluator.ReturnException) { throw e; }
@@ -2030,7 +2029,7 @@ function regex_escape(text) {
   return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
 }
 function build_regex(array) {
-  var res = [], sorted;
+  var res = [], sorted, i;
   sorted = array.sort(function(a, b) {
     if (a.length < b.length) { return 1; }
     else if (a.length > b.length) { return -1; }

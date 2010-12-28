@@ -597,8 +597,8 @@ Bully.real_class = function(klass) {
   return klass;
 };
 
-(function() {
-var immediate_iv_tbl = {};
+// Stores instance variables for objects represented by immediate types.
+Bully.immediate_iv_tbl = {};
 
 // Sets an instance variable for the given object.
 //
@@ -613,8 +613,8 @@ var immediate_iv_tbl = {};
 // Returns the value.
 Bully.ivar_set = function(obj, name, val) {
   if (Bully.is_immediate(obj)) {
-    immediate_iv_tbl[obj] = immediate_iv_tbl[obj] || {};
-    immediate_iv_tbl[obj][name] = val;
+    Bully.immediate_iv_tbl[obj] = Bully.immediate_iv_tbl[obj] || {};
+    Bully.immediate_iv_tbl[obj][name] = val;
   }
   else {
     obj.iv_tbl[name] = val;
@@ -634,7 +634,7 @@ Bully.ivar_get = function(obj, name) {
   var val;
 
   if (Bully.is_immediate(obj)) {
-    val = immediate_iv_tbl[obj] ? immediate_iv_tbl[obj][name] : null;
+    val = Bully.immediate_iv_tbl[obj] ? Bully.immediate_iv_tbl[obj][name] : null;
   }
   else {
     val = obj.iv_tbl[name];
@@ -642,8 +642,6 @@ Bully.ivar_get = function(obj, name) {
 
   return val === undefined ? null : val;
 };
-
-}());
 
 Bully.const_set = function(module, name, val) {
   // TODO: check constant name
@@ -662,7 +660,7 @@ Bully.const_defined = function(module, name, traverse) {
       return true;
     }
 
-    module = module._super
+    module = module._super;
   } while (traverse && module);
 
   return false;
@@ -678,7 +676,7 @@ Bully.const_get = function(module, name) {
       return module.iv_tbl[name];
     }
 
-    module = module._super
+    module = module._super;
   } while (module);
 
   return send(orig, 'const_missing', name);
