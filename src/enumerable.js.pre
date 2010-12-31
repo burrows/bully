@@ -34,6 +34,10 @@ Bully.init_enumerable = function() {
   Bully.define_method(Bully.Enumerable, 'any?', function(self, args, proc) {
     var r = false, done = new Error('done'), each_proc;
 
+    proc = proc || Bully.Proc.make(function(args) {
+      return args[0];
+    });
+
     each_proc = Bully.Proc.make(function(args) {
       if (Bully.dispatch_method(proc, 'call', [args[0]])) {
         r = true;

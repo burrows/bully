@@ -339,8 +339,8 @@ module Spec
     end
   end
 
-  # This matcher can be used to check when one or more elements are included in
-  # a given list.
+  # This matcher can be used to check whether one or more elements are included
+  # in a given list.
   class IncludeMatcher
     # Constructor.
     #
@@ -371,12 +371,58 @@ module Spec
 
     # The message to use when a positive match fails.
     def failure_message
-      'expected' + @actual.inspect + ' to include ' + @element.inspect
+      'expected ' + @actual.inspect + ' to include ' + @element.inspect
     end
 
     # The message to use when a negative match fails.
     def negative_failure_message
-      'expected' + @actual.inspect + ' not to include ' + @element.inspect
+      'expected ' + @actual.inspect + ' not to include ' + @element.inspect
+    end
+  end
+
+  # This matcher can be used to check if an object is nil.
+  class BeNilMatcher
+    # Checks if the given object is nil.
+    #
+    # actual - The object to check.
+    #
+    # Returns true if the object is nil and false otherwise.
+    def matches?(actual)
+      @actual = actual
+      @actual.nil?
+    end
+
+    # The message to use when a positive match fails.
+    def failure_message
+      'expected ' + @actual.inspect + ' to be nil'
+    end
+
+    # The message to use when a negative match fails.
+    def negative_failure_message
+      'expected ' + @actual.inspect + ' not to be nil'
+    end
+  end
+
+  # This matcher can be used to check if an object is true.
+  class BeTrueMatcher
+    # Checks if the given object is true.
+    #
+    # actual - The object to check.
+    #
+    # Returns true if the object is true and false otherwise.
+    def matches?(actual)
+      @actual = actual
+      @actual == true
+    end
+
+    # The message to use when a positive match fails.
+    def failure_message
+      'expected ' + @actual.inspect + ' to be true'
+    end
+
+    # The message to use when a negative match fails.
+    def negative_failure_message
+      'expected ' + @actual.inspect + ' not to be true'
     end
   end
 
@@ -451,6 +497,16 @@ module Spec
     # objs - One or more items that should appear in the list.
     def include(*objs)
       IncludeMatcher.new objs
+    end
+
+    # Returns a BeNilMatcher instance.
+    def be_nil
+      BeNilMatcher.new
+    end
+
+    # Returns a BeTrueMatcher instance.
+    def be_true
+      BeTrueMatcher.new
     end
   end
 

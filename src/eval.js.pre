@@ -61,6 +61,10 @@ Bully.Evaluator = {
     return rv;
   },
 
+  evaluateEmptyExpression: function(node, ctx) {
+    return null;
+  },
+
   calculateArgsRange: function(params) {
     var min = 0, max = -1;
 

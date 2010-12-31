@@ -200,6 +200,8 @@ Bully.init_object = function() {
     return Bully.ivar_get(self, id);
   }, 1, 1);
 
+  Bully.define_method(Bully.Kernel, 'nil?', function(self, args) { return false; });
+
   // Object
   Bully.include_module(Bully.Object, Bully.Kernel);
 };

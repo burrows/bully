@@ -35,6 +35,7 @@ var grammar = {
   ],
 
   Expression: [
+    o('', "$$ = {type: 'EmptyExpression'};"), 
     o('NumberLiteral'),
     o('StringLiteral'),
     o('SymbolLiteral'),
