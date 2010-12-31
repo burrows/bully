@@ -55,19 +55,14 @@ Bully.init_array = function() {
     return Bully.String.make('[' + elems.join(', ') + ']');
   });
 
-  Bully.define_method(Bully.Array, 'each', function(self, args, block) {
+  Bully.define_method(Bully.Array, 'each', function(self, args, proc) {
     var i;
 
     for (i = 0; i < self.length; i += 1) {
-      Bully.Evaluator._yield(block, [self[i]]);
+      send(proc, 'call', self[i]);
     }
 
     return self;
-  });
-
-  // FIXME: make this take a block
-  Bully.define_method(Bully.Array, 'any?', function(self, args, block) {
-    return self.length > 0;
   });
 
   Bully.define_method(Bully.Array, 'join', function(self, args, block) {

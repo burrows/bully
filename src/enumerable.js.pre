@@ -2,28 +2,47 @@
 Bully.init_enumerable = function() {
   Bully.Enumerable = Bully.define_module('Enumerable');
 
-  Bully.define_method(Bully.Enumerable, 'select', function(self, args, block) {
-    var results = [];
+  Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
+    var results = [], each_proc;
 
-    Bully.dispatch_method(self, 'each', [], function(args) {
+    each_proc = Bully.Proc.make(function(args) {
       var x = args[0];
-      if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
-        results.push(x);
-      }
+      if (send(proc, 'call', x)) { results.push(x); }
     });
+
+    Bully.dispatch_method(self, 'each', [], each_proc);
 
     return Bully.Array.make(results);
   }, 0, 0);
 
-  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, block) {
-    var r = true;
+  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, proc) {
+    var r = true, done = new Error('done'), each_proc;
 
-    Bully.dispatch_method(self, 'each', [], function(args) {
-      // FIXME: need to be able to break out of iterator here
-      if (!Bully.test(Bully.Evaluator._yield(block, [args[0]]))) {
+    each_proc = Bully.Proc.make(function(args) {
+      if (!Bully.dispatch_method(proc, 'call', [args[0]])) {
         r = false;
+        throw done;
       }
     });
+
+    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    catch (e) { if (e !== done) { throw e; } }
+
+    return r;
+  });
+
+  Bully.define_method(Bully.Enumerable, 'any?', function(self, args, proc) {
+    var r = false, done = new Error('done'), each_proc;
+
+    each_proc = Bully.Proc.make(function(args) {
+      if (Bully.dispatch_method(proc, 'call', [args[0]])) {
+        r = true;
+        throw done;
+      }
+    });
+
+    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    catch (e) { if (e !== done) { throw e; } }
 
     return r;
   });

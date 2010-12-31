@@ -162,10 +162,14 @@ Bully.init_object = function() {
     return block.call(null, args, self);
   });
 
-  Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, blk) {
+  Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, proc) {
+    if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
+    proc.is_lambda = true;
+
     // FIXME: procs produced by lambda need to check number of parameters
     // received.
-    return Bully.dispatch_method(Bully.Proc, 'new', args, blk);
+
+    return proc;
   }, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {

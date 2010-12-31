@@ -84,11 +84,11 @@ Bully.init_number = function() {
     return self < args[0];
   });
 
-  Bully.define_method(Bully.Number, 'times', function(self, args, block) {
+  Bully.define_method(Bully.Number, 'times', function(self, args, proc) {
     var i;
 
     for (i = 0; i < self; i += 1) {
-      Bully.Evaluator._yield(block, [i]);
+      send(proc, 'call', i);
     }
 
     return self;

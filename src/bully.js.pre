@@ -7,6 +7,7 @@ exports.Bully = Bully = {};
 #include "module.js.pre"
 #include "class.js.pre"
 #include "main.js.pre"
+#include "proc.js.pre"
 #include "nil.js.pre"
 #include "boolean.js.pre"
 #include "symbol.js.pre"

@@ -790,10 +790,12 @@ Bully.init = function() {
   Bully.define_method(Bully.Kernel, 'instance_eval', function(self, args, block) {
     return block.call(null, args, self);
   });
-  Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, blk) {
+  Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, proc) {
+    if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
+    proc.is_lambda = true;
     // FIXME: procs produced by lambda need to check number of parameters
     // received.
-    return Bully.dispatch_method(Bully.Proc, 'new', args, blk);
+    return proc;
   }, 0, 0);
   Bully.define_method(Bully.Kernel, 'instance_variables', function(self, args) {
     var ivars = [],
@@ -957,6 +959,30 @@ Bully.init = function() {
   Bully.define_singleton_method(Bully.main, 'include', function(self, args) {
     return Bully.include_module(Bully.Object, args[0]);
   }, 1, 1);
+};Bully.init_proc = function() {
+  Bully.Proc = Bully.define_class('Proc');
+  Bully.Proc.make = function(fn) {
+    var proc = Bully.make_object(fn, Bully.Proc);
+    proc.is_lambda = false
+    return proc;
+  };
+  Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, proc) {
+    if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
+    return proc;
+  });
+  Bully.define_method(Bully.Proc, 'call', function(self, args) {
+    var rv;
+    try {
+      rv = self.call(null, args);
+    }
+    catch (e) {
+      if (e === Bully.Evaluator.ProcReturnException && self.is_lambda) {
+        rv = e.value;
+      }
+      else { throw e; }
+    }
+    return rv;
+  });
 };Bully.init_nil = function() {
   Bully.NilClass = Bully.define_class('NilClass');
   Bully.define_method(Bully.NilClass, 'to_i', function() {
@@ -1083,6 +1109,7 @@ Bully.init_string = function() {
   Bully.RuntimeError = Bully.define_class('RuntimeError', Bully.StandardError);
   Bully.NameError = Bully.define_class('NameError', Bully.StandardError);
   Bully.TypeError = Bully.define_class('TypeError', Bully.StandardError);
+  Bully.LocalJumpError = Bully.define_class('LocalJumpError', Bully.StandardError);
   Bully.NoMethodError = Bully.define_class('NoMethodError', Bully.NameError);
 };Bully.init_array = function() {
   Bully.Array = Bully.define_class('Array');
@@ -1126,16 +1153,12 @@ Bully.init_string = function() {
     }
     return Bully.String.make('[' + elems.join(', ') + ']');
   });
-  Bully.define_method(Bully.Array, 'each', function(self, args, block) {
+  Bully.define_method(Bully.Array, 'each', function(self, args, proc) {
     var i;
     for (i = 0; i < self.length; i += 1) {
-      Bully.Evaluator._yield(block, [self[i]]);
+      Bully.dispatch_method(proc, 'call', [self[i]]);
     }
     return self;
-  });
-  // FIXME: make this take a block
-  Bully.define_method(Bully.Array, 'any?', function(self, args, block) {
-    return self.length > 0;
   });
   Bully.define_method(Bully.Array, 'join', function(self, args, block) {
     var strings = [], elem, i;
@@ -1280,34 +1303,47 @@ Bully.init_string = function() {
   Bully.define_method(Bully.Number, '<', function(self, args) {
     return self < args[0];
   });
-  Bully.define_method(Bully.Number, 'times', function(self, args, block) {
+  Bully.define_method(Bully.Number, 'times', function(self, args, proc) {
     var i;
     for (i = 0; i < self; i += 1) {
-      Bully.Evaluator._yield(block, [i]);
+      Bully.dispatch_method(proc, 'call', [i]);
     }
     return self;
   }, 0, 0);
 };
 Bully.init_enumerable = function() {
   Bully.Enumerable = Bully.define_module('Enumerable');
-  Bully.define_method(Bully.Enumerable, 'select', function(self, args, block) {
-    var results = [];
-    Bully.dispatch_method(self, 'each', [], function(args) {
+  Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
+    var results = [], each_proc;
+    each_proc = Bully.Proc.make(function(args) {
       var x = args[0];
-      if (Bully.test(Bully.Evaluator._yield(block, [x]))) {
-        results.push(x);
-      }
+      if (Bully.dispatch_method(proc, 'call', [x])) { results.push(x); }
     });
+    Bully.dispatch_method(self, 'each', [], each_proc);
     return Bully.Array.make(results);
   }, 0, 0);
-  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, block) {
-    var r = true;
-    Bully.dispatch_method(self, 'each', [], function(args) {
-      // FIXME: need to be able to break out of iterator here
-      if (!Bully.test(Bully.Evaluator._yield(block, [args[0]]))) {
+  Bully.define_method(Bully.Enumerable, 'all?', function(self, args, proc) {
+    var r = true, done = new Error('done'), each_proc;
+    each_proc = Bully.Proc.make(function(args) {
+      if (!Bully.dispatch_method(proc, 'call', [args[0]])) {
         r = false;
+        throw done;
       }
     });
+    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    catch (e) { if (e !== done) { throw e; } }
+    return r;
+  });
+  Bully.define_method(Bully.Enumerable, 'any?', function(self, args, proc) {
+    var r = false, done = new Error('done'), each_proc;
+    each_proc = Bully.Proc.make(function(args) {
+      if (Bully.dispatch_method(proc, 'call', [args[0]])) {
+        r = true;
+        throw done;
+      }
+    });
+    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    catch (e) { if (e !== done) { throw e; } }
     return r;
   });
 };var sys = require('sys'),
@@ -1406,16 +1442,25 @@ Bully.Evaluator = {
     var module = ctx.current_module(),
         modules = ctx.modules,
         args_range = this.calculateArgsRange(node.params);
-    Bully.define_method(module, node.name, function(receiver, args, block) {
-      var ctx = new Bully.Evaluator.Context(receiver, modules);
-      // FIXME: there must be a better way to do this
+    Bully.define_method(module, node.name, function(receiver, args, proc) {
+      var ctx = new Bully.Evaluator.Context(receiver, modules), rv;
       ctx.method_name = node.name;
       ctx.args = args;
-      ctx.block = block;
-      if (node.params) {
-        Bully.Evaluator._evaluate(node.params, ctx, args, block);
+      ctx.proc = proc;
+      try {
+        if (node.params) {
+          Bully.Evaluator._evaluate(node.params, ctx, args, proc);
+        }
+        rv = Bully.Evaluator._evaluate(node.body, ctx);
       }
-      return Bully.Evaluator._evaluate(node.body, ctx);
+      catch (e) {
+        if ((e === Bully.Evaluator.ProcReturnException && e.ctx === ctx) ||
+             e === Bully.Evaluator.MethodReturnException) {
+          rv = e.value;
+        }
+        else { throw e; }
+      }
+      return rv;
     }, args_range[0], args_range[1]);
     return null;
   },
@@ -1424,12 +1469,12 @@ Bully.Evaluator = {
         modules = ctx.modules,
         object = typeof node.object === 'string' ? ctx.get_var(node.object) :
           this._evaluate(node.object, ctx);
-    Bully.define_singleton_method(object, node.name, function(receiver, args, block) {
+    Bully.define_singleton_method(object, node.name, function(receiver, args, proc) {
       var ctx = new Bully.Evaluator.Context(receiver, modules);
       // FIXME: there must be a better way to do this
       ctx.method_name = node.name;
       ctx.args = args;
-      ctx.block = block;
+      ctx.proc = proc;
       if (node.params) {
         Bully.Evaluator._evaluate(node.params, ctx, args);
       }
@@ -1496,42 +1541,16 @@ Bully.Evaluator = {
     else if (node.block) {
       block = this._evaluate(node.block, ctx);
     }
-    try {
-      rv = Bully.dispatch_method(receiver, node.name, args, block);
-    }
-    catch (e) {
-      if (e !== Bully.Evaluator.ReturnException) { throw e; }
-      else { rv = e.value; }
-    }
-    return rv;
+    return Bully.dispatch_method(receiver, node.name, args, block);
   },
   evaluateSuperCall: function(node, ctx) {
-    var args = node.args ? this.evaluateArgs(node.args, ctx) : ctx.args, rv;
-    try {
-      rv = Bully.call_super(ctx.self, ctx.method_name, args);
-    }
-    catch (e) {
-      if (e !== Bully.Evaluator.ReturnException) { throw e; }
-      else { rv = e.value; }
-    }
-    return rv;
-  },
-  _yield: function(block, args) {
-    var rv;
-    try {
-      // FIXME: make sure block was given, raise LocalJumpError if not
-      rv = block.call(null, args);
-    }
-    catch (e) {
-      if (e !== Bully.Evaluator.ReturnException) { throw e; }
-      else { rv = e.value; }
-    }
-    return rv;
+    var args = node.args ? this.evaluateArgs(node.args, ctx) : ctx.args;
+    return Bully.call_super(ctx.self, ctx.method_name, args);
   },
   evaluateYieldCall: function(node, ctx) {
     var args = node.args ? this.evaluateArgs(node.args, ctx) : [];
     // FIXME: make sure block was given, raise LocalJumpError if not
-    return this._yield(ctx.block, args);
+    return Bully.dispatch_method(ctx.proc, 'call', args);
   },
   evaluateLogical: function(node, ctx) {
     var left = this._evaluate(node.expressions[0], ctx);
@@ -1545,7 +1564,7 @@ Bully.Evaluator = {
     }
   },
   evaluateBlock: function(node, ctx) {
-    return Bully.make_proc(node, ctx);
+    return Bully.Evaluator.make_proc(node, ctx);
   },
   evaluateLocalAssign: function(node, ctx) {
     var value = this._evaluate(node.expression, ctx);
@@ -1555,12 +1574,7 @@ Bully.Evaluator = {
   evaluateCallAssign: function(node, ctx) {
     var receiver = this._evaluate(node.expression, ctx),
         args = this.evaluateArgs(node.args, ctx);
-    try {
-      Bully.dispatch_method(receiver, node.name, args);
-    }
-    catch (e) {
-      if (e !== Bully.Evaluator.ReturnException) { throw e; }
-    }
+    Bully.dispatch_method(receiver, node.name, args);
     // always return the assigned value
     return args[args.length - 1];
   },
@@ -1729,8 +1743,16 @@ Bully.Evaluator = {
     return ctx.self;
   },
   evaluateReturn: function(node, ctx) {
-    Bully.Evaluator.ReturnException.value = node.expression ? this._evaluate(node.expression, ctx) : null;
-    throw Bully.Evaluator.ReturnException;
+    var e;
+    if (ctx.in_proc) {
+      e = Bully.Evaluator.ProcReturnException;
+      e.ctx = ctx;
+    }
+    else {
+      e = Bully.Evaluator.MethodReturnException;
+    }
+    e.value = node.expression ? this._evaluate(node.expression, ctx) : null;
+    throw e;
   },
   evaluateClass: function(node, ctx) {
     var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
@@ -1875,6 +1897,29 @@ Bully.Evaluator.Context = function(self, modules) {
   this.scopes = [{}];
 };
 Bully.Evaluator.Context.prototype = {
+  // The current value of the self variable.
+  self: null,
+  // The current lexical module stack.  Modules are pushed on to this stack
+  // whenever one is opened and popped off whenever it is closed.  This is
+  // primarily used to resolve constants.
+  modules: [],
+  // The current stack of lexical scopes.  This is where local variable are
+  // stored.
+  scopes: [{}],
+  // Set when a method created by a Def node is evaluated.  This is used when
+  // Super nodes are encountered during the execution of a method body.
+  method_name: null,
+  // Set when a method created by a Def node is evaluated.  This is used when
+  // Super nodes are encountered during the execution of a method body so that
+  // arguments can be implicitly passed to the super method.
+  args: null,
+  // Set when a method created by a Def node is evaluated and is passed a block.
+  // This is used when Yield nodes are evaluated.
+  proc: null,
+  // This property indicates whether or not we are currently inside of a Proc.
+  // This is used when a Return node is evaluated so that it can throw the
+  // correct exception.
+  in_proc: false,
   push_module: function(mod) {
     this.modules.push(mod);
   },
@@ -1925,34 +1970,32 @@ Bully.Evaluator.Context.prototype = {
     return typeof this.get_var(name) !== 'undefined';
   }
 };
-Bully.Evaluator.ReturnException = { value: null };
-Bully.make_proc = function(node, ctx) {
-  return Bully.make_object(function(args, self) {
+// This exception is thrown when a Return node is encountered.  It is handled
+// by methods so that they can return early from their body.
+Bully.Evaluator.MethodReturnException = { value: null };
+// This exception is thrown when a Return node is encountered inside of a Proc.
+// Methods also handle this exception so that a Proc created with Proc.new can
+// return from the method in which it is defined.
+Bully.Evaluator.ProcReturnException = { value: null };
+Bully.Evaluator.make_proc = function(node, ctx) {
+  return Bully.Proc.make(function(args, self) {
     var rv, old_self;
     if (self) {
       old_self = ctx.self;
       ctx.self = self;
     }
     ctx.push_scope();
+    ctx.in_proc = true;
     if (node.params) {
       Bully.Evaluator._evaluate(node.params, ctx, args);
     }
     rv = Bully.Evaluator._evaluate(node.body, ctx);
     ctx.pop_scope();
+    ctx.in_proc = false;
     if (self) {
       ctx.self = old_self;
     }
     return rv;
-  }, Bully.Proc);
-};
-Bully.init_proc = function() {
-  Bully.Proc = Bully.define_class('Proc');
-  Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, blk) {
-    if (!blk) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
-    return blk;
-  });
-  Bully.define_method(Bully.Proc, 'call', function(self, args) {
-    return self.call(null, args);
   });
 };
 (function() {

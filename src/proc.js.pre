@@ -1,0 +1,31 @@
+Bully.init_proc = function() {
+  Bully.Proc = Bully.define_class('Proc');
+
+  Bully.Proc.make = function(fn) {
+    var proc = Bully.make_object(fn, Bully.Proc);
+    proc.is_lambda = false
+
+    return proc;
+  };
+
+  Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, proc) {
+    if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
+    return proc;
+  });
+
+  Bully.define_method(Bully.Proc, 'call', function(self, args) {
+    var rv;
+
+    try {
+      rv = self.call(null, args);
+    }
+    catch (e) {
+      if (e === Bully.Evaluator.ProcReturnException && self.is_lambda) {
+        rv = e.value;
+      }
+      else { throw e; }
+    }
+
+    return rv;
+  });
+};
