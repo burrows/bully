@@ -1385,625 +1385,136 @@ Bully.platform = {
   read_file: function(path) {
     return fs.readFileSync(path, 'ascii');
   }
-};Bully.load = function(path) {
-  var source = Bully.platform.read_file(path),
-      ast = Bully.parser.parse((new Bully.Lexer()).tokenize(source));
-  Bully.Evaluator.evaluate(ast);
-  return true;
-};
-(function() {
-var requires = [];
-Bully.require = function(lib) {
-  var path = Bully.platform.locate_lib(lib);
-  if (requires.indexOf(path) === -1) {
-    requires.push(path);
-    Bully.load(path);
-    return true;
+};Bully.Compiler = {
+  compile: function(node) {
+    var iseq = [];
+    this.compileBody(node, iseq);
+    return iseq[0];
+  },
+  compileNode: function(node, iseq) {
+    this['compile' + node.type].call(this, node, iseq);
+  },
+  compileBody: function(node, iseq) {
+    var body = [], len = node.lines.length, i;
+    for (i = 0; i < len; i += 1) {
+      this.compileNode(node.lines[i], body);
+    }
+    iseq.push(body);
+  },
+  compileCall: function(node, iseq) {
+    var argLen = node.args ? node.args.length : 0, i;
+    // add receiver
+    if (node.expression) {
+      this.compileNode(node.expression, iseq);
+    }
+    else {
+      iseq.push(['putnil']);
+    }
+    // add arguments
+    for (i = 0; i < argLen; i += 1) {
+      this.compileNode(node.args[i], iseq);
+    }
+    iseq.push(['send', node.name, argLen]);
+    return iseq;
+  },
+  compileDef: function(node, iseq) {
+    var putiseq = ['putiseq'];
+    iseq.push(['putcurrentmodule']);
+    this.compileBody(node.body, putiseq)
+    iseq.push(putiseq);
+    iseq.push(['definemethod', node.name, false]);
+  },
+  compileNumberLiteral: function(node, iseq) {
+    iseq.push(['putobject', parseFloat(node.value)]);
   }
-  return false;
-};
-}());
-Bully.Evaluator = {
-  evaluate: function(node) {
-    var rv = 0;
-    try {
-      this._evaluate(node, new Bully.Evaluator.Context(Bully.main));
-    }
-    catch (e) {
-      if (Bully.respond_to(e, 'inspect')) {
-        Bully.platform.puts(Bully.dispatch_method(e, 'inspect', []).data);
-      }
-      else {
-        Bully.platform.puts(e);
-      }
-      rv = 1;
-    }
-    return rv;
-  },
-  _evaluate: function(node, ctx) {
-    if (!ctx) { throw new Error("_evaluate called without a context"); }
-    this.current_ctx = ctx;
-    return this['evaluate' + node.type].apply(this, arguments);
-  },
-  evaluateBody: function(node, ctx) {
-    var i, line, rv = null;
-    for (i = 0; i < node.lines.length; i += 1) {
-      line = node.lines[i];
-      rv = this._evaluate(line, ctx);
-    }
-    return rv;
-  },
-  evaluateEmptyExpression: function(node, ctx) {
-    return null;
-  },
-  calculateArgsRange: function(params) {
-    var min = 0, max = -1;
-    if (!params) { return [min, max]; }
-    min = params.required.length;
-    if (!params.splat) {
-      max = min + params.optional.length;
-    }
-    return [min, max];
-  },
-  evaluateDef: function(node, ctx) {
-    var module = ctx.current_module(),
-        modules = ctx.modules,
-        args_range = this.calculateArgsRange(node.params);
-    Bully.define_method(module, node.name, function(receiver, args, proc) {
-      var ctx = new Bully.Evaluator.Context(receiver, modules), rv;
-      ctx.method_name = node.name;
-      ctx.args = args;
-      ctx.proc = proc;
-      try {
-        if (node.params) {
-          Bully.Evaluator._evaluate(node.params, ctx, args, proc);
-        }
-        rv = Bully.Evaluator._evaluate(node.body, ctx);
-      }
-      catch (e) {
-        if ((e === Bully.Evaluator.ProcReturnException && e.ctx === ctx) ||
-             e === Bully.Evaluator.MethodReturnException) {
-          rv = e.value;
-        }
-        else { throw e; }
-      }
-      return rv;
-    }, args_range[0], args_range[1]);
-    return null;
-  },
-  evaluateSingletonDef: function(node, ctx) {
-    var args_range = this.calculateArgsRange(node.params),
-        modules = ctx.modules,
-        object = typeof node.object === 'string' ? ctx.get_var(node.object) :
-          this._evaluate(node.object, ctx);
-    Bully.define_singleton_method(object, node.name, function(receiver, args, proc) {
-      var ctx = new Bully.Evaluator.Context(receiver, modules);
-      // FIXME: there must be a better way to do this
-      ctx.method_name = node.name;
-      ctx.args = args;
-      ctx.proc = proc;
-      if (node.params) {
-        Bully.Evaluator._evaluate(node.params, ctx, args);
-      }
-      return Bully.Evaluator._evaluate(node.body, ctx);
-    }, args_range[0], args_range[1]);
-    return null;
-  },
-  evaluateParamList: function(node, ctx, args, block) {
-    var args_len = args.length, req_len = node.required.length, opt_len = 0, i;
-    for (i = 0; i < req_len; i += 1) {
-      ctx.set_var(node.required[i], args[i]);
-    }
-    for (i = 0; i < node.optional.length; i += 1) {
-      if (typeof args[req_len + i] === 'undefined') {
-        ctx.set_var(node.optional[i].name,
-          Bully.Evaluator._evaluate(node.optional[i].expression, ctx));
-      }
-      else {
-        opt_len += 1;
-        ctx.set_var(node.optional[i].name, args[req_len + i]);
+};Bully.VM = {
+  run: function(iseq, parent) {
+    var sf = new Bully.VM.StackFrame(), i;
+    sf.parent = parent;
+    this.runISeq(iseq, sf);
+    if (parent) {
+      for (i = 0; i < sf.sp; i++) {
+        parent.push(sf.stack[i]);
       }
     }
-    if (node.splat) {
-      ctx.set_var(node.splat, Bully.Array.make(args.slice(req_len + opt_len)));
-    }
-    if (node.block) {
-      ctx.set_var(node.block, block);
+    return 0;
+  },
+  runISeq: function(iseq, sf) {
+    var vm = this, len = iseq.length, ip, ins, recv, args, mod, body, i;
+    for (ip = 0; ip < len; ip += 1) {
+      ins = iseq[ip];
+      switch (ins[0]) {
+        case 'putnil':
+          sf.push(null);
+          break;
+        case 'putcurrentmodule':
+          sf.push(sf.currentModule());
+          break;
+        case 'putiseq':
+          sf.push(ins[1]);
+          break;
+        case 'putobject':
+          sf.push(ins[1]);
+          break;
+        case 'definemethod':
+          body = sf.pop();
+          mod = sf.pop();
+          Bully.define_method(mod, ins[1], body);
+          break;
+        case 'send':
+          args = [];
+          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
+          recv = sf.pop() || sf.self;
+          //sf.push(Bully.dispatch_method(rec, ins[1], args));
+          this.sendMethod(recv, ins[1], args, sf);
+          break;
+        default:
+          throw 'invalid opcode: ' + ins[0];
+      }
     }
   },
-  evaluateBlockParamList: function(node, ctx, args) {
-    var args_len = args.length, req_len = node.required.length, i;
-    // FIXME: check passed argument length
-    for (i = 0; i < args_len; i += 1) {
-      ctx.declare_var(node.required[i], args[i]);
-    }
-    // fill remaining params with nil
-    for (i = args_len; i < req_len; i += 1) {
-      ctx.declare_var(node.required[i], null);
-    }
-    if (node.splat) {
-      ctx.declare_var(node.splat, Bully.Array.make(args.slice(req_len)));
-    }
-  },
-  evaluateArgs: function(args, ctx) {
-    var list = [], i;
-    for (i = 0; i < args.length; i += 1) {
-      list.push(this._evaluate(args[i], ctx));
-    }
-    return list;
-  },
-  evaluateCall: function(node, ctx) {
-    var block = null, receiver, args, rv;
-    // check to see if this is actually a local variable reference
-    if (!node.expression && !node.args && ctx.has_var(node.name)) {
-      return ctx.get_var(node.name);
-    }
-    receiver = node.expression ? this._evaluate(node.expression, ctx) : ctx.self;
-    args = node.args ? this.evaluateArgs(node.args, ctx) : [];
-    block = node.block ? this._evaluate(node.block, ctx) : null;
-    if (node.block_arg) {
-      // FIXME: make sure object is a Proc
-      block = this._evaluate(node.block_arg, ctx);
-    }
-    else if (node.block) {
-      block = this._evaluate(node.block, ctx);
-    }
-    return Bully.dispatch_method(receiver, node.name, args, block);
-  },
-  evaluateSuperCall: function(node, ctx) {
-    var args = node.args ? this.evaluateArgs(node.args, ctx) : ctx.args;
-    return Bully.call_super(ctx.self, ctx.method_name, args);
-  },
-  evaluateYieldCall: function(node, ctx) {
-    var args = node.args ? this.evaluateArgs(node.args, ctx) : [];
-    // FIXME: make sure block was given, raise LocalJumpError if not
-    return Bully.dispatch_method(ctx.proc, 'call', args);
-  },
-  evaluateLogical: function(node, ctx) {
-    var left = this._evaluate(node.expressions[0], ctx);
-    switch (node.operator) {
-      case '&&':
-        return Bully.test(left) ? this._evaluate(node.expressions[1], ctx) : left;
-      case '||':
-        return Bully.test(left) ? left : this._evaluate(node.expressions[1], ctx);
-      default:
-        throw "invalid logial operator: " + node.operator;
-    }
-  },
-  evaluateBlock: function(node, ctx) {
-    return Bully.Evaluator.make_proc(node, ctx);
-  },
-  evaluateLocalAssign: function(node, ctx) {
-    var value = this._evaluate(node.expression, ctx);
-    ctx.set_var(node.name, value);
-    return value;
-  },
-  evaluateCallAssign: function(node, ctx) {
-    var receiver = this._evaluate(node.expression, ctx),
-        args = this.evaluateArgs(node.args, ctx);
-    Bully.dispatch_method(receiver, node.name, args);
-    // always return the assigned value
-    return args[args.length - 1];
-  },
-  evaluateLocalCompoundAssign: function(node, ctx) {
-    var op = node.operator.slice(0, node.operator.length - 1),
-        value = ctx.get_var(node.name);
-    if (value === undefined) {
-      value = ctx.set_var(node.name, null);
-    }
-    switch (op) {
-      case '&&':
-        if (Bully.test(value)) {
-          value = ctx.set_var(node.name, this._evaluate(node.expression, ctx));
-        }
-        break;
-      case '||':
-        if (!Bully.test(value)) {
-          value = ctx.set_var(node.name, this._evaluate(node.expression, ctx));
-        }
-        break;
-      default:
-        value = Bully.dispatch_method(value, op, [this._evaluate(node.expression, ctx)]);
-        ctx.set_var(node.name, value);
-    }
-    return value;
-  },
-  evaluateInstanceCompoundAssign: function(node, ctx) {
-    var op = node.operator.slice(0, node.operator.length - 1),
-        value = Bully.ivar_get(ctx.self, node.name);
-    if (value === undefined) {
-      value = Bully.ivar_set(ctx.self, node.name, null);
-    }
-    switch (op) {
-      case '&&':
-        if (Bully.test(value)) {
-          value = Bully.ivar_set(ctx.self, node.name, this._evaluate(node.expression, ctx));
-        }
-        break;
-      case '||':
-        if (!Bully.test(value)) {
-          value = Bully.ivar_set(ctx.self, node.name, this._evaluate(node.expression, ctx));
-        }
-        break;
-      default:
-        value = Bully.ivar_set(ctx.self, node.name, Bully.dispatch_method(value, op, [this._evaluate(node.expression, ctx)]));
-    }
-    return value;
-  },
-  evaluateConstantCompoundAssign: function(node, ctx) {
-    var op = node.operator.slice(0, node.operator.length - 1),
-        value = this._resolveConstant(node.constant.names, node.constant.global, ctx),
-        assign_node = {type: 'ConstantAssign', constant: node.constant, expression: node.expression};
-    switch (op) {
-      case '&&':
-        if (Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          this._evaluate(assign_node, ctx);
-        }
-        break;
-      case '||':
-        if (!Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          this._evaluate(assign_node, ctx);
-        }
-        break;
-      default:
-        assign_node.expression = {type: 'Call', expression: node.constant, name: op, args: [node.expression], block_arg: null, block: null};
-        value = this._evaluate(assign_node, ctx);
-    }
-    return value;
-  },
-  evaluateIndexedCallCompoundAssign: function(node, ctx) {
-    var op = node.operator.slice(0, node.operator.length - 1),
-        object = this._evaluate(node.object, ctx),
-        index = this._evaluate(node.index, ctx),
-        value = Bully.dispatch_method(object, '[]', [index]);
-    switch (op) {
-      case '&&':
-        if (Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          Bully.dispatch_method(object, '[]=', [index, value]);
-        }
-        break;
-      case '||':
-        if (!Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          Bully.dispatch_method(object, '[]=', [index, value]);
-        }
-        break;
-      default:
-        value = Bully.dispatch_method(value, op, [this._evaluate(node.expression, ctx)]);
-        Bully.dispatch_method(object, '[]=', [index, value]);
-    }
-    return value;
-  },
-  evaluateCallCompoundAssign: function(node, ctx) {
-    var op = node.operator.slice(0, node.operator.length - 1),
-        object = this._evaluate(node.object, ctx),
-        value = Bully.dispatch_method(object, node.name, []);
-    switch (op) {
-      case '&&':
-        if (Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          Bully.dispatch_method(object, node.name + '=', [value]);
-        }
-        break;
-      case '||':
-        if (!Bully.test(value)) {
-          value = this._evaluate(node.expression, ctx);
-          Bully.dispatch_method(object, node.name + '=', [value]);
-        }
-        break;
-      default:
-        value = Bully.dispatch_method(value, op, [this._evaluate(node.expression, ctx)]);
-        Bully.dispatch_method(object, node.name + '=', [value]);
-    }
-    return value;
-  },
-  evaluateInstanceAssign: function(node, ctx) {
-    var value = this._evaluate(node.expression, ctx);
-    return Bully.ivar_set(ctx.self, node.name, value);
-  },
-  _resolveConstant: function(names, global, ctx) {
-    var i, modules, constant;
-    if (global) {
-      modules = Bully.Module.ancestors(Bully.Object);
+  sendMethod: function(recv, name, args, sf) {
+    var method = Bully.find_method(Bully.class_of(recv), name);
+    if (typeof method === 'function') {
+      sf.push(method.call(null, recv, args));
     }
     else {
-      // FIXME: some modules are being checked more than once here
-      modules = ctx.modules.slice().reverse();
-      modules = modules.concat(Bully.Module.ancestors(ctx.current_module()));
-      if (modules.indexOf(Bully.Object) === -1) {
-        modules = modules.concat(Bully.Module.ancestors(Bully.Object));
-      }
+      this.run(method, sf);
     }
-    for (i = 0; i < modules.length; i += 1) {
-      if (Bully.const_defined(modules[i], names[0], false)) {
-        constant = Bully.const_get(modules[i], names[0]);
-        break;
-      }
-    }
-    if (constant === undefined) {
-      return Bully.dispatch_method(modules[0], 'const_missing', [names[0]]);
-    }
-    for (i = 1; i < names.length; i += 1) {
-      constant = Bully.const_get(constant, names[i]);
-    }
-    return constant;
-  },
-  evaluateConstantAssign: function(node, ctx) {
-    var names = node.constant.names.slice(),
-        last = names.pop(),
-        base = names.length > 0 ?
-          this._resolveConstant(names, node.constant.global, ctx) :
-          ctx.current_module();
-    // TODO: check to see if constant is already defined
-    return Bully.const_set(base, last, this._evaluate(node.expression, ctx));
-  },
-  evaluateConstantRef: function(node, ctx) {
-    return this._resolveConstant(node.names, node.global, ctx);
-  },
-  evaluateInstanceRef: function(node, ctx) {
-    return Bully.ivar_get(ctx.self, node.name);
-  },
-  evaluateSelf: function(node, ctx) {
-    return ctx.self;
-  },
-  evaluateReturn: function(node, ctx) {
-    var e;
-    if (ctx.in_proc) {
-      e = Bully.Evaluator.ProcReturnException;
-      e.ctx = ctx;
-    }
-    else {
-      e = Bully.Evaluator.MethodReturnException;
-    }
-    e.value = node.expression ? this._evaluate(node.expression, ctx) : null;
-    throw e;
-  },
-  evaluateClass: function(node, ctx) {
-    var _super = node.super_expr ? this._evaluate(node.super_expr, ctx) : null,
-        names = node.constant.names.slice(),
-        last = names.pop(),
-        outer, klass, ret;
-    if (names.length === 0) {
-      outer = node.constant.global ? Bully.Object : ctx.current_module();
-    }
-    else {
-      outer = this._resolveConstant(names, node.constant.global, ctx);
-    }
-    klass = Bully.define_class_under(outer, last, _super);
-    ctx.push_module(klass);
-    ret = this._evaluate(node.body, new Bully.Evaluator.Context(klass, ctx.modules));
-    ctx.pop_module();
-    return ret;
-  },
-  evaluateSingletonClass: function(node, ctx) {
-    var object = this._evaluate(node.object, ctx),
-        modules = ctx.modules,
-        sklass = Bully.singleton_class(object),
-        ret;
-    ctx.push_module(sklass);
-    ret = this._evaluate(node.body, new Bully.Evaluator.Context(sklass, modules));
-    ctx.pop_module();
-    return ret;
-  },
-  evaluateModule: function(node, ctx) {
-    var names = node.constant.names.slice(),
-        last = names.pop(),
-        outer, mod, ret;
-    if (names.length === 0) {
-      outer = node.constant.global ? Bully.Object : ctx.current_module();
-    }
-    else {
-      outer = this._resolveConstant(names, node.constant.global, ctx);
-    }
-    mod = Bully.define_module_under(outer, last);
-    ctx.push_module(mod);
-    ret = this._evaluate(node.body, new Bully.Evaluator.Context(mod, ctx.modules));
-    ctx.pop_module();
-    return ret;
-  },
-  evaluateStringLiteral: function(node, ctx) {
-    return Bully.String.make(node.value);
-  },
-  evaluateSymbolLiteral: function(node, ctx) {
-    return node.value.slice(1);
-  },
-  evaluateQuotedSymbol: function(node, ctx) {
-    var s = this.evaluateStringLiteral(node.string, ctx);
-    return Bully.String.to_sym(s);
-  },
-  evaluateTrueLiteral: function(node, ctx) {
-    return true;
-  },
-  evaluateFalseLiteral: function(node, ctx) {
-    return false;
-  },
-  evaluateNilLiteral: function(node, ctx) {
-    return null;
-  },
-  evaluateNumberLiteral: function(node, ctx) {
-    return parseFloat(node.value);
-  },
-  evaluateArrayLiteral: function(node, ctx) {
-    var elems = [], i;
-    for (i = 0; i < node.expressions.length; i += 1) {
-      elems.push(this._evaluate(node.expressions[i], ctx));
-    }
-    return Bully.Array.make(elems);
-  },
-  evaluateHashLiteral: function(node, ctx) {
-    var h = Bully.Hash.make(), key, val, i;
-    for (i = 0; i < node.keys.length; i += 1) {
-      key = this._evaluate(node.keys[i], ctx);
-      val = this._evaluate(node.values[i], ctx);
-      Bully.Hash.set(h, key, val);
-    }
-    return h;
-  },
-  evaluateBeginBlock: function(node, ctx) {
-    var handled = false, captured, rescue, type_nodes, type, i, j;
-    try { this._evaluate(node.body, ctx); }
-    catch (e) { captured = e; }
-    // see if any of the rescue blocks match the exception
-    if (captured) {
-      Bully.current_exception = captured;
-      for (i = 0; i < node.rescues.length && !handled; i += 1) {
-        rescue = node.rescues[i];
-        type_nodes = rescue.exception_types || [{type: 'ConstantRef', global: true, names: ['StandardError']}];
-        for (j = 0; j < type_nodes.length && !handled; j += 1) {
-          // FIXME: lookup constant for real
-          type = this._evaluate(type_nodes[j], ctx);
-          if (Bully.dispatch_method(captured, 'is_a?', [type])) {
-            handled = true;
-            if (rescue.name) {
-              ctx.set_var(rescue.name, captured);
-            }
-            this._evaluate(node.rescues[i].body, ctx);
-            Bully.current_exception = null;
-          }
-        }
-      }
-      if (!handled && node.else_body) {
-        this._evaluate(node.else_body.body, ctx);
-      }
-    }
-    if (node.ensure) {
-      this._evaluate(node.ensure.body, ctx);
-    }
-    // if none of our rescue blocks matched, then re-raise
-    if (captured && !handled) { Bully.raise(captured); }
-    Bully.current_exception = null;
-  },
-  evaluateIf: function(node, ctx) {
-    var i, rv = null, eval_else = true;
-    for (i = 0; i < node.conditions.length; i += 1) {
-      if (Bully.test(this._evaluate(node.conditions[i], ctx))) {
-        eval_else = false;
-        rv = this._evaluate(node.bodies[i], ctx);
-        break;
-      }
-    }
-    if (node.else_body && eval_else) {
-      rv = this._evaluate(node.else_body, ctx);
-    }
-    return rv;
-  },
-  evaluateUnless: function(node, ctx) {
-    var rv = null;
-    if (!Bully.test(this._evaluate(node.condition, ctx))) {
-      rv = this._evaluate(node.body, ctx);
-    }
-    return rv;
   }
 };
-Bully.Evaluator.Context = function(self, modules) {
-  this.self = self;
-  this.modules = modules ? modules.slice() : [];
-  this.scopes = [{}];
+Bully.VM.StackFrame = function() {
+  this.sp = 0;
+  this.stack = [];
+  this.self = Bully.main;
+  this.modules = []
+  this.parent = null;
 };
-Bully.Evaluator.Context.prototype = {
-  // The current value of the self variable.
-  self: null,
-  // The current lexical module stack.  Modules are pushed on to this stack
-  // whenever one is opened and popped off whenever it is closed.  This is
-  // primarily used to resolve constants.
-  modules: [],
-  // The current stack of lexical scopes.  This is where local variable are
-  // stored.
-  scopes: [{}],
-  // Set when a method created by a Def node is evaluated.  This is used when
-  // Super nodes are encountered during the execution of a method body.
-  method_name: null,
-  // Set when a method created by a Def node is evaluated.  This is used when
-  // Super nodes are encountered during the execution of a method body so that
-  // arguments can be implicitly passed to the super method.
-  args: null,
-  // Set when a method created by a Def node is evaluated and is passed a block.
-  // This is used when Yield nodes are evaluated.
-  proc: null,
-  // This property indicates whether or not we are currently inside of a Proc.
-  // This is used when a Return node is evaluated so that it can throw the
-  // correct exception.
-  in_proc: false,
-  push_module: function(mod) {
-    this.modules.push(mod);
+Bully.VM.StackFrame.prototype = {
+  toString: function() {
+    var a = [], obj, i;
+    for (i = 0; i < this.sp; i++) {
+      obj = this.stack[i];
+      if (obj === null) {
+        a.push('nil');
+      }
+      else {
+        a.push(obj.toString());
+      }
+    }
+    return a.toString();
   },
-  pop_module: function() {
-    this.modules.pop();
+  push: function(obj) {
+    this.stack[this.sp++] = obj;
+    return this;
   },
-  current_module: function() {
+  pop: function() {
+    return this.stack[--this.sp];
+  },
+  currentModule: function() {
     var len = this.modules.length;
     return len === 0 ? Bully.Object : this.modules[len - 1];
-  },
-  push_scope: function() {
-    this.scopes.push({});
-    return this;
-  },
-  pop_scope: function() {
-    this.scopes.pop();
-    return this;
-  },
-  current_scope: function() {
-    return this.scopes[this.scopes.length - 1];
-  },
-  find_scope: function(name) {
-    var i;
-    for (i = this.scopes.length - 1; i >= 0; i -= 1) {
-      if (this.scopes[i].hasOwnProperty(name)) {
-        return this.scopes[i];
-      }
-    }
-    return this.current_scope();
-  },
-  declare_var: function(name, value) {
-    this.current_scope()[name] = value;
-  },
-  set_var: function(name, value) {
-    var scope = this.find_scope(name);
-    scope[name] = value;
-    return value;
-  },
-  get_var: function(name) {
-    var scope = this.find_scope(name);
-    if (scope.hasOwnProperty(name)) {
-      return scope[name];
-    }
-    // FIXME: raise NameError exception
-    return undefined;
-  },
-  has_var: function(name) {
-    return typeof this.get_var(name) !== 'undefined';
   }
-};
-// This exception is thrown when a Return node is encountered.  It is handled
-// by methods so that they can return early from their body.
-Bully.Evaluator.MethodReturnException = { value: null };
-// This exception is thrown when a Return node is encountered inside of a Proc.
-// Methods also handle this exception so that a Proc created with Proc.new can
-// return from the method in which it is defined.
-Bully.Evaluator.ProcReturnException = { value: null };
-Bully.Evaluator.make_proc = function(node, ctx) {
-  return Bully.Proc.make(function(args, self) {
-    var rv, old_self;
-    if (self) {
-      old_self = ctx.self;
-      ctx.self = self;
-    }
-    ctx.push_scope();
-    ctx.in_proc = true;
-    if (node.params) {
-      Bully.Evaluator._evaluate(node.params, ctx, args);
-    }
-    rv = Bully.Evaluator._evaluate(node.body, ctx);
-    ctx.pop_scope();
-    ctx.in_proc = false;
-    if (self) {
-      ctx.self = old_self;
-    }
-    return rv;
-  });
 };
 (function() {
 Bully.Lexer = function() {};

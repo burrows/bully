@@ -1,0 +1,55 @@
+Bully.Compiler = {
+  compile: function(node) {
+    var iseq = [];
+    this.compileBody(node, iseq);
+    return iseq[0];
+  },
+
+  compileNode: function(node, iseq) {
+    this['compile' + node.type].call(this, node, iseq);
+  },
+
+  compileBody: function(node, iseq) {
+    var body = [], len = node.lines.length, i;
+
+    for (i = 0; i < len; i += 1) {
+      this.compileNode(node.lines[i], body);
+    }
+
+    iseq.push(body);
+  },
+
+  compileCall: function(node, iseq) {
+    var argLen = node.args ? node.args.length : 0, i;
+
+    // add receiver
+    if (node.expression) {
+      this.compileNode(node.expression, iseq);
+    }
+    else {
+      iseq.push(['putnil']);
+    }
+
+    // add arguments
+    for (i = 0; i < argLen; i += 1) {
+      this.compileNode(node.args[i], iseq);
+    }
+
+    iseq.push(['send', node.name, argLen]);
+
+    return iseq;
+  },
+
+  compileDef: function(node, iseq) {
+    var putiseq = ['putiseq'];
+
+    iseq.push(['putcurrentmodule']);
+    this.compileBody(node.body, putiseq)
+    iseq.push(putiseq);
+    iseq.push(['definemethod', node.name, false]);
+  },
+
+  compileNumberLiteral: function(node, iseq) {
+    iseq.push(['putobject', parseFloat(node.value)]);
+  }
+};

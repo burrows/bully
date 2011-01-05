@@ -21,6 +21,12 @@ var options = [
     callback    : function() { selectedOpts.nodes = true; }
   },
   {
+    short       : 'c',
+    long        : 'compile',
+    description : 'Print the compiled instruction sequence',
+    callback    : function() { selectedOpts.compile = true; }
+  },
+  {
     short       : 'e',
     long        : 'eval',
     description : 'Evaluate the given Bully code',
@@ -44,6 +50,11 @@ function printParseTree(file) {
   sys.puts(sys.inspect(ast, false, null));
 };
 
+function printISeq(file) {
+  var ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(file, 'ascii')));
+  sys.puts(sys.inspect(Bully.Compiler.compile(ast), false, null));
+};
+
 function evaluateCode(code) {
   var exit_code = 0, ast;
 
@@ -54,11 +65,13 @@ function evaluateCode(code) {
 };
 
 function evaluateFiles(files) {
-  var exit_code = 0, i, ast;
+  var exit_code = 0, i, ast, iseq;
 
   for (i = 0; i < files.length && exit_code === 0; i++) {
     ast = Bully.parser.parse((new Bully.Lexer()).tokenize(fs.readFileSync(files[i], 'ascii')));
-    exit_code = Bully.Evaluator.evaluate(ast);
+    iseq = Bully.Compiler.compile(ast);
+
+    exit_code = Bully.VM.run(iseq);
   }
 
   Bully.dispatch_method(Bully.main, 'exit', exit_code);
@@ -69,6 +82,7 @@ opts.parse(options);
 if (selectedOpts.help)         { opts.help();                     }
 else if (selectedOpts.tokens)  { printTokens(opts.args()[0]);     }
 else if (selectedOpts.nodes)   { printParseTree(opts.args()[0]);  }
+else if (selectedOpts.compile) { printISeq(opts.args()[0]);       }
 else if (selectedOpts.eval)    { evaluateCode(selectedOpts.eval); }
 else                           { evaluateFiles(opts.args());      }
 

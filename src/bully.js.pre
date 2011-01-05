@@ -18,7 +18,8 @@ exports.Bully = Bully = {};
 #include "number.js.pre"
 #include "enumerable.js.pre"
 #include "platform/node.js.pre"
-#include "eval.js.pre"
+#include "compiler.js.pre"
+#include "vm.js.pre"
 
 #include "lexer.js.pre"
 #include "rewriter.js.pre"
