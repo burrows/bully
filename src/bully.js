@@ -1385,112 +1385,104 @@ Bully.platform = {
   read_file: function(path) {
     return fs.readFileSync(path, 'ascii');
   }
-};Bully.Compiler = {
+};
+(function() {
+var ISeqContext = function(opts) {
+  opts = opts || {};
+  this.name = opts.name || "";
+  this.type = opts.type || "";
+  this.locals = opts.locals || [];
+  this.args = opts.args || 0;
+  return this;
+};
+ISeqContext.prototype = {
+};
+Bully.Compiler = {
   compile: function(node) {
-    var iseq = [];
-    this.compileBody(node, iseq);
-    return iseq[0];
+    var ctx = new ISeqContext({ name: '<compiled>', type: 'top' });
+    return this.compileBody(node, ctx);
   },
-  compileNode: function(node, iseq) {
-    this['compile' + node.type].call(this, node, iseq);
-  },
-  compileBody: function(node, iseq) {
-    var body = [], len = node.lines.length, i;
+  // Compiles a Body node into an instruction sequence.  The format is as
+  // follows:
+  //
+  // Index Description
+  // ----- ---------------------------------------------------------------------
+  // 0     opcode (iseq)
+  // 1     name
+  // 2     type (top, class, module, method, block)
+  // 3     array of local variable names
+  // 4     arguments description
+  // 5     instruction sequence body
+  compileBody: function(node, ctx) {
+    var len = node.lines.length, body = [], i;
     for (i = 0; i < len; i += 1) {
-      this.compileNode(node.lines[i], body);
+      this['compile' + (node.lines[i]).type](node.lines[i], body, ctx);
     }
-    iseq.push(body);
+    return [
+      'iseq',
+      ctx.name,
+      ctx.type,
+      ctx.locals,
+      ctx.args,
+      body
+    ];
   },
-  compileCall: function(node, iseq) {
-    var argLen = node.args ? node.args.length : 0, i;
+  compileCall: function(node, iseq, ctx) {
+    var argLen = node.args ? node.args.length : 0,
+        localIdx = ctx.locals.indexOf(node.name),
+        i;
+    // check to see if this is actually a local variable reference
+    if (!node.expression && !node.args && localIdx !== -1) {
+      iseq.push(['getlocal', localIdx]);
+      return;
+    }
     // add receiver
     if (node.expression) {
-      this.compileNode(node.expression, iseq);
+      this['compile' + (node.expression).type](node.expression, iseq, ctx);
     }
     else {
       iseq.push(['putnil']);
     }
     // add arguments
     for (i = 0; i < argLen; i += 1) {
-      this.compileNode(node.args[i], iseq);
+      this['compile' + (node.args[i]).type](node.args[i], iseq, ctx);
     }
     iseq.push(['send', node.name, argLen]);
-    return iseq;
+  },
+  compileParamList: function(node, iseq, ctx) {
+    ctx.locals = ctx.locals.concat(node.required);
+    ctx.args = node.required.length;
   },
   compileDef: function(node, iseq) {
-    var putiseq = ['putiseq'];
+    var ctx = new ISeqContext({name: node.name, type: 'method'});
+    if (node.params) {
+      this.compileParamList(node.params, iseq, ctx);
+    }
+    body = this.compileBody(node.body, ctx);
     iseq.push(['putcurrentmodule']);
-    this.compileBody(node.body, putiseq)
-    iseq.push(putiseq);
+    iseq.push(['putiseq', body])
     iseq.push(['definemethod', node.name, false]);
+  },
+  compileLocalAssign: function(node, iseq, ctx) {
+    var idx = ctx.locals.length;
+    ctx.locals.push(node.name);
+    this['compile' + (node.expression).type](node.expression, iseq, ctx);
+    iseq.push(['setlocal', idx]);
   },
   compileNumberLiteral: function(node, iseq) {
     iseq.push(['putobject', parseFloat(node.value)]);
   }
-};Bully.VM = {
-  run: function(iseq, parent) {
-    var sf = new Bully.VM.StackFrame(), i;
-    sf.parent = parent;
-    this.runISeq(iseq, sf);
-    if (parent) {
-      for (i = 0; i < sf.sp; i++) {
-        parent.push(sf.stack[i]);
-      }
-    }
-    return 0;
-  },
-  runISeq: function(iseq, sf) {
-    var vm = this, len = iseq.length, ip, ins, recv, args, mod, body, i;
-    for (ip = 0; ip < len; ip += 1) {
-      ins = iseq[ip];
-      switch (ins[0]) {
-        case 'putnil':
-          sf.push(null);
-          break;
-        case 'putcurrentmodule':
-          sf.push(sf.currentModule());
-          break;
-        case 'putiseq':
-          sf.push(ins[1]);
-          break;
-        case 'putobject':
-          sf.push(ins[1]);
-          break;
-        case 'definemethod':
-          body = sf.pop();
-          mod = sf.pop();
-          Bully.define_method(mod, ins[1], body);
-          break;
-        case 'send':
-          args = [];
-          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
-          recv = sf.pop() || sf.self;
-          //sf.push(Bully.dispatch_method(rec, ins[1], args));
-          this.sendMethod(recv, ins[1], args, sf);
-          break;
-        default:
-          throw 'invalid opcode: ' + ins[0];
-      }
-    }
-  },
-  sendMethod: function(recv, name, args, sf) {
-    var method = Bully.find_method(Bully.class_of(recv), name);
-    if (typeof method === 'function') {
-      sf.push(method.call(null, recv, args));
-    }
-    else {
-      this.run(method, sf);
-    }
-  }
 };
-Bully.VM.StackFrame = function() {
+})();(function() {
+var StackFrame = function(opts) {
   this.sp = 0;
   this.stack = [];
-  this.self = Bully.main;
+  this.self = opts.self || Bully.main;
   this.modules = []
-  this.parent = null;
+  this.parent = opts.parent || null;
+  this.locals = [];
 };
-Bully.VM.StackFrame.prototype = {
+StackFrame.prototype = {
   toString: function() {
     var a = [], obj, i;
     for (i = 0; i < this.sp; i++) {
@@ -1516,6 +1508,69 @@ Bully.VM.StackFrame.prototype = {
     return len === 0 ? Bully.Object : this.modules[len - 1];
   }
 };
+Bully.VM = {
+  // Runs a compiled Bully program.
+  run: function(iseq) {
+    return this.runISeq(iseq, { self: Bully.main });
+  },
+  runISeq: function(iseq, sfOpts) {
+    var body = iseq[5], len = body.length,
+        sf, ip, ins, recv, args, mod, stackiseq, i;
+    sf = new StackFrame(sfOpts);
+    for (ip = 0; ip < len; ip += 1) {
+      ins = body[ip];
+      switch (ins[0]) {
+        case 'putnil':
+          sf.push(null);
+          break;
+        case 'putcurrentmodule':
+          sf.push(sf.currentModule());
+          break;
+        case 'putiseq':
+          sf.push(ins[1]);
+          break;
+        case 'putobject':
+          sf.push(ins[1]);
+          break;
+        case 'definemethod':
+          stackiseq = sf.pop();
+          mod = sf.pop();
+          Bully.define_method(mod, ins[1], stackiseq);
+          break;
+        case 'send':
+          args = [];
+          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
+          recv = sf.pop() || sf.self;
+          this.sendMethod(recv, ins[1], args, sf);
+          break;
+        case 'setlocal':
+          sf.locals[ins[1]] = sf.pop();
+          break;
+        case 'getlocal':
+          sf.push(sf.locals[ins[1]]);
+          break;
+        default:
+          throw 'invalid opcode: ' + ins[0];
+      }
+    }
+    // copy the current stack to the parent stack
+    if (sf.parent) {
+      for (i = 0; i < sf.sp; i++) {
+        sf.parent.push(sf.stack[i]);
+      }
+    }
+  },
+  sendMethod: function(recv, name, args, sf) {
+    var method = Bully.find_method(Bully.class_of(recv), name);
+    if (typeof method === 'function') {
+      sf.push(method.call(null, recv, args));
+    }
+    else {
+      this.runISeq(method, { parent: sf, self: recv });
+    }
+  }
+};
+})();
 (function() {
 Bully.Lexer = function() {};
 Bully.Lexer.KEYWORDS = [

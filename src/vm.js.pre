@@ -1,76 +1,15 @@
-Bully.VM = {
-  run: function(iseq, parent) {
-    var sf = new Bully.VM.StackFrame(), i;
-    sf.parent = parent;
-    this.runISeq(iseq, sf);
+(function() {
 
-    if (parent) {
-      for (i = 0; i < sf.sp; i++) {
-        parent.push(sf.stack[i]);
-      }
-    }
-
-    return 0;
-  },
-
-  runISeq: function(iseq, sf) {
-    var vm = this, len = iseq.length, ip, ins, recv, args, mod, body, i;
-
-    for (ip = 0; ip < len; ip += 1) {
-      ins = iseq[ip];
-
-      switch (ins[0]) {
-        case 'putnil':
-          sf.push(null);
-          break;
-        case 'putcurrentmodule':
-          sf.push(sf.currentModule());
-          break;
-        case 'putiseq':
-          sf.push(ins[1]);
-          break;
-        case 'putobject':
-          sf.push(ins[1]);
-          break;
-        case 'definemethod':
-          body = sf.pop();
-          mod  = sf.pop();
-          Bully.define_method(mod, ins[1], body);
-          break;
-        case 'send':
-          args = [];
-          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
-          recv = sf.pop() || sf.self;
-          //sf.push(Bully.dispatch_method(rec, ins[1], args));
-          this.sendMethod(recv, ins[1], args, sf);
-          break;
-        default:
-          throw 'invalid opcode: ' + ins[0];
-      }
-    }
-  },
-
-  sendMethod: function(recv, name, args, sf) {
-    var method = Bully.find_method(Bully.class_of(recv), name);
-
-    if (typeof method === 'function') {
-      sf.push(method.call(null, recv, args));
-    }
-    else {
-      this.run(method, sf);
-    }
-  }
-};
-
-Bully.VM.StackFrame = function() {
+var StackFrame = function(opts) {
   this.sp      = 0;
   this.stack   = [];
-  this.self    = Bully.main;
+  this.self    = opts.self || Bully.main;
   this.modules = []
-  this.parent  = null;
+  this.parent  = opts.parent || null;
+  this.locals  = [];
 };
 
-Bully.VM.StackFrame.prototype = {
+StackFrame.prototype = {
   toString: function() {
     var a = [], obj, i;
 
@@ -102,4 +41,76 @@ Bully.VM.StackFrame.prototype = {
     return len === 0 ? Bully.Object : this.modules[len - 1];
   }
 };
+
+Bully.VM = {
+  // Runs a compiled Bully program.
+  run: function(iseq) {
+    return this.runISeq(iseq, { self: Bully.main });
+  },
+
+  runISeq: function(iseq, sfOpts) {
+    var body = iseq[ISEQ_BODY_IDX], len = body.length,
+        sf, ip, ins, recv, args, mod, stackiseq, i;
+
+    sf = new StackFrame(sfOpts);
+
+    for (ip = 0; ip < len; ip += 1) {
+      ins = body[ip];
+
+      switch (ins[0]) {
+        case 'putnil':
+          sf.push(null);
+          break;
+        case 'putcurrentmodule':
+          sf.push(sf.currentModule());
+          break;
+        case 'putiseq':
+          sf.push(ins[1]);
+          break;
+        case 'putobject':
+          sf.push(ins[1]);
+          break;
+        case 'definemethod':
+          stackiseq = sf.pop();
+          mod       = sf.pop();
+          Bully.define_method(mod, ins[1], stackiseq);
+          break;
+        case 'send':
+          args = [];
+          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
+          recv = sf.pop() || sf.self;
+          this.sendMethod(recv, ins[1], args, sf);
+          break;
+        case 'setlocal':
+          sf.locals[ins[1]] = sf.pop();
+          break;
+        case 'getlocal':
+          sf.push(sf.locals[ins[1]]);
+          break;
+        default:
+          throw 'invalid opcode: ' + ins[0];
+      }
+    }
+
+    // copy the current stack to the parent stack
+    if (sf.parent) {
+      for (i = 0; i < sf.sp; i++) {
+        sf.parent.push(sf.stack[i]);
+      }
+    }
+  },
+
+  sendMethod: function(recv, name, args, sf) {
+    var method = Bully.find_method(Bully.class_of(recv), name);
+
+    if (typeof method === 'function') {
+      sf.push(method.call(null, recv, args));
+    }
+    else {
+      this.runISeq(method, { parent: sf, self: recv });
+    }
+  }
+};
+
+})();
 
