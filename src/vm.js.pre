@@ -45,19 +45,29 @@ StackFrame.prototype = {
 Bully.VM = {
   // Runs a compiled Bully program.
   run: function(iseq) {
-    return this.runISeq(iseq, { self: Bully.main });
+    return this.runISeq(iseq, [], { self: Bully.main });
   },
 
-  runISeq: function(iseq, sfOpts) {
+  runISeq: function(iseq, args, sfOpts) {
     var body = iseq[ISEQ_BODY_IDX], len = body.length,
         sf, ip, ins, recv, args, mod, stackiseq, i;
 
     sf = new StackFrame(sfOpts);
 
+    // FIXME: check argument count
+
+    // copy arguments to local variables
+    for (i = 0; i < args.length; i++) {
+      sf.locals[i] = args[i];
+    }
+
     for (ip = 0; ip < len; ip += 1) {
       ins = body[ip];
 
       switch (ins[0]) {
+        case 'pop':
+          sf.pop();
+          break;
         case 'putnil':
           sf.push(null);
           break;
@@ -107,7 +117,7 @@ Bully.VM = {
       sf.push(method.call(null, recv, args));
     }
     else {
-      this.runISeq(method, { parent: sf, self: recv });
+      this.runISeq(method, args, { parent: sf, self: recv });
     }
   }
 };

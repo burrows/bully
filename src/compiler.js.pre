@@ -44,7 +44,7 @@ Bully.Compiler = {
     var len = node.lines.length, body = [], i;
 
     for (i = 0; i < len; i += 1) {
-      COMPILE_NODE(node.lines[i], body, ctx);
+      COMPILE_NODE(node.lines[i], body, ctx, i === len - 1);
     }
 
     return [
@@ -57,20 +57,20 @@ Bully.Compiler = {
     ];
   },
 
-  compileCall: function(node, iseq, ctx) {
+  compileCall: function(node, iseq, ctx, pushResult) {
     var argLen   = node.args ? node.args.length : 0,
         localIdx = ctx.locals.indexOf(node.name),
         i;
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && localIdx !== -1) {
-      iseq.push(['getlocal', localIdx]);
+      if (pushResult) { iseq.push(['getlocal', localIdx]); }
       return;
     }
 
     // add receiver
     if (node.expression) {
-      COMPILE_NODE(node.expression, iseq, ctx);
+      COMPILE_NODE(node.expression, iseq, ctx, true);
     }
     else {
       iseq.push(['putnil']);
@@ -78,22 +78,24 @@ Bully.Compiler = {
 
     // add arguments
     for (i = 0; i < argLen; i += 1) {
-      COMPILE_NODE(node.args[i], iseq, ctx);
+      COMPILE_NODE(node.args[i], iseq, ctx, true);
     }
 
     iseq.push(['send', node.name, argLen]);
+
+    if (!pushResult) { iseq.push(['pop']); }
   },
 
-  compileParamList: function(node, iseq, ctx) {
+  compileParamList: function(node, iseq, ctx, pushResult) {
     ctx.locals = ctx.locals.concat(node.required);
     ctx.args = node.required.length;
   },
 
-  compileDef: function(node, iseq) {
+  compileDef: function(node, iseq, ctx, pushResult) {
     var ctx = new ISeqContext({name: node.name, type: 'method'});
 
     if (node.params) {
-      this.compileParamList(node.params, iseq, ctx);
+      this.compileParamList(node.params, iseq, ctx, false);
     }
 
     body = this.compileBody(node.body, ctx);
@@ -101,18 +103,22 @@ Bully.Compiler = {
     iseq.push(['putcurrentmodule']);
     iseq.push(['putiseq', body])
     iseq.push(['definemethod', node.name, false]);
+
+    if (pushResult) { iseq.push(['putnil']); }
   },
 
-  compileLocalAssign: function(node, iseq, ctx) {
+  compileLocalAssign: function(node, iseq, ctx, pushResult) {
     var idx = ctx.locals.length;
 
     ctx.locals.push(node.name);
 
-    COMPILE_NODE(node.expression, iseq, ctx);
+    COMPILE_NODE(node.expression, iseq, ctx, true);
     iseq.push(['setlocal', idx]);
   },
 
-  compileNumberLiteral: function(node, iseq) {
+  compileNumberLiteral: function(node, iseq, ctx, pushResult) {
+    if (!pushResult) { return; }
+
     iseq.push(['putobject', parseFloat(node.value)]);
   }
 };

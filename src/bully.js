@@ -1416,7 +1416,7 @@ Bully.Compiler = {
   compileBody: function(node, ctx) {
     var len = node.lines.length, body = [], i;
     for (i = 0; i < len; i += 1) {
-      this['compile' + (node.lines[i]).type](node.lines[i], body, ctx);
+      this['compile' + (node.lines[i]).type](node.lines[i], body, ctx, i === len - 1);
     }
     return [
       'iseq',
@@ -1427,49 +1427,52 @@ Bully.Compiler = {
       body
     ];
   },
-  compileCall: function(node, iseq, ctx) {
+  compileCall: function(node, iseq, ctx, pushResult) {
     var argLen = node.args ? node.args.length : 0,
         localIdx = ctx.locals.indexOf(node.name),
         i;
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && localIdx !== -1) {
-      iseq.push(['getlocal', localIdx]);
+      if (pushResult) { iseq.push(['getlocal', localIdx]); }
       return;
     }
     // add receiver
     if (node.expression) {
-      this['compile' + (node.expression).type](node.expression, iseq, ctx);
+      this['compile' + (node.expression).type](node.expression, iseq, ctx, true);
     }
     else {
       iseq.push(['putnil']);
     }
     // add arguments
     for (i = 0; i < argLen; i += 1) {
-      this['compile' + (node.args[i]).type](node.args[i], iseq, ctx);
+      this['compile' + (node.args[i]).type](node.args[i], iseq, ctx, true);
     }
     iseq.push(['send', node.name, argLen]);
+    if (!pushResult) { iseq.push(['pop']); }
   },
-  compileParamList: function(node, iseq, ctx) {
+  compileParamList: function(node, iseq, ctx, pushResult) {
     ctx.locals = ctx.locals.concat(node.required);
     ctx.args = node.required.length;
   },
-  compileDef: function(node, iseq) {
+  compileDef: function(node, iseq, ctx, pushResult) {
     var ctx = new ISeqContext({name: node.name, type: 'method'});
     if (node.params) {
-      this.compileParamList(node.params, iseq, ctx);
+      this.compileParamList(node.params, iseq, ctx, false);
     }
     body = this.compileBody(node.body, ctx);
     iseq.push(['putcurrentmodule']);
     iseq.push(['putiseq', body])
     iseq.push(['definemethod', node.name, false]);
+    if (pushResult) { iseq.push(['putnil']); }
   },
-  compileLocalAssign: function(node, iseq, ctx) {
+  compileLocalAssign: function(node, iseq, ctx, pushResult) {
     var idx = ctx.locals.length;
     ctx.locals.push(node.name);
-    this['compile' + (node.expression).type](node.expression, iseq, ctx);
+    this['compile' + (node.expression).type](node.expression, iseq, ctx, true);
     iseq.push(['setlocal', idx]);
   },
-  compileNumberLiteral: function(node, iseq) {
+  compileNumberLiteral: function(node, iseq, ctx, pushResult) {
+    if (!pushResult) { return; }
     iseq.push(['putobject', parseFloat(node.value)]);
   }
 };
@@ -1511,15 +1514,23 @@ StackFrame.prototype = {
 Bully.VM = {
   // Runs a compiled Bully program.
   run: function(iseq) {
-    return this.runISeq(iseq, { self: Bully.main });
+    return this.runISeq(iseq, [], { self: Bully.main });
   },
-  runISeq: function(iseq, sfOpts) {
+  runISeq: function(iseq, args, sfOpts) {
     var body = iseq[5], len = body.length,
         sf, ip, ins, recv, args, mod, stackiseq, i;
     sf = new StackFrame(sfOpts);
+    // FIXME: check argument count
+    // copy arguments to local variables
+    for (i = 0; i < args.length; i++) {
+      sf.locals[i] = args[i];
+    }
     for (ip = 0; ip < len; ip += 1) {
       ins = body[ip];
       switch (ins[0]) {
+        case 'pop':
+          sf.pop();
+          break;
         case 'putnil':
           sf.push(null);
           break;
@@ -1566,7 +1577,7 @@ Bully.VM = {
       sf.push(method.call(null, recv, args));
     }
     else {
-      this.runISeq(method, { parent: sf, self: recv });
+      this.runISeq(method, args, { parent: sf, self: recv });
     }
   }
 };
