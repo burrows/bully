@@ -4,7 +4,7 @@ var StackFrame = function(opts) {
   this.sp      = 0;
   this.stack   = [];
   this.self    = opts.self || Bully.main;
-  this.modules = []
+  this.modules = [];
   this.parent  = opts.parent || null;
   this.locals  = [];
 };
@@ -49,8 +49,8 @@ Bully.VM = {
   },
 
   runISeq: function(iseq, args, sfOpts) {
-    var body = iseq[ISEQ_BODY_IDX], len = body.length,
-        sf, ip, ins, recv, args, mod, stackiseq, i;
+    var body = iseq[ISEQ_BODY_IDX], len = body.length, ipStart = 0,
+        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, i;
 
     // process labels
     if (!iseq.labels) {
@@ -63,17 +63,14 @@ Bully.VM = {
 
     sf = new StackFrame(sfOpts);
 
-    // FIXME: check argument count
-
-    // copy arguments to local variables
-    for (i = 0; i < args.length; i++) {
-      sf.locals[i] = args[i];
+    if ((startLabel = this.setupArguments(iseq, args, sf))) {
+      ipStart = iseq.labels[startLabel];
     }
 
-    for (ip = 0; ip < len; ip += 1) {
+    for (ip = ipStart; ip < len; ip += 1) {
       ins = body[ip];
 
-      if (typeof ins !== 'object') { continue };
+      if (typeof ins !== 'object') { continue; }
 
       switch (ins[0]) {
         case 'pop':
@@ -100,10 +97,10 @@ Bully.VM = {
           Bully.define_method(mod, ins[1], stackiseq);
           break;
         case 'send':
-          args = [];
-          for (i = 0; i < ins[2]; i += 1) { args.unshift(sf.pop()); }
+          sendargs = [];
+          for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
           recv = sf.pop() || sf.self;
-          this.sendMethod(recv, ins[1], args, sf);
+          this.sendMethod(recv, ins[1], sendargs, sf);
           break;
         case 'setlocal':
           sf.locals[ins[1]] = sf.pop();
@@ -128,6 +125,35 @@ Bully.VM = {
     }
   },
 
+  setupArguments: function(iseq, args, sf) {
+    var nargs  = args.length,
+        desc   = iseq[ISEQ_ARGS_IDX],
+        nreq   = desc[ARGS_NUM_REQ_IDX],
+        nopt   = desc[ARGS_NUM_OPT_IDX],
+        splat  = desc[ARGS_SPLAT_IDX],
+        labels = desc[ARGS_LABELS_IDX],
+        start  = null,
+        i;
+
+    // FIXME: check number of arguments passed
+
+    // copy arguments to local variables
+    for (i = 0; i < nargs; i++) {
+      sf.locals[i] = args[i];
+    }
+
+    if (splat >= 0) {
+      sf.locals[splat] = Bully.Array.make(args.slice(nreq + nopt));
+    }
+
+    if (nopt > 0) {
+      return nargs >= nreq + nopt ? labels[labels.length - 1] :
+        labels[nargs - nreq];
+    }
+
+    return null;
+  },
+
   sendMethod: function(recv, name, args, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name);
 
@@ -140,5 +166,5 @@ Bully.VM = {
   }
 };
 
-})();
+}());
 

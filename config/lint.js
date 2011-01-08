@@ -17,7 +17,7 @@ var options = {
   on         : false, // if HTML event handlers should be allowed
   onevar     : true,  // if only one var statement per function should be allowed
   passfail   : false, // if the scan should stop on first error
-  plusplus   : true,  // if increment/decrement should not be allowed
+  plusplus   : false,  // if increment/decrement should not be allowed
   regexp     : false, // if the . should not be allowed in regexp literals
   rhino      : false, // if the Rhino environment globals should be predefined
   undef      : true,  // if variables should be declared before used

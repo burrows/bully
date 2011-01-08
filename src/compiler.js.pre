@@ -9,7 +9,7 @@ var ISeqContext = function(opts) {
   this.name   = opts.name   || "";
   this.type   = opts.type   || "";
   this.locals = opts.locals || [];
-  this.args   = opts.args   || 0;
+  this.args   = { desc: [0,0,[]], insns: [] };
 
   return this;
 };
@@ -60,8 +60,8 @@ Bully.Compiler = {
       ctx.name,
       ctx.type,
       ctx.locals,
-      ctx.args,
-      body
+      ctx.args.desc,
+      ctx.args.insns.concat(body)
     ];
   },
 
@@ -113,31 +113,70 @@ Bully.Compiler = {
     if (!push) { iseq.push(['pop']); }
   },
 
+  #define ARGS_NUM_REQ_IDX 0
+  #define ARGS_NUM_OPT_IDX 1
+  #define ARGS_SPLAT_IDX   2
+  #define ARGS_LABELS_IDX  3
   compileParamList: function(node, iseq, ctx, push) {
-    ctx.locals = ctx.locals.concat(node.required);
-    ctx.args = node.required.length;
+    var nreq = node.required.length, nopt = node.optional.length, labels = [],
+        splatIdx = -1, label, i;
+
+    // setup local variables
+    for (i = 0; i < nreq; i++) {
+      ctx.locals.push(node.required[i]);
+    }
+
+    for (i = 0; i < nopt; i++) {
+      label = this.nextLabel();
+      labels.push(label);
+      ctx.locals.push(node.optional[i].name);
+      ctx.args.insns.push(label);
+      COMPILE_NODE(node.optional[i].expression, ctx.args.insns, ctx, true);
+      ctx.args.insns.push(['setlocal', nreq + i]);
+    }
+
+    if (node.optional.length > 0) {
+      label = this.nextLabel();
+      labels.push(label);
+      ctx.args.insns.push(label);
+    }
+
+    if (node.splat) {
+      splatIdx = ctx.locals.length;
+      ctx.locals.push(node.splat);
+    }
+
+    ctx.args.desc = [
+      node.required.length,
+      node.optional.length,
+      splatIdx,
+      labels
+    ];
   },
 
   compileDef: function(node, iseq, ctx, push) {
-    var ctx = new ISeqContext({name: node.name, type: 'method'});
+    var defctx = new ISeqContext({name: node.name, type: 'method'}), body;
 
     if (node.params) {
-      this.compileParamList(node.params, iseq, ctx, false);
+      this.compileParamList(node.params, iseq, defctx, false);
     }
 
-    body = this.compileISeq(node.body, ctx);
+    body = this.compileISeq(node.body, defctx);
 
     iseq.push(['putcurrentmodule']);
-    iseq.push(['putiseq', body])
+    iseq.push(['putiseq', body]);
     iseq.push(['definemethod', node.name, false]);
 
     if (push) { iseq.push(['putnil']); }
   },
 
   compileLocalAssign: function(node, iseq, ctx, push) {
-    var idx = ctx.locals.length;
+    var idx = ctx.locals.indexOf(node.name);
 
-    ctx.locals.push(node.name);
+    if (idx === -1) {
+      idx = ctx.locals.length;
+      ctx.locals.push(node.name);
+    }
 
     COMPILE_NODE(node.expression, iseq, ctx, true);
     iseq.push(['setlocal', idx]);
@@ -194,4 +233,5 @@ Bully.Compiler = {
   }
 };
 
-})();
+}());
+
