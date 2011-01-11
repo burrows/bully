@@ -1393,6 +1393,7 @@ var ISeqContext = function(opts) {
   this.type = opts.type || "";
   this.locals = opts.locals || [];
   this.args = { desc: [0,0,[]], insns: [] };
+  this.catchTable = [];
   return this;
 };
 ISeqContext.prototype = {
@@ -1413,7 +1414,8 @@ Bully.Compiler = {
   // 2     type (top, class, module, method, block)
   // 3     array of local variable names
   // 4     arguments description
-  // 5     instruction sequence body
+  // 5     catch table
+  // 6     instruction sequence body
   //
   // node - The Body node to compile.
   // ctx  - An instance of ISeqContext.
@@ -1424,12 +1426,16 @@ Bully.Compiler = {
     for (i = 0; i < len; i += 1) {
       this['compile' + (node.lines[i]).type](node.lines[i], body, ctx, i === len - 1);
     }
+    return this.createISeq(ctx, body);
+  },
+  createISeq: function(ctx, body) {
     return [
       'iseq',
       ctx.name,
       ctx.type,
       ctx.locals,
       ctx.args.desc,
+      ctx.catchTable,
       ctx.args.insns.concat(body)
     ];
   },
@@ -1558,6 +1564,53 @@ Bully.Compiler = {
       iseq.push(endLabel);
     }
   },
+  compileConstantRef: function(node, iseq, ctx, push) {
+    var len = node.names.length, i;
+    if (node.global) {
+      // FIXME: should be able to do this with putobject
+      iseq.push(['putnil']);
+      iseq.push(['getconstant', 'Object']);
+    }
+    else {
+      iseq.push(['putnil']);
+    }
+    iseq.push(['getconstant', node.names[0]]);
+    for (i = 1; i < len; i++) {
+      iseq.push(['getconstant', node.names[i]]);
+    }
+    if (!push) { iseq.push(['pop']); }
+  },
+  compileRescueBlocks: function(rescueNodes, ctx, labels, push) {
+    var body = [], len = rescueNodes.length, rescueNode, rescueCtx, iseq, i, j;
+    rescueCtx = new ISeqContext({
+      name: 'rescue in ' + ctx.name,
+      type: 'rescue'
+    });
+    for (i = 0; i < len; i++) {
+      rescueNode = rescueNodes[i];
+      for (j = 0; j < rescueNode.exception_types.length; j++) {
+        this['compile' + (rescueNode.exception_types[j]).type](rescueNode.exception_types[j], body, rescueCtx, true);
+      }
+      this.compileBody(rescueNodes[i].body, body, rescueCtx, push);
+    }
+    iseq = this.createISeq(rescueCtx, body);
+    ctx.catchTable.push([
+      'rescue', iseq, labels.start, labels.end, labels.cont, 0
+    ]);
+  },
+  compileBeginBlock: function(node, iseq, ctx, push) {
+    var labels = {
+      start: this.nextLabel(),
+      end: this.nextLabel(),
+      cont: this.nextLabel()
+    };
+    iseq.push(labels.start);
+    this.compileBody(node.body, iseq, ctx, push);
+    iseq.push(labels.end);
+    iseq.push(['nop']);
+    iseq.push(labels.cont);
+    this.compileRescueBlocks(node.rescues, ctx, labels, push);
+  },
   nextLabel: function() {
     this.nextLabelId++;
     return 'label_' + this.nextLabelId;
@@ -1604,7 +1657,7 @@ Bully.VM = {
     return this.runISeq(iseq, [], { self: Bully.main });
   },
   runISeq: function(iseq, args, sfOpts) {
-    var body = iseq[5], len = body.length, ipStart = 0,
+    var body = iseq[6], len = body.length, ipStart = 0,
         sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, i;
     // process labels
     if (!iseq.labels) {
