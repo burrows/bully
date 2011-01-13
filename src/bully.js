@@ -1392,35 +1392,63 @@ ISeq = function(name, type) {
   this.name = name;
   this.type = type;
   this.instructions = [];
+  this.numRequiredArgs = 0;
+  this.optionalArgLabels = [];
+  this.bodyStartLabel = null;
+  this.splatIndex = -1;
   this.locals = [];
   this.catchEntries = [];
   this.currentStackSize = 0;
   this.maxStackSize = 0;
-  this.labelNumber = 0;
+  this.nextLabelNumber = 0;
   return this;
 };
 ISeq.prototype = {
+  setRequiredArgs: function(argNames) {
+    var len = argNames.length, i;
+    this.numRequiredArgs = len;
+    for (i = 0; i < len; i++) {
+      this.addLocal(argNames[i]);
+    }
+    return this;
+  },
+  addOptionalArg: function(name) {
+    var label = this.newLabel('optarg-' + name),
+        idx = this.addLocal(name);
+    this.optionalArgLabels.push(label);
+    return {index: idx, label: label};
+  },
+  setSplatArg: function(name) {
+    this.splatIndex = this.addLocal(name);
+    return this;
+  },
+  labelBodyStart: function() {
+    this.bodyStartLabel = this.newLabel('bodystart');
+    this.setLabel(this.bodyStartLabel);
+    return this.bodyStartLabel;
+  },
   addInstruction: function(opcode) {
     var insn = new Instruction(opcode,
-                               Array.prototype.slice.call(arguments, 1));
+      Array.prototype.slice.call(arguments, 1));
     this.instructions.push(insn);
     this.currentStackSize += Instruction.stackDelta(insn);
     if (this.currentStackSize > this.maxStackSize) {
       this.maxStackSize = this.currentStackSize;
     }
+    return this;
   },
-  setLabel: function() {
-    var label = new Label(this.nextLabelNumber(),
-                          this.currentPosition(),
-                          this.currentStackSize);
+  newLabel: function(name) {
+    return new Label(++this.nextLabelNumber, name);
+  },
+  setLabel: function(label) {
+    label.position = this.currentPosition();
+    label.sp = this.currentStackSize;
     this.instructions.push(label);
-    return label;
+    return this;
   },
   addCatchEntry: function(entry) {
     this.catchEntries.push(entry);
-  },
-  nextLabelNumber: function() {
-    return ++this.labelNumber;
+    return this;
   },
   currentPosition: function() {
     return this.instructions.length;
@@ -1428,15 +1456,15 @@ ISeq.prototype = {
   hasLocal: function(name) {
     return this.locals.indexOf(name) !== -1;
   },
+  addLocal: function(name) {
+    this.locals.push(name);
+    return this.locals.length - 1;
+  },
   localIndex: function(name) {
     var idx = this.locals.indexOf(name);
-    if (idx === -1) {
-      this.locals.push(name);
-      idx = this.locals.length - 1;
-    }
-    return idx;
+    return idx === -1 ? this.addLocal(name) : idx;
   },
-  // Converts the ISeq object to a raw instruction sequence consumable by the
+  // Converts the ISeq object to a raw instruction sequence executable by the
   // VM.
   //
   // Format is as follows:
@@ -1444,30 +1472,40 @@ ISeq.prototype = {
   // Index Description
   // ----- ---------------------------------------------------------------------
   // 0     "BullyISeq"
-  // 1     hash containing number of arguments, local vars and max stack size
-  // 2     name
-  // 3     type (top, class, module, method, block)
+  // 1     name
+  // 2     type (top, class, module, method, or block)
+  // 3     maximum stack size
   // 4     array of local variable names
   // 5     arguments description
   // 6     catch table
-  // 7     instruction sequence body
-  toRawInstruction: function() {
-    var result = [
+  // 7     body
+  toRaw: function() {
+    var args = new Array(4),
+        nopt = this.optionalArgLabels.length,
+        ic = this.instructions.length,
+        result, i;
+    args[0] = this.numRequiredArgs;
+    args[1] = nopt;
+    args[2] = this.splatIndex;
+    args[3] = new Array(nopt + 1);
+    if (nopt > 0) {
+      for (i = 0; i < nopt; i++) {
+        args[3][i] = this.optionalArgLabels[i].toRaw();
+      }
+      args[3][nopt] = this.bodyStartLabel.toRaw();
+    }
+    result = new Array(
       'BullyInstructionSequence',
-      {
-        arg_size: 0,
-        local_size: this.locals.length,
-        stack_max: this.maxStackSize
-      },
       this.name,
       this.type,
+      this.maxStackSize,
       this.locals,
+      args,
       [],
-      [],
-      []
-    ], len = this.instructions.length, i;
-    for (i = 0; i < len; i++) {
-      result[7].push(this.instructions[i].toRawInstruction());
+      new Array(ic)
+    );
+    for (i = 0; i < ic; i++) {
+      result[7][i] = this.instructions[i].toRaw();
     }
     return result;
   }
@@ -1484,36 +1522,56 @@ Instruction.stackDelta = function(insn) {
       return 0;
     case 'putnil':
       return 1;
-    case 'getlocal':
+    case 'putstring':
       return 1;
-    case 'setlocal':
-      return -1;
+    case 'putcurrentmodule':
+      return 1;
     case 'putiseq':
       return 1;
-    case 'send':
-      return -insn.operands[0];
     case 'putobject':
       return 1;
     case 'putself':
       return 1;
+    case 'getlocal':
+      return 1;
+    case 'setlocal':
+      return -1;
+    case 'send':
+      return -insn.operands[0];
+    case 'pop':
+      return -1;
+    case 'definemethod':
+      return -2;
+    case 'branchif':
+      return -1;
+    case 'branchunless':
+      return -1;
+    case 'jump':
+      return 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
 };
 Instruction.prototype = {
-  toRawInstruction: function() {
-    return [this.opcode].concat(this.operands);
+  toRaw: function() {
+    var a = [this.opcode], len = this.operands.length, op, i;
+    for (i = 0; i < len; i++) {
+      op = this.operands[i];
+      a.push(typeof op === 'object' ? op.toRaw() : op);
+    }
+    return a;
   }
 };
-Label = function(number, position, sp) {
+Label = function(number, name) {
   this.number = number;
-  this.position = position;
-  this.sp = sp;
+  this.name = name || 'label';
+  this.position = null;
+  this.sp = null;
   return this;
 };
 Label.prototype = {
-  toRawInstruction: function() {
-    return 'label_' + this.number;
+  toRaw: function() {
+    return this.name + '-' + this.number;
   }
 };
 //------------------------------------------------------------------------------
@@ -1521,7 +1579,7 @@ Bully.Compiler = {
   compile: function(node) {
     var iseq = new ISeq('<compiled>', 'top');
     this['compile' + (node).type](node, iseq, true);
-    return iseq.toRawInstruction();
+    return iseq.toRaw();
   },
   compileBody: function(node, iseq, push) {
     var lines = node.lines, len = lines.length, i;
@@ -1551,47 +1609,29 @@ Bully.Compiler = {
     iseq.addInstruction('send', node.name, argLen);
     if (!push) { iseq.addInstruction('pop'); }
   },
-  compileParamList: function(node, iseq, ctx, push) {
-    var nreq = node.required.length, nopt = node.optional.length, labels = [],
-        splatIdx = -1, label, i;
+  compileParamList: function(node, iseq, push) {
+    var nreq = node.required.length,
+        nopt = node.optional.length,
+        labels = [], optArg, i;
     // setup local variables
-    for (i = 0; i < nreq; i++) {
-      ctx.locals.push(node.required[i]);
-    }
+    iseq.setRequiredArgs(node.required);
     for (i = 0; i < nopt; i++) {
-      label = this.nextLabel();
-      labels.push(label);
-      ctx.locals.push(node.optional[i].name);
-      ctx.args.insns.push(label);
-      this['compile' + (node.optional[i].expression).type](node.optional[i].expression, ctx.args.insns, ctx, true);
-      ctx.args.insns.push(['setlocal', nreq + i]);
+      optArg = iseq.addOptionalArg(node.optional[i].name);
+      iseq.setLabel(optArg.label);
+      this['compile' + (node.optional[i].expression).type](node.optional[i].expression, iseq, true);
+      iseq.addInstruction('setlocal', optArg.index);
     }
-    if (node.optional.length > 0) {
-      label = this.nextLabel();
-      labels.push(label);
-      ctx.args.insns.push(label);
-    }
-    if (node.splat) {
-      splatIdx = ctx.locals.length;
-      ctx.locals.push(node.splat);
-    }
-    ctx.args.desc = [
-      node.required.length,
-      node.optional.length,
-      splatIdx,
-      labels
-    ];
+    if (nopt > 0) { iseq.labelBodyStart(); }
+    if (node.splat) { iseq.setSplatArg(node.splat); }
   },
-  compileDef: function(node, iseq, ctx, push) {
-    var defctx = new ISeqContext({name: node.name, type: 'method'}), body;
-    if (node.params) {
-      this.compileParamList(node.params, iseq, defctx, false);
-    }
-    body = this.compileISeq(node.body, defctx);
-    iseq.push(['putcurrentmodule']);
-    iseq.push(['putiseq', body]);
-    iseq.push(['definemethod', node.name, false]);
-    if (push) { iseq.push(['putnil']); }
+  compileDef: function(node, iseq, push) {
+    var defiseq = new ISeq(node.name, 'method');
+    if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
+    this['compile' + (node.body).type](node.body, defiseq, false);
+    iseq.addInstruction('putcurrentmodule');
+    iseq.addInstruction('putiseq', defiseq);
+    iseq.addInstruction('definemethod', node.name, false);
+    if (push) { iseq.addInstruction('putnil'); }
   },
   compileLocalAssign: function(node, iseq, push) {
     var idx = iseq.localIndex(node.name);
@@ -1602,34 +1642,34 @@ Bully.Compiler = {
     if (!push) { return; }
     iseq.addInstruction('putobject', parseFloat(node.value));
   },
-  compileStringLiteral: function(node, iseq, ctx, push) {
+  compileStringLiteral: function(node, iseq, push) {
     if (!push) { return; }
-    iseq.push(['putstring', node.value]);
+    iseq.addInstruction('putstring', node.value);
   },
-  compileTrueLiteral: function(node, iseq, ctx, push) {
+  compileTrueLiteral: function(node, iseq, push) {
     if (!push) { return; }
-    iseq.push(['putobject', true]);
+    iseq.addInstruction('putobject', true);
   },
-  compileFalseLiteral: function(node, iseq, ctx, push) {
+  compileFalseLiteral: function(node, iseq, push) {
     if (!push) { return; }
-    iseq.push(['putobject', false]);
+    iseq.addInstruction('putobject', false);
   },
-  compileIf: function(node, iseq, ctx, push) {
+  compileIf: function(node, iseq, push) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
-    for (i = 0; i < len; i++) { labels.push(this.nextLabel()); }
-    endLabel = node.else_body ? this.nextLabel() : labels[len - 1];
+    for (i = 0; i < len; i++) { labels.push(iseq.newLabel()); }
+    endLabel = node.else_body ? iseq.newLabel() : labels[len - 1];
     for (i = 0; i < len; i++) {
-      this['compile' + (node.conditions[i]).type](node.conditions[i], iseq, ctx, true);
-      iseq.push(['branchunless', labels[i]]);
-      this['compile' + (node.bodies[i]).type](node.bodies[i], iseq, ctx, push);
+      this['compile' + (node.conditions[i]).type](node.conditions[i], iseq, true);
+      iseq.addInstruction('branchunless', labels[i]);
+      this['compile' + (node.bodies[i]).type](node.bodies[i], iseq, push);
       if (i !== len - 1 || node.else_body) {
-        iseq.push(['jump', endLabel]);
+        iseq.addInstruction('jump', endLabel);
       }
-      iseq.push(labels[i]);
+      iseq.setLabel(labels[i]);
     }
     if (node.else_body) {
-      this['compile' + (node.else_body).type](node.else_body, iseq, ctx, push);
-      iseq.push(endLabel);
+      this['compile' + (node.else_body).type](node.else_body, iseq, push);
+      iseq.setLabel(endLabel);
     }
   },
   compileConstantRef: function(node, iseq, ctx, push) {
@@ -1687,7 +1727,7 @@ Bully.Compiler = {
 }());(function() {
 var StackFrame = function(opts) {
   this.sp = 0;
-  this.stack = [];
+  this.stack = opts.stackSize ? new Array(opts.stackSize) : [];
   this.self = opts.self || Bully.main;
   this.modules = [];
   this.parent = opts.parent || null;
@@ -1735,6 +1775,7 @@ Bully.VM = {
         if (typeof ins === 'string') { iseq.labels[ins] = ip; }
       }
     }
+    sfOpts.stackSize = iseq[3];
     sf = new StackFrame(sfOpts);
     if ((startLabel = this.setupArguments(iseq, args, sf))) {
       ipStart = iseq.labels[startLabel];
@@ -1772,7 +1813,7 @@ Bully.VM = {
         case 'send':
           sendargs = [];
           for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
-          recv = sf.pop() || sf.self;
+          recv = sf.pop();
           this.sendMethod(recv, ins[1], sendargs, sf);
           break;
         case 'setlocal':
