@@ -1387,97 +1387,169 @@ Bully.platform = {
   }
 };
 (function() {
-var ISeqContext = function(opts) {
-  opts = opts || {};
-  this.name = opts.name || "";
-  this.type = opts.type || "";
-  this.locals = opts.locals || [];
-  this.args = { desc: [0,0,[]], insns: [] };
-  this.catchTable = [];
+var ISeq, Instruction, Label;
+ISeq = function(name, type) {
+  this.name = name;
+  this.type = type;
+  this.instructions = [];
+  this.locals = [];
+  this.catchEntries = [];
+  this.currentStackSize = 0;
+  this.maxStackSize = 0;
+  this.labelNumber = 0;
   return this;
 };
-ISeqContext.prototype = {
-};
-Bully.Compiler = {
-  compile: function(node) {
-    var ctx = new ISeqContext({ name: '<compiled>', type: 'top' });
-    this.nextLabelId = 0;
-    return this.compileISeq(node, ctx);
+ISeq.prototype = {
+  addInstruction: function(opcode) {
+    var insn = new Instruction(opcode,
+                               Array.prototype.slice.call(arguments, 1));
+    this.instructions.push(insn);
+    this.currentStackSize += Instruction.stackDelta(insn);
+    if (this.currentStackSize > this.maxStackSize) {
+      this.maxStackSize = this.currentStackSize;
+    }
   },
-  // Compiles a Body node into an instruction sequence.  The format is as
-  // follows:
+  setLabel: function() {
+    var label = new Label(this.nextLabelNumber(),
+                          this.currentPosition(),
+                          this.currentStackSize);
+    this.instructions.push(label);
+    return label;
+  },
+  addCatchEntry: function(entry) {
+    this.catchEntries.push(entry);
+  },
+  nextLabelNumber: function() {
+    return ++this.labelNumber;
+  },
+  currentPosition: function() {
+    return this.instructions.length;
+  },
+  hasLocal: function(name) {
+    return this.locals.indexOf(name) !== -1;
+  },
+  localIndex: function(name) {
+    var idx = this.locals.indexOf(name);
+    if (idx === -1) {
+      this.locals.push(name);
+      idx = this.locals.length - 1;
+    }
+    return idx;
+  },
+  // Converts the ISeq object to a raw instruction sequence consumable by the
+  // VM.
+  //
+  // Format is as follows:
   //
   // Index Description
   // ----- ---------------------------------------------------------------------
-  // 0     opcode (iseq)
-  // 1     name
-  // 2     type (top, class, module, method, block)
-  // 3     array of local variable names
-  // 4     arguments description
-  // 5     catch table
-  // 6     instruction sequence body
-  //
-  // node - The Body node to compile.
-  // ctx  - An instance of ISeqContext.
-  //
-  // Returns the compiled instruction sequence.
-  compileISeq: function(node, ctx) {
-    var len = node.lines.length, body = [], i;
-    for (i = 0; i < len; i += 1) {
-      this['compile' + (node.lines[i]).type](node.lines[i], body, ctx, i === len - 1);
+  // 0     "BullyISeq"
+  // 1     hash containing number of arguments, local vars and max stack size
+  // 2     name
+  // 3     type (top, class, module, method, block)
+  // 4     array of local variable names
+  // 5     arguments description
+  // 6     catch table
+  // 7     instruction sequence body
+  toRawInstruction: function() {
+    var result = [
+      'BullyInstructionSequence',
+      {
+        arg_size: 0,
+        local_size: this.locals.length,
+        stack_max: this.maxStackSize
+      },
+      this.name,
+      this.type,
+      this.locals,
+      [],
+      [],
+      []
+    ], len = this.instructions.length, i;
+    for (i = 0; i < len; i++) {
+      result[7].push(this.instructions[i].toRawInstruction());
     }
-    return this.createISeq(ctx, body);
+    return result;
+  }
+};
+Instruction = function(opcode, operands) {
+  this.opcode = opcode;
+  this.operands = operands;
+  return this;
+};
+Instruction.stackDelta = function(insn) {
+  if (insn instanceof Label) { return 0; }
+  switch (insn.opcode) {
+    case 'nop':
+      return 0;
+    case 'putnil':
+      return 1;
+    case 'getlocal':
+      return 1;
+    case 'setlocal':
+      return -1;
+    case 'putiseq':
+      return 1;
+    case 'send':
+      return -insn.operands[0];
+    case 'putobject':
+      return 1;
+    case 'putself':
+      return 1;
+    default:
+      throw new Error('invalid opcode: ' + insn.opcode);
+  }
+};
+Instruction.prototype = {
+  toRawInstruction: function() {
+    return [this.opcode].concat(this.operands);
+  }
+};
+Label = function(number, position, sp) {
+  this.number = number;
+  this.position = position;
+  this.sp = sp;
+  return this;
+};
+Label.prototype = {
+  toRawInstruction: function() {
+    return 'label_' + this.number;
+  }
+};
+//------------------------------------------------------------------------------
+Bully.Compiler = {
+  compile: function(node) {
+    var iseq = new ISeq('<compiled>', 'top');
+    this['compile' + (node).type](node, iseq, true);
+    return iseq.toRawInstruction();
   },
-  createISeq: function(ctx, body) {
-    return [
-      'iseq',
-      ctx.name,
-      ctx.type,
-      ctx.locals,
-      ctx.args.desc,
-      ctx.catchTable,
-      ctx.args.insns.concat(body)
-    ];
-  },
-  // Compiles a Body node into an existing instruction sequence.  This is used
-  // for AST Body nodes that don't get compiled into a new instruction sequence
-  // (e.g. the bodies of an If expression).
-  //
-  // node - The Body node to compile.
-  // iseq - The instruction sequence to append the compiled instructions to.
-  // ctx  - An instance of ISeqContext.
-  // push - A boolean indicating whether or not the result of this expression
-  //        should be pushed onto the stack.
-  //
-  // Returns nothing.
-  compileBody: function(node, iseq, ctx, push) {
+  compileBody: function(node, iseq, push) {
     var lines = node.lines, len = lines.length, i;
     for (i = 0; i < len; i++) {
-      this['compile' + (lines[i]).type](lines[i], iseq, ctx, push && (i === len - 1));
+      this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1));
     }
   },
-  compileCall: function(node, iseq, ctx, push) {
+  compileCall: function(node, iseq, push) {
     var argLen = node.args ? node.args.length : 0,
-        localIdx = ctx.locals.indexOf(node.name),
-        i;
+        localIdx, i;
     // check to see if this is actually a local variable reference
-    if (!node.expression && !node.args && localIdx !== -1) {
-      if (push) { iseq.push(['getlocal', localIdx]); }
+    if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
+      if (push) { iseq.addInstruction('getlocal', iseq.localIndex(node.name)); }
       return;
     }
     // add receiver
     if (node.expression) {
-      this['compile' + (node.expression).type](node.expression, iseq, ctx, true);
+      this['compile' + (node.expression).type](node.expression, iseq, true);
     }
     else {
-      iseq.push(['putnil']);
+      iseq.addInstruction('putself');
     }
     // add arguments
     for (i = 0; i < argLen; i += 1) {
-      this['compile' + (node.args[i]).type](node.args[i], iseq, ctx, true);
+      this['compile' + (node.args[i]).type](node.args[i], iseq, true);
     }
-    iseq.push(['send', node.name, argLen]);
-    if (!push) { iseq.push(['pop']); }
+    iseq.addInstruction('send', node.name, argLen);
+    if (!push) { iseq.addInstruction('pop'); }
   },
   compileParamList: function(node, iseq, ctx, push) {
     var nreq = node.required.length, nopt = node.optional.length, labels = [],
@@ -1521,18 +1593,14 @@ Bully.Compiler = {
     iseq.push(['definemethod', node.name, false]);
     if (push) { iseq.push(['putnil']); }
   },
-  compileLocalAssign: function(node, iseq, ctx, push) {
-    var idx = ctx.locals.indexOf(node.name);
-    if (idx === -1) {
-      idx = ctx.locals.length;
-      ctx.locals.push(node.name);
-    }
-    this['compile' + (node.expression).type](node.expression, iseq, ctx, true);
-    iseq.push(['setlocal', idx]);
+  compileLocalAssign: function(node, iseq, push) {
+    var idx = iseq.localIndex(node.name);
+    this['compile' + (node.expression).type](node.expression, iseq, true);
+    iseq.addInstruction('setlocal', idx);
   },
-  compileNumberLiteral: function(node, iseq, ctx, push) {
+  compileNumberLiteral: function(node, iseq, push) {
     if (!push) { return; }
-    iseq.push(['putobject', parseFloat(node.value)]);
+    iseq.addInstruction('putobject', parseFloat(node.value));
   },
   compileStringLiteral: function(node, iseq, ctx, push) {
     if (!push) { return; }
@@ -1657,7 +1725,7 @@ Bully.VM = {
     return this.runISeq(iseq, [], { self: Bully.main });
   },
   runISeq: function(iseq, args, sfOpts) {
-    var body = iseq[6], len = body.length, ipStart = 0,
+    var body = iseq[7], len = body.length, ipStart = 0,
         sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, i;
     // process labels
     if (!iseq.labels) {
@@ -1680,6 +1748,9 @@ Bully.VM = {
           break;
         case 'putnil':
           sf.push(null);
+          break;
+        case 'putself':
+          sf.push(sf.self);
           break;
         case 'putcurrentmodule':
           sf.push(sf.currentModule());
@@ -1727,7 +1798,7 @@ Bully.VM = {
   },
   setupArguments: function(iseq, args, sf) {
     var nargs = args.length,
-        desc = iseq[4],
+        desc = iseq[5],
         nreq = desc[0],
         nopt = desc[1],
         splat = desc[2],

@@ -79,6 +79,9 @@ Bully.VM = {
         case 'putnil':
           sf.push(null);
           break;
+        case 'putself':
+          sf.push(sf.self);
+          break;
         case 'putcurrentmodule':
           sf.push(sf.currentModule());
           break;
