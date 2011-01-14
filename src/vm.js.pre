@@ -50,7 +50,7 @@ Bully.VM = {
 
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[ISEQ_BODY_IDX], len = body.length, ipStart = 0,
-        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, i;
+        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
 
     // process labels
     if (!iseq.labels) {
@@ -84,6 +84,9 @@ Bully.VM = {
         case 'putself':
           sf.push(sf.self);
           break;
+        case 'putbuiltin':
+          sf.push(Bully[ins[1]]);
+          break;
         case 'putcurrentmodule':
           sf.push(sf.currentModule());
           break;
@@ -112,6 +115,10 @@ Bully.VM = {
           break;
         case 'getlocal':
           sf.push(sf.locals[ins[1]]);
+          break;
+        case 'getconstant':
+          klass = sf.pop();
+          sf.push(this.getConstant(klass, ins[1]));
           break;
         case 'branchunless':
           if (!Bully.test(sf.pop())) { ip = iseq.labels[ins[1]]; }
@@ -167,6 +174,18 @@ Bully.VM = {
     }
     else {
       this.runISeq(method, args, { parent: sf, self: recv });
+    }
+  },
+
+  getConstant: function(klass, name) {
+    var modules;
+
+    if (!klass) {
+      // FIXME: perform lexical lookup
+      return Bully.const_get(Bully.Object, name);
+    }
+    else {
+      return Bully.const_get(klass, name);
     }
   }
 };

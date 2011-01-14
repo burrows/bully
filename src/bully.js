@@ -1515,39 +1515,31 @@ Instruction = function(opcode, operands) {
   this.operands = operands;
   return this;
 };
+Instruction.ConstantStackDeltas = {
+  nop: 0,
+  putnil: 1,
+  putstring: 1,
+  putbuiltin: 1,
+  putcurrentmodule: 1,
+  putiseq: 1,
+  putobject: 1,
+  putself: 1,
+  getlocal: 1,
+  setlocal: -1,
+  getconstant: 0,
+  pop: -1,
+  definemethod: -2,
+  branchif: -1,
+  branchunless: -1,
+  jump: 0
+};
 Instruction.stackDelta = function(insn) {
+  var opcode = insn.opcode, constants = this.ConstantStackDeltas;
   if (insn instanceof Label) { return 0; }
-  switch (insn.opcode) {
-    case 'nop':
-      return 0;
-    case 'putnil':
-      return 1;
-    case 'putstring':
-      return 1;
-    case 'putcurrentmodule':
-      return 1;
-    case 'putiseq':
-      return 1;
-    case 'putobject':
-      return 1;
-    case 'putself':
-      return 1;
-    case 'getlocal':
-      return 1;
-    case 'setlocal':
-      return -1;
+  else if (insn.opcode in constants) { return constants[opcode]; }
+  switch (opcode) {
     case 'send':
       return -insn.operands[0];
-    case 'pop':
-      return -1;
-    case 'definemethod':
-      return -2;
-    case 'branchif':
-      return -1;
-    case 'branchunless':
-      return -1;
-    case 'jump':
-      return 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -1672,21 +1664,19 @@ Bully.Compiler = {
       iseq.setLabel(endLabel);
     }
   },
-  compileConstantRef: function(node, iseq, ctx, push) {
+  compileConstantRef: function(node, iseq, push) {
     var len = node.names.length, i;
     if (node.global) {
-      // FIXME: should be able to do this with putobject
-      iseq.push(['putnil']);
-      iseq.push(['getconstant', 'Object']);
+      iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
-      iseq.push(['putnil']);
+      iseq.addInstruction('putnil');
     }
-    iseq.push(['getconstant', node.names[0]]);
+    iseq.addInstruction('getconstant', node.names[0]);
     for (i = 1; i < len; i++) {
-      iseq.push(['getconstant', node.names[i]]);
+      iseq.addInstruction('getconstant', node.names[i]);
     }
-    if (!push) { iseq.push(['pop']); }
+    if (!push) { iseq.addInstruction('pop'); }
   },
   compileRescueBlocks: function(rescueNodes, ctx, labels, push) {
     var body = [], len = rescueNodes.length, rescueNode, rescueCtx, iseq, i, j;
@@ -1766,7 +1756,7 @@ Bully.VM = {
   },
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[7], len = body.length, ipStart = 0,
-        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, i;
+        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -1792,6 +1782,9 @@ Bully.VM = {
           break;
         case 'putself':
           sf.push(sf.self);
+          break;
+        case 'putbuiltin':
+          sf.push(Bully[ins[1]]);
           break;
         case 'putcurrentmodule':
           sf.push(sf.currentModule());
@@ -1821,6 +1814,10 @@ Bully.VM = {
           break;
         case 'getlocal':
           sf.push(sf.locals[ins[1]]);
+          break;
+        case 'getconstant':
+          klass = sf.pop();
+          sf.push(this.getConstant(klass, ins[1]));
           break;
         case 'branchunless':
           if (!Bully.test(sf.pop())) { ip = iseq.labels[ins[1]]; }
@@ -1867,6 +1864,16 @@ Bully.VM = {
     }
     else {
       this.runISeq(method, args, { parent: sf, self: recv });
+    }
+  },
+  getConstant: function(klass, name) {
+    var modules;
+    if (!klass) {
+      // FIXME: perform lexical lookup
+      return Bully.const_get(Bully.Object, name);
+    }
+    else {
+      return Bully.const_get(klass, name);
     }
   }
 };
@@ -2133,7 +2140,7 @@ Bully.Rewriter.prototype = {
         next = this.peek(),
         next2 = this.peek(2),
         before = ['IDENTIFIER', 'SUPER', 'YIELD'],
-        after = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '['];
+        after = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '[', '::'];
     if (!prev || !cur || !next) { return false; }
     if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE') {
       if (after.indexOf(next[0]) !== -1) { return true; }
