@@ -26,6 +26,10 @@ Bully.init_error = function() {
     return Bully.String.make('#<' + name.data + ': ' + send(self, 'message').data + '>');
   });
 
+  Bully.define_singleton_method(Bully.Exception, '===', function(self, args) {
+    return send(args[0], 'is_a?', self);
+  });
+
   Bully.LoadError      = Bully.define_class('LoadError', Bully.Exception);
   Bully.StandardError  = Bully.define_class('StandardError', Bully.Exception);
   Bully.ArgumentError  = Bully.define_class('ArgumentError', Bully.StandardError);

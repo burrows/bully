@@ -5,10 +5,12 @@
 
 var ISeq, Instruction, Label;
 
-ISeq = function(name, type) {
+ISeq = function(type, name) {
   this.name              = name;
   this.type              = type;
   this.instructions      = [];
+  this.parentISeq        = null;
+  this.localISeq         = this;
   this.numRequiredArgs   = 0;
   this.optionalArgLabels = [];
   this.bodyStartLabel    = null;
@@ -23,6 +25,21 @@ ISeq = function(name, type) {
 };
 
 ISeq.prototype = {
+  newChildISeq: function(type, name) {
+    var iseq = new ISeq(type, name);
+
+    iseq.parentISeq = this;
+
+    if (type === 'rescue') {
+      iseq.localISeq = this;
+    }
+    else {
+      iseq.localISeq = iseq;
+    }
+
+    return iseq;
+  },
+
   setRequiredArgs: function(argNames) {
     var len = argNames.length, i;
 
@@ -85,8 +102,16 @@ ISeq.prototype = {
     return this;
   },
 
-  addCatchEntry: function(entry) {
-    this.catchEntries.push(entry);
+  addCatchEntry: function(type, iseq, start, stop, cont) {
+    this.catchEntries.push({
+      type: type,
+      iseq: iseq,
+      start: start,
+      stop: stop,
+      cont: cont,
+      sp: this.currentStackSize
+    });
+
     return this;
   },
 
@@ -95,18 +120,17 @@ ISeq.prototype = {
   },
 
   hasLocal: function(name) {
-    return this.locals.indexOf(name) !== -1;
+    return this.localISeq.locals.indexOf(name) !== -1;
   },
 
   addLocal: function(name) {
-    this.locals.push(name);
-    return this.locals.length - 1;
+    var locals = this.localISeq.locals;
+    locals.push(name);
+    return locals.length - 1;
   },
 
   localIndex: function(name) {
-    var idx = this.locals.indexOf(name);
-
-    return idx === -1 ? this.addLocal(name) : idx;
+    return this.localISeq.locals.indexOf(name);
   },
 
   #define ISEQ_NAME_IDX      1
@@ -121,6 +145,13 @@ ISeq.prototype = {
   #define ISEQ_ARGS_NUM_OPT_IDX 1
   #define ISEQ_ARGS_SPLAT_IDX   2
   #define ISEQ_ARGS_LABELS_IDX  3
+
+  #define CATCH_ENTRY_TYPE_IDX      0
+  #define CATCH_ENTRY_ISEQ_IDX      1
+  #define CATCH_ENTRY_START_LBL_IDX 2
+  #define CATCH_ENTRY_STOP_LBL_IDX  3
+  #define CATCH_ENTRY_CONT_LBL_IDX  4
+  #define CATCH_ENTRY_SP_IDX        5
 
   // Converts the ISeq object to a raw instruction sequence executable by the
   // VM.
@@ -138,21 +169,37 @@ ISeq.prototype = {
   // 6     catch table
   // 7     body
   toRaw: function() {
-    var args = new Array(4),
-        nopt = this.optionalArgLabels.length,
-        ic   = this.instructions.length,
-        result, i;
+    var args       = new Array(4),
+        catchLen   = this.catchEntries.length,
+        catchTable = new Array(catchLen),
+        nopt       = this.optionalArgLabels.length,
+        ic         = this.instructions.length,
+        result, catchEntry, i;
 
     args[ISEQ_ARGS_NUM_REQ_IDX] = this.numRequiredArgs;
     args[ISEQ_ARGS_NUM_OPT_IDX] = nopt;
     args[ISEQ_ARGS_SPLAT_IDX]   = this.splatIndex;
     args[ISEQ_ARGS_LABELS_IDX]  = new Array(nopt + 1);
 
+    // setup args
     if (nopt > 0) {
       for (i = 0; i < nopt; i++) {
         args[ISEQ_ARGS_LABELS_IDX][i] = this.optionalArgLabels[i].toRaw();
       }
       args[ISEQ_ARGS_LABELS_IDX][nopt] = this.bodyStartLabel.toRaw();
+    }
+
+    // catch table
+    for (i = 0; i < catchLen; i++) {
+      catchEntry = this.catchEntries[i];
+      catchTable[i] = new Array(
+        catchEntry.type,
+        catchEntry.iseq.toRaw(),
+        catchEntry.start.toRaw(),
+        catchEntry.stop.toRaw(),
+        catchEntry.cont.toRaw(),
+        catchEntry.sp
+      );
     }
 
     result = new Array(
@@ -162,7 +209,7 @@ ISeq.prototype = {
       this.maxStackSize,
       this.locals,
       args,
-      [],
+      catchTable,
       new Array(ic)
     );
 
@@ -193,11 +240,14 @@ Instruction.ConstantStackDeltas = {
   getlocal:          1,
   setlocal:         -1,
   getconstant:       0,
+  getdynamic:        1,
   pop:              -1,
   definemethod:     -2,
   branchif:         -1,
   branchunless:     -1,
-  jump:              0
+  jump:              0,
+  leave:             0,
+  throw:             0
 };
 
 Instruction.stackDelta = function(insn) {
@@ -208,7 +258,7 @@ Instruction.stackDelta = function(insn) {
 
   switch (opcode) {
     case 'send':
-      return -insn.operands[0];
+      return -insn.operands[1];
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -246,7 +296,7 @@ Label.prototype = {
 
 Bully.Compiler = {
   compile: function(node) {
-    var iseq = new ISeq('<compiled>', 'top');
+    var iseq = new ISeq('top', '<compiled>');
 
     COMPILE_NODE(node, iseq, true);
 
@@ -310,7 +360,7 @@ Bully.Compiler = {
   },
 
   compileDef: function(node, iseq, push) {
-    var defiseq = new ISeq(node.name, 'method');
+    var defiseq = new ISeq('method', node.name);
 
     if (node.params) { COMPILE_NODE(node.params, defiseq, push); }
 
@@ -324,7 +374,8 @@ Bully.Compiler = {
   },
 
   compileLocalAssign: function(node, iseq, push) {
-    var idx = iseq.localIndex(node.name);
+    var idx = iseq.hasLocal(node.name) ?
+      iseq.localIndex(node.name) : iseq.addLocal(node.name);
 
     COMPILE_NODE(node.expression, iseq, true);
 
@@ -395,45 +446,74 @@ Bully.Compiler = {
     if (!push) { iseq.addInstruction('pop'); }
   },
 
-  compileRescueBlocks: function(rescueNodes, ctx, labels, push) {
-    var body = [], len = rescueNodes.length, rescueNode, rescueCtx, iseq, i, j;
+  compileRescueBlock: function(node, iseq, push) {
+    var bodyl = iseq.newLabel('body'),
+        endl  = iseq.newLabel('end'),
+        localIdx, len, i;
 
-    rescueCtx = new ISeqContext({
-      name: 'rescue in ' + ctx.name,
-      type: 'rescue'
-    });
+    if (node.exception_types) {
+      len = node.exception_types.length;
 
-    for (i = 0; i < len; i++) {
-      rescueNode = rescueNodes[i];
+      for (i = 0; i < len; i++) {
+        COMPILE_NODE(node.exception_types[i], iseq, true);
+        iseq.addInstruction('getdynamic', 0, 0);
+        iseq.addInstruction('send', '===', 1);
 
-      for (j = 0; j < rescueNode.exception_types.length; j++) {
-        COMPILE_NODE(rescueNode.exception_types[j], body, rescueCtx, true);
+        if (i === len - 1) {
+          iseq.addInstruction('branchunless', endl);
+        }
+        else {
+          iseq.addInstruction('branchif', bodyl);
+        }
       }
-
-      this.compileBody(rescueNodes[i].body, body, rescueCtx, push);
+    }
+    else {
+      iseq.addInstruction('putbuiltin', 'StandardError');
+      iseq.addInstruction('getdynamic', 0, 0);
+      iseq.addInstruction('send', '===', 1);
+      iseq.addInstruction('branchunless', endl);
     }
 
-    iseq = this.createISeq(rescueCtx, body);
+    iseq.setLabel(bodyl);
 
-    ctx.catchTable.push([
-      'rescue', iseq, labels.start, labels.end, labels.cont, 0
-    ]);
+    if (node.name) {
+      localIdx = iseq.addLocal(node.name);
+      iseq.addInstruction('getdynamic', 0, 0);
+      iseq.addInstruction('setlocal', localIdx);
+    }
+
+    COMPILE_NODE(node.body, iseq, push);
+    iseq.addInstruction('leave');
+    iseq.setLabel(endl);
   },
 
-  compileBeginBlock: function(node, iseq, ctx, push) {
-    var labels = {
-      start: this.nextLabel(),
-      end: this.nextLabel(),
-      cont: this.nextLabel()
-    };
+  compileBeginBlock: function(node, iseq, push) {
+    var startl     = iseq.newLabel('begin-start'),
+        endl       = iseq.newLabel('begin-end'), 
+        afterl     = iseq.newLabel('begin-after'),
+        rescuesLen = node.rescues.length,
+        rescueISeq, i;
 
-    iseq.push(labels.start);
-    this.compileBody(node.body, iseq, ctx, push);
-    iseq.push(labels.end);
-    iseq.push(['nop']);
-    iseq.push(labels.cont);
+    // add catch table entries, this must be done before compiling the body of
+    // the begin block
+    if (rescuesLen > 0) {
+      rescueISeq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
 
-    this.compileRescueBlocks(node.rescues, ctx, labels, push);
+      for (i = 0; i < rescuesLen; i++) {
+        COMPILE_NODE(node.rescues[i], rescueISeq, push);
+      }
+
+      rescueISeq.addInstruction('getdynamic', 2, 0);
+      rescueISeq.addInstruction('throw');
+
+      iseq.addCatchEntry('rescue', rescueISeq, startl, endl, afterl);
+    }
+
+    iseq.setLabel(startl);
+    COMPILE_NODE(node.body, iseq, push);
+    iseq.setLabel(endl);
+    // TODO: compile else and ensure if present
+    iseq.setLabel(afterl);
   },
 
   nextLabel: function() {

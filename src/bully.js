@@ -626,7 +626,7 @@ Bully.raise = function(exception, message) {
     args = message ? [Bully.String.make(message)] : [];
     exception = Bully.dispatch_method(exception, 'new', args);
   }
-  throw exception;
+  Bully.VM.raise(exception);
 };
 // Private: Bootstraps and initializes the Bully runtime.  This involves
 // creating the default classes (Object, Module, and Class) and calling the init
@@ -1104,6 +1104,9 @@ Bully.init_string = function() {
     var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
     return Bully.String.make('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
   });
+  Bully.define_singleton_method(Bully.Exception, '===', function(self, args) {
+    return Bully.dispatch_method(args[0], 'is_a?', [self]);
+  });
   Bully.LoadError = Bully.define_class('LoadError', Bully.Exception);
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
   Bully.ArgumentError = Bully.define_class('ArgumentError', Bully.StandardError);
@@ -1388,10 +1391,12 @@ Bully.platform = {
 };
 (function() {
 var ISeq, Instruction, Label;
-ISeq = function(name, type) {
+ISeq = function(type, name) {
   this.name = name;
   this.type = type;
   this.instructions = [];
+  this.parentISeq = null;
+  this.localISeq = this;
   this.numRequiredArgs = 0;
   this.optionalArgLabels = [];
   this.bodyStartLabel = null;
@@ -1404,6 +1409,17 @@ ISeq = function(name, type) {
   return this;
 };
 ISeq.prototype = {
+  newChildISeq: function(type, name) {
+    var iseq = new ISeq(type, name);
+    iseq.parentISeq = this;
+    if (type === 'rescue') {
+      iseq.localISeq = this;
+    }
+    else {
+      iseq.localISeq = iseq;
+    }
+    return iseq;
+  },
   setRequiredArgs: function(argNames) {
     var len = argNames.length, i;
     this.numRequiredArgs = len;
@@ -1446,23 +1462,30 @@ ISeq.prototype = {
     this.instructions.push(label);
     return this;
   },
-  addCatchEntry: function(entry) {
-    this.catchEntries.push(entry);
+  addCatchEntry: function(type, iseq, start, stop, cont) {
+    this.catchEntries.push({
+      type: type,
+      iseq: iseq,
+      start: start,
+      stop: stop,
+      cont: cont,
+      sp: this.currentStackSize
+    });
     return this;
   },
   currentPosition: function() {
     return this.instructions.length;
   },
   hasLocal: function(name) {
-    return this.locals.indexOf(name) !== -1;
+    return this.localISeq.locals.indexOf(name) !== -1;
   },
   addLocal: function(name) {
-    this.locals.push(name);
-    return this.locals.length - 1;
+    var locals = this.localISeq.locals;
+    locals.push(name);
+    return locals.length - 1;
   },
   localIndex: function(name) {
-    var idx = this.locals.indexOf(name);
-    return idx === -1 ? this.addLocal(name) : idx;
+    return this.localISeq.locals.indexOf(name);
   },
   // Converts the ISeq object to a raw instruction sequence executable by the
   // VM.
@@ -1481,18 +1504,33 @@ ISeq.prototype = {
   // 7     body
   toRaw: function() {
     var args = new Array(4),
+        catchLen = this.catchEntries.length,
+        catchTable = new Array(catchLen),
         nopt = this.optionalArgLabels.length,
         ic = this.instructions.length,
-        result, i;
+        result, catchEntry, i;
     args[0] = this.numRequiredArgs;
     args[1] = nopt;
     args[2] = this.splatIndex;
     args[3] = new Array(nopt + 1);
+    // setup args
     if (nopt > 0) {
       for (i = 0; i < nopt; i++) {
         args[3][i] = this.optionalArgLabels[i].toRaw();
       }
       args[3][nopt] = this.bodyStartLabel.toRaw();
+    }
+    // catch table
+    for (i = 0; i < catchLen; i++) {
+      catchEntry = this.catchEntries[i];
+      catchTable[i] = new Array(
+        catchEntry.type,
+        catchEntry.iseq.toRaw(),
+        catchEntry.start.toRaw(),
+        catchEntry.stop.toRaw(),
+        catchEntry.cont.toRaw(),
+        catchEntry.sp
+      );
     }
     result = new Array(
       'BullyInstructionSequence',
@@ -1501,7 +1539,7 @@ ISeq.prototype = {
       this.maxStackSize,
       this.locals,
       args,
-      [],
+      catchTable,
       new Array(ic)
     );
     for (i = 0; i < ic; i++) {
@@ -1527,11 +1565,14 @@ Instruction.ConstantStackDeltas = {
   getlocal: 1,
   setlocal: -1,
   getconstant: 0,
+  getdynamic: 1,
   pop: -1,
   definemethod: -2,
   branchif: -1,
   branchunless: -1,
-  jump: 0
+  jump: 0,
+  leave: 0,
+  throw: 0
 };
 Instruction.stackDelta = function(insn) {
   var opcode = insn.opcode, constants = this.ConstantStackDeltas;
@@ -1539,7 +1580,7 @@ Instruction.stackDelta = function(insn) {
   else if (insn.opcode in constants) { return constants[opcode]; }
   switch (opcode) {
     case 'send':
-      return -insn.operands[0];
+      return -insn.operands[1];
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -1569,7 +1610,7 @@ Label.prototype = {
 //------------------------------------------------------------------------------
 Bully.Compiler = {
   compile: function(node) {
-    var iseq = new ISeq('<compiled>', 'top');
+    var iseq = new ISeq('top', '<compiled>');
     this['compile' + (node).type](node, iseq, true);
     return iseq.toRaw();
   },
@@ -1617,7 +1658,7 @@ Bully.Compiler = {
     if (node.splat) { iseq.setSplatArg(node.splat); }
   },
   compileDef: function(node, iseq, push) {
-    var defiseq = new ISeq(node.name, 'method');
+    var defiseq = new ISeq('method', node.name);
     if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
     this['compile' + (node.body).type](node.body, defiseq, false);
     iseq.addInstruction('putcurrentmodule');
@@ -1626,7 +1667,8 @@ Bully.Compiler = {
     if (push) { iseq.addInstruction('putnil'); }
   },
   compileLocalAssign: function(node, iseq, push) {
-    var idx = iseq.localIndex(node.name);
+    var idx = iseq.hasLocal(node.name) ?
+      iseq.localIndex(node.name) : iseq.addLocal(node.name);
     this['compile' + (node.expression).type](node.expression, iseq, true);
     iseq.addInstruction('setlocal', idx);
   },
@@ -1678,36 +1720,62 @@ Bully.Compiler = {
     }
     if (!push) { iseq.addInstruction('pop'); }
   },
-  compileRescueBlocks: function(rescueNodes, ctx, labels, push) {
-    var body = [], len = rescueNodes.length, rescueNode, rescueCtx, iseq, i, j;
-    rescueCtx = new ISeqContext({
-      name: 'rescue in ' + ctx.name,
-      type: 'rescue'
-    });
-    for (i = 0; i < len; i++) {
-      rescueNode = rescueNodes[i];
-      for (j = 0; j < rescueNode.exception_types.length; j++) {
-        this['compile' + (rescueNode.exception_types[j]).type](rescueNode.exception_types[j], body, rescueCtx, true);
+  compileRescueBlock: function(node, iseq, push) {
+    var bodyl = iseq.newLabel('body'),
+        endl = iseq.newLabel('end'),
+        localIdx, len, i;
+    if (node.exception_types) {
+      len = node.exception_types.length;
+      for (i = 0; i < len; i++) {
+        this['compile' + (node.exception_types[i]).type](node.exception_types[i], iseq, true);
+        iseq.addInstruction('getdynamic', 0, 0);
+        iseq.addInstruction('send', '===', 1);
+        if (i === len - 1) {
+          iseq.addInstruction('branchunless', endl);
+        }
+        else {
+          iseq.addInstruction('branchif', bodyl);
+        }
       }
-      this.compileBody(rescueNodes[i].body, body, rescueCtx, push);
     }
-    iseq = this.createISeq(rescueCtx, body);
-    ctx.catchTable.push([
-      'rescue', iseq, labels.start, labels.end, labels.cont, 0
-    ]);
+    else {
+      iseq.addInstruction('putbuiltin', 'StandardError');
+      iseq.addInstruction('getdynamic', 0, 0);
+      iseq.addInstruction('send', '===', 1);
+      iseq.addInstruction('branchunless', endl);
+    }
+    iseq.setLabel(bodyl);
+    if (node.name) {
+      localIdx = iseq.addLocal(node.name);
+      iseq.addInstruction('getdynamic', 0, 0);
+      iseq.addInstruction('setlocal', localIdx);
+    }
+    this['compile' + (node.body).type](node.body, iseq, push);
+    iseq.addInstruction('leave');
+    iseq.setLabel(endl);
   },
-  compileBeginBlock: function(node, iseq, ctx, push) {
-    var labels = {
-      start: this.nextLabel(),
-      end: this.nextLabel(),
-      cont: this.nextLabel()
-    };
-    iseq.push(labels.start);
-    this.compileBody(node.body, iseq, ctx, push);
-    iseq.push(labels.end);
-    iseq.push(['nop']);
-    iseq.push(labels.cont);
-    this.compileRescueBlocks(node.rescues, ctx, labels, push);
+  compileBeginBlock: function(node, iseq, push) {
+    var startl = iseq.newLabel('begin-start'),
+        endl = iseq.newLabel('begin-end'),
+        afterl = iseq.newLabel('begin-after'),
+        rescuesLen = node.rescues.length,
+        rescueISeq, i;
+    // add catch table entries, this must be done before compiling the body of
+    // the begin block
+    if (rescuesLen > 0) {
+      rescueISeq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
+      for (i = 0; i < rescuesLen; i++) {
+        this['compile' + (node.rescues[i]).type](node.rescues[i], rescueISeq, push);
+      }
+      rescueISeq.addInstruction('getdynamic', 2, 0);
+      rescueISeq.addInstruction('throw');
+      iseq.addCatchEntry('rescue', rescueISeq, startl, endl, afterl);
+    }
+    iseq.setLabel(startl);
+    this['compile' + (node.body).type](node.body, iseq, push);
+    iseq.setLabel(endl);
+    // TODO: compile else and ensure if present
+    iseq.setLabel(afterl);
   },
   nextLabel: function() {
     this.nextLabelId++;
@@ -1716,7 +1784,9 @@ Bully.Compiler = {
 };
 }());(function() {
 var StackFrame = function(opts) {
+  this.ip = 0;
   this.sp = 0;
+  this.iseq = opts.iseq || null;
   this.stack = opts.stackSize ? new Array(opts.stackSize) : [];
   this.self = opts.self || Bully.main;
   this.modules = [];
@@ -1755,23 +1825,25 @@ Bully.VM = {
     return this.runISeq(iseq, [], { self: Bully.main });
   },
   runISeq: function(iseq, args, sfOpts) {
-    var body = iseq[7], len = body.length, ipStart = 0,
-        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
+    var body = iseq[7], len = body.length,
+        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
-      for (ip = 0; ip < len; ip++) {
-        ins = body[ip];
-        if (typeof ins === 'string') { iseq.labels[ins] = ip; }
+      for (i = 0; i < len; i++) {
+        ins = body[i];
+        if (typeof ins === 'string') { iseq.labels[ins] = i; }
       }
     }
     sfOpts.stackSize = iseq[3];
+    sfOpts.iseq = iseq;
     sf = new StackFrame(sfOpts);
+    this.currentSf = sf;
     if ((startLabel = this.setupArguments(iseq, args, sf))) {
-      ipStart = iseq.labels[startLabel];
+      sf.ip = iseq.labels[startLabel];
     }
-    for (ip = ipStart; ip < len; ip += 1) {
-      ins = body[ip];
+    for (; sf.ip < len; sf.ip++) {
+      ins = body[sf.ip];
       if (typeof ins !== 'object') { continue; }
       switch (ins[0]) {
         case 'pop':
@@ -1819,12 +1891,18 @@ Bully.VM = {
           klass = sf.pop();
           sf.push(this.getConstant(klass, ins[1]));
           break;
+        case 'getdynamic':
+          // FIXME
+          sf.push(this.dollarBang);
+          break;
         case 'branchunless':
-          if (!Bully.test(sf.pop())) { ip = iseq.labels[ins[1]]; }
+          if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
           break;
         case 'jump':
-          ip = iseq.labels[ins[1]];
+          sf.ip = iseq.labels[ins[1]];
           break;
+        case 'leave':
+          return;
         default:
           throw 'invalid opcode: ' + ins[0];
       }
@@ -1859,6 +1937,7 @@ Bully.VM = {
   },
   sendMethod: function(recv, name, args, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name);
+    // FIXME: make sure method is found
     if (typeof method === 'function') {
       sf.push(method.call(null, recv, args));
     }
@@ -1874,6 +1953,31 @@ Bully.VM = {
     }
     else {
       return Bully.const_get(klass, name);
+    }
+  },
+  raise: function(ex) {
+    var sf = this.currentSf,
+        catchTbl, catchLen, type, start, stop, cont, catchEntry, i;
+    this.dollarBang = ex;
+    while (sf) {
+      catchTbl = sf.iseq[6];
+      catchLen = catchTbl.length;
+      for (i = 0; i < catchLen; i++) {
+        catchEntry = catchTbl[i];
+        type = catchEntry[0];
+        if (type !== 'rescue') { continue; }
+        start = sf.iseq.labels[catchEntry[2]];
+        stop = sf.iseq.labels[catchEntry[3]];
+        cont = sf.iseq.labels[catchEntry[4]];
+        if (sf.ip >= start && sf.ip <= stop) {
+          sf.ip = catchEntry[5];
+          this.runISeq(catchEntry[1], [],
+                       { parent: sf, self: sf.self });
+          sf.ip = cont;
+          return;
+        }
+      }
+      sf = sf.parent;
     }
   }
 };

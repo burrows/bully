@@ -723,7 +723,7 @@ Bully.raise = function(exception, message) {
     exception = Bully.dispatch_method(exception, 'new', args);
   }
 
-  throw exception;
+  Bully.VM.raise(exception);
 };
 
 // Private: Bootstraps and initializes the Bully runtime.  This involves

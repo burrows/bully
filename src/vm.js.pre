@@ -1,7 +1,9 @@
 (function() {
 
 var StackFrame = function(opts) {
+  this.ip      = 0;
   this.sp      = 0;
+  this.iseq    = opts.iseq || null;
   this.stack   = opts.stackSize ? new Array(opts.stackSize) : [];
   this.self    = opts.self || Bully.main;
   this.modules = [];
@@ -49,28 +51,30 @@ Bully.VM = {
   },
 
   runISeq: function(iseq, args, sfOpts) {
-    var body = iseq[ISEQ_BODY_IDX], len = body.length, ipStart = 0,
-        sf, ip, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
+    var body = iseq[ISEQ_BODY_IDX], len = body.length,
+        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
 
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
-      for (ip = 0; ip < len; ip++) {
-        ins = body[ip];
-        if (typeof ins === 'string') { iseq.labels[ins] = ip; }
+      for (i = 0; i < len; i++) {
+        ins = body[i];
+        if (typeof ins === 'string') { iseq.labels[ins] = i; }
       }
     }
 
     sfOpts.stackSize = iseq[ISEQ_MAX_STACK_IDX];
+    sfOpts.iseq      = iseq;
 
     sf = new StackFrame(sfOpts);
+    this.currentSf = sf;
 
     if ((startLabel = this.setupArguments(iseq, args, sf))) {
-      ipStart = iseq.labels[startLabel];
+      sf.ip = iseq.labels[startLabel];
     }
 
-    for (ip = ipStart; ip < len; ip += 1) {
-      ins = body[ip];
+    for (; sf.ip < len; sf.ip++) {
+      ins = body[sf.ip];
 
       if (typeof ins !== 'object') { continue; }
 
@@ -120,12 +124,18 @@ Bully.VM = {
           klass = sf.pop();
           sf.push(this.getConstant(klass, ins[1]));
           break;
+        case 'getdynamic':
+          // FIXME
+          sf.push(this.dollarBang);
+          break;
         case 'branchunless':
-          if (!Bully.test(sf.pop())) { ip = iseq.labels[ins[1]]; }
+          if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
           break;
         case 'jump':
-          ip = iseq.labels[ins[1]];
+          sf.ip = iseq.labels[ins[1]];
           break;
+        case 'leave':
+          return;
         default:
           throw 'invalid opcode: ' + ins[0];
       }
@@ -169,6 +179,8 @@ Bully.VM = {
   sendMethod: function(recv, name, args, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name);
 
+    // FIXME: make sure method is found
+
     if (typeof method === 'function') {
       sf.push(method.call(null, recv, args));
     }
@@ -186,6 +198,39 @@ Bully.VM = {
     }
     else {
       return Bully.const_get(klass, name);
+    }
+  },
+
+  raise: function(ex) {
+    var sf = this.currentSf,
+        catchTbl, catchLen, type, start, stop, cont, catchEntry, i;
+
+    this.dollarBang = ex;
+
+    while (sf) {
+      catchTbl = sf.iseq[ISEQ_CATCH_TBL_IDX];
+      catchLen = catchTbl.length;
+
+      for (i = 0; i < catchLen; i++) {
+        catchEntry = catchTbl[i];
+        type       = catchEntry[CATCH_ENTRY_TYPE_IDX];
+
+        if (type !== 'rescue') { continue; }
+
+        start = sf.iseq.labels[catchEntry[CATCH_ENTRY_START_LBL_IDX]];
+        stop  = sf.iseq.labels[catchEntry[CATCH_ENTRY_STOP_LBL_IDX]];
+        cont  = sf.iseq.labels[catchEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+
+        if (sf.ip >= start && sf.ip <= stop) {
+          sf.ip = catchEntry[CATCH_ENTRY_SP_IDX];
+          this.runISeq(catchEntry[CATCH_ENTRY_ISEQ_IDX], [],
+                       { parent: sf, self: sf.self });
+          sf.ip = cont;
+          return;
+        }
+      }
+
+      sf = sf.parent;
     }
   }
 };
