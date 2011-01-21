@@ -1,17 +1,23 @@
 $cpp      = 'clang'
 $cpp_opts = '-x c -E -P -undef -Wundef -nostdinc -Wtrigraphs -fdollars-in-identifiers -C' 
 
-desc 'Run all tests'
-task :test => ['build:preprocess'] do
-  files = FileList['test/**/*.bully']
-  sh "./bin/bully #{files.join(' ')}"
+desc 'Run all specs'
+namespace :spec do
+  desc 'Run Bully level language specs'
+  task :language => ['build:preprocess'] do
+    files = FileList['specs/**/*.bully']
+    sh "./bin/bully #{files.join(' ')}"
+  end
+
+  desc 'Run compiler javascript tests'
+  task :compiler => ['build:preprocess'] do
+    files = FileList['specs/compiler/**/*_spec.js']
+    sh "node #{files.join(' ')}"
+  end
 end
 
 desc 'Run all specs'
-task :spec => ['build:preprocess'] do
-  files = FileList['specs/**/*_spec.bully']
-  sh "./bin/bully #{files.join(' ')}"
-end
+task :spec => ['spec:compiler', 'spec:language']
 
 namespace :lint do
   task :preprocess do

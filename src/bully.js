@@ -1494,7 +1494,7 @@ ISeq.prototype = {
   //
   // Index Description
   // ----- ---------------------------------------------------------------------
-  // 0     "BullyISeq"
+  // 0     "BullyInstructionSequence"
   // 1     name
   // 2     type (top, class, module, method, or block)
   // 3     maximum stack size
