@@ -309,6 +309,8 @@ Bully.Compiler = {
     for (i = 0; i < len; i++) {
       COMPILE_NODE(lines[i], iseq, push && (i === len - 1));
     }
+
+    iseq.addInstruction('leave');
   },
 
   compileCall: function(node, iseq, push) {
@@ -364,7 +366,7 @@ Bully.Compiler = {
 
     if (node.params) { COMPILE_NODE(node.params, defiseq, push); }
 
-    COMPILE_NODE(node.body, defiseq, false);
+    COMPILE_NODE(node.body, defiseq, true);
 
     iseq.addInstruction('putcurrentmodule');
     iseq.addInstruction('putiseq', defiseq);
