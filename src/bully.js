@@ -1778,10 +1778,6 @@ Bully.Compiler = {
     iseq.setLabel(endl);
     // TODO: compile else and ensure if present
     iseq.setLabel(afterl);
-  },
-  nextLabel: function() {
-    this.nextLabelId++;
-    return 'label_' + this.nextLabelId;
   }
 };
 }());(function() {
