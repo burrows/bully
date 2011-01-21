@@ -1612,6 +1612,7 @@ Bully.Compiler = {
   compile: function(node) {
     var iseq = new ISeq('top', '<compiled>');
     this['compile' + (node).type](node, iseq, true);
+    iseq.addInstruction('leave');
     return iseq.toRaw();
   },
   compileBody: function(node, iseq, push) {
@@ -1619,7 +1620,6 @@ Bully.Compiler = {
     for (i = 0; i < len; i++) {
       this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1));
     }
-    iseq.addInstruction('leave');
   },
   compileCall: function(node, iseq, push) {
     var argLen = node.args ? node.args.length : 0,
@@ -1662,6 +1662,7 @@ Bully.Compiler = {
     var defiseq = new ISeq('method', node.name);
     if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
     this['compile' + (node.body).type](node.body, defiseq, true);
+    defiseq.addInstruction('leave');
     iseq.addInstruction('putcurrentmodule');
     iseq.addInstruction('putiseq', defiseq);
     iseq.addInstruction('definemethod', node.name, false);
