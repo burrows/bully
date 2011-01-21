@@ -4,6 +4,3 @@
 [submodule "vendor/nodelint"]
 	path = vendor/nodelint
 	url = http://github.com/tav/nodelint.git
-[submodule "vendor/test_it"]
-	path = vendor/test_it
-	url = http://github.com/DouglasMeyer/test_it.git
