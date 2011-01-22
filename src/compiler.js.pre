@@ -1,6 +1,8 @@
 
 #define COMPILE_NODE(node, ...) this['compile' + (node).type](node, ##__VA_ARGS__)
 
+#define THROW_TYPE_RETURN 0
+
 (function() {
 
 var ISeq, Instruction, Label;
@@ -448,59 +450,58 @@ Bully.Compiler = {
     if (!push) { iseq.addInstruction('pop'); }
   },
 
-  compileRescueBlock: function(node, iseq, push) {
-    var bodyl = iseq.newLabel('rescue-body-start'),
-        endl  = iseq.newLabel('rescue-body-end'),
-        localIdx, len, i;
+  //compileRescueBlock: function(node, iseq, push) {
+  //  var bodyl = iseq.newLabel('rescue-body-start'),
+  //      endl  = iseq.newLabel('rescue-body-end'),
+  //      localIdx, len, i;
 
-    // Rescue blocks always have a 'private' local varable (not available from
-    // Bully code) that contains a reference to the exception object. We can't
-    // use addLocal here because rescue ISeq objects store all of their local
-    // variables in their parent ISeq so we have to forcefully add it to this
-    // ISeq's locals array.
-    iseq.locals[0] = '#$!';
+  //  // Rescue blocks always have a 'private' local varable (not available from
+  //  // Bully code) that contains a reference to the exception object. We can't
+  //  // use addLocal here because rescue ISeq objects store all of their local
+  //  // variables in their parent ISeq so we have to forcefully add it to this
+  //  // ISeq's locals array.
+  //  iseq.locals[0] = '#$!';
 
-    if (node.exception_types) {
-      len = node.exception_types.length;
+  //  if (node.exception_types) {
+  //    len = node.exception_types.length;
 
-      for (i = 0; i < len; i++) {
-        COMPILE_NODE(node.exception_types[i], iseq, true);
-        iseq.addInstruction('getdynamic', 0, 0);
-        iseq.addInstruction('send', '===', 1);
+  //    for (i = 0; i < len; i++) {
+  //      COMPILE_NODE(node.exception_types[i], iseq, true);
+  //      iseq.addInstruction('getdynamic', 0, 0);
+  //      iseq.addInstruction('send', '===', 1);
 
-        if (i === len - 1) {
-          iseq.addInstruction('branchunless', endl);
-        }
-        else {
-          iseq.addInstruction('branchif', bodyl);
-        }
-      }
-    }
-    else {
-      iseq.addInstruction('putbuiltin', 'StandardError');
-      iseq.addInstruction('getdynamic', 0, 0);
-      iseq.addInstruction('send', '===', 1);
-      iseq.addInstruction('branchunless', endl);
-    }
+  //      if (i === len - 1) {
+  //        iseq.addInstruction('branchunless', endl);
+  //      }
+  //      else {
+  //        iseq.addInstruction('branchif', bodyl);
+  //      }
+  //    }
+  //  }
+  //  else {
+  //    iseq.addInstruction('putbuiltin', 'StandardError');
+  //    iseq.addInstruction('getdynamic', 0, 0);
+  //    iseq.addInstruction('send', '===', 1);
+  //    iseq.addInstruction('branchunless', endl);
+  //  }
 
-    iseq.setLabel(bodyl);
+  //  iseq.setLabel(bodyl);
 
-    if (node.name) {
-      localIdx = iseq.addLocal(node.name);
-      iseq.addInstruction('getdynamic', 0, 0);
-      iseq.addInstruction('setlocal', localIdx);
-    }
+  //  if (node.name) {
+  //    localIdx = iseq.addLocal(node.name);
+  //    iseq.addInstruction('getdynamic', 0, 0);
+  //    iseq.addInstruction('setlocal', localIdx);
+  //  }
 
-    COMPILE_NODE(node.body, iseq, push);
-    iseq.addInstruction('leave');
-    iseq.setLabel(endl);
-  },
+  //  COMPILE_NODE(node.body, iseq, push);
+  //  iseq.addInstruction('leave');
+  //  iseq.setLabel(endl);
+  //},
 
   compileBeginBlock: function(node, iseq, push) {
-    var startl     = iseq.newLabel('begin-start'),
-        endl       = iseq.newLabel('begin-end'), 
-        afterl     = iseq.newLabel('begin-after'),
-        rescuesLen = node.rescues.length,
+    var rescuesLen = node.rescues.length,
+        hasRescue  = rescuesLen > 0,
+        labels     = {},
         rescueISeq, i;
 
     if (rescuesLen === 0 && !node.ensure && !node.else_body) {
@@ -508,26 +509,37 @@ Bully.Compiler = {
       return;
     }
 
-    // add catch table entries, this must be done before compiling the body of
-    // the begin block
-    if (rescuesLen > 0) {
-      rescueISeq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
+    if (hasRescue) {
+      labels.rstart = iseq.newLabel();
+      labels.rstop  = iseq.newLabel();
+      labels.rcont  = iseq.newLabel();
 
-      for (i = 0; i < rescuesLen; i++) {
-        COMPILE_NODE(node.rescues[i], rescueISeq, push);
-      }
-
-      rescueISeq.addInstruction('getdynamic', 0, 0);
-      rescueISeq.addInstruction('throw');
-
-      iseq.addCatchEntry('rescue', rescueISeq, startl, endl, afterl);
+      iseq.setLabel(labels.rstart);
     }
 
-    iseq.setLabel(startl);
-    COMPILE_NODE(node.body, iseq, push);
-    iseq.setLabel(endl);
-    // TODO: compile else and ensure if present
-    iseq.setLabel(afterl);
+    COMPILE_NODE(node.body, iseq, true);
+
+    if (hasRescue) {
+      iseq.setLabel(labels.rstop);
+      iseq.setLabel(labels.rcont);
+    }
+
+    if (node.else_body || !push) {
+      iseq.addInstruction('pop');
+    }
+
+    if (node.else_body) {
+      COMPILE_NODE(node.else_body, iseq, push);
+    }
+
+    //if (node.else_body) {
+    //  COMPILE_NODE(node.else_body, iseq, push);
+    //}
+
+    //if (node.ensure) {
+    //  iseq.setLabel(ensurel);
+    //  COMPILE_NODE(node.ensure, iseq, push);
+    //}
   }
 };
 

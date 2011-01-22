@@ -357,6 +357,8 @@ var grammar = {
     o('BEGIN Body EnsureBlock END',                        "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: $3};"),
     o('BEGIN Body RescueBlocks END',                       "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: null, ensure: null};"),
     o('BEGIN Body RescueBlocks ElseBlock END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: null};"),
+    o('BEGIN Body ElseBlock END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: $3,   ensure: null};"),
+    o('BEGIN Body ElseBlock EnsureBlock END',              "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: $3,   ensure: $4};"),
     o('BEGIN Body RescueBlocks ElseBlock EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: $5};"),
     o('BEGIN Body END',                                    "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: null};")
   ],
@@ -378,11 +380,11 @@ var grammar = {
   ],
 
   ElseBlock: [
-    o('ELSE Body', "$$ = {type: 'ElseBlock', body: $2};")
+    o('ELSE Body', "$$ = $2;")
   ],
 
   EnsureBlock: [
-    o('ENSURE Body', "$$ = {type: 'EnsureBlock', body: $2};")
+    o('ENSURE Body', "$$ = $2;")
   ],
 
   Do: [
