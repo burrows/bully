@@ -1016,16 +1016,6 @@ TestIt('Compiler: begin blocks with else and ensure clauses and used value', {
     t.assertEqual(exp, this.body);
   }
 });
-// x rescue only
-// x else only
-// x ensure only
-// x rescue and else
-// x rescue and ensure
-// x rescue, else, and ensure
-// x else and ensure
-//
-// each of the above when result is used and when not
-
 
 //TestIt('Compiler: begin blocks with no rescues, ensures, or else', {
 //  'should simply compile the body': function(t) {

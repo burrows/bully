@@ -1777,40 +1777,26 @@ Bully.Compiler = {
       labels.rstart = iseq.newLabel();
       labels.rstop = iseq.newLabel();
       labels.rcont = iseq.newLabel();
-      iseq.setLabel(labels.rstart);
     }
     if (hasEnsure) {
       labels.estart = hasRescue ? labels.rstart : iseq.newLabel();
       labels.estop = (hasRescue && push) ? labels.rcont : iseq.newLabel();
       labels.econt = iseq.newLabel();
-      if (!hasRescue) {
-        iseq.setLabel(labels.estart);
-      }
     }
+    if (hasRescue) { iseq.setLabel(labels.rstart); }
+    if (hasEnsure && !hasRescue) { iseq.setLabel(labels.estart); }
     this['compile' + (node.body).type](node.body, iseq, true);
-    if (hasRescue) {
-      iseq.setLabel(labels.rstop);
-      if (!hasElse) {
-        iseq.setLabel(labels.rcont);
-      }
-    }
-    if (hasElse || !push) {
-      iseq.addInstruction('pop');
-    }
+    if (hasRescue) { iseq.setLabel(labels.rstop); }
+    if (hasRescue && !hasElse) { iseq.setLabel(labels.rcont); }
+    if (hasElse || !push) { iseq.addInstruction('pop'); }
     if (hasElse) {
       this['compile' + (node.else_body).type](node.else_body, iseq, true);
-      if (hasRescue) {
-        iseq.setLabel(labels.rcont);
-      }
-      if (!push) {
-        iseq.addInstruction('pop')
-      }
-    }
-    if (hasEnsure && labels.estop !== labels.rcont) {
-      iseq.setLabel(labels.estop);
+      if (hasRescue) { iseq.setLabel(labels.rcont); }
+      if (!push) { iseq.addInstruction('pop') }
     }
     if (hasEnsure) {
-      this['compile' + (node.ensure).type](node.ensure, iseq, false);
+      if (labels.estop !== labels.rcont) { iseq.setLabel(labels.estop); }
+      this['compile' + (node.ensure).type](node.ensure, iseq, false); // ensure result is always discarded
       iseq.setLabel(labels.econt);
     }
   }
