@@ -1458,14 +1458,14 @@ ISeq.prototype = {
     this.instructions.push(label);
     return this;
   },
-  addCatchEntry: function(type, iseq, start, stop, cont) {
+  addCatchEntry: function(type, iseq, start, stop, cont, sp) {
     this.catchEntries.push({
       type: type,
       iseq: iseq,
       start: start,
       stop: stop,
       cont: cont,
-      sp: this.currentStackSize
+      sp: sp
     });
     return this;
   },
@@ -1521,7 +1521,7 @@ ISeq.prototype = {
       catchEntry = this.catchEntries[i];
       catchTable[i] = new Array(
         catchEntry.type,
-        catchEntry.iseq.toRaw(),
+        catchEntry.iseq ? catchEntry.iseq.toRaw() : null,
         catchEntry.start.toRaw(),
         catchEntry.stop.toRaw(),
         catchEntry.cont.toRaw(),
@@ -1720,6 +1720,42 @@ Bully.Compiler = {
     }
     if (!push) { iseq.addInstruction('pop'); }
   },
+  compileRescueBlocks: function(rescues, iseq) {
+    var len = rescues.length,
+        bodystart = new Label('bodystart'),
+        bodyend = new Label('bodyend'),
+        node, types, i, j;
+    // Rescue blocks always have a 'private' local varable (not available from
+    // Bully code) that contains a reference to the exception object. We can't
+    // use addLocal here because rescue ISeq objects store all of their local
+    // variables in their parent ISeq so we have to forcefully add it to this
+    // ISeq's locals array.
+    iseq.locals[0] = '#$!';
+    for (i = 0; i < len; i++) {
+      node = rescues[i];
+      if (node.exception_types) {
+      }
+      else {
+        iseq.addInstruction('putbuiltin', 'StandardError');
+        iseq.addInstruction('getdynamic', 0, 0);
+        iseq.addInstruction('send', '===', 1);
+        iseq.addInstruction('branchif', bodystart);
+        iseq.addInstruction('jump', bodyend);
+      }
+      iseq.setLabel(bodystart);
+      this['compile' + (node.body).type](node.body, iseq, true);
+      iseq.addInstruction('leave');
+      iseq.setLabel(bodyend);
+      iseq.addInstruction('getdynamic', 0, 0);
+      iseq.addInstruction('throw');
+    }
+  },
+  compileEnsureBlock: function(node, iseq) {
+    iseq.locals[0] = '#$!';
+    this['compile' + (node).type](node, iseq, false);
+    iseq.addInstruction('getdynamic', 0, 0);
+    iseq.addInstruction('throw');
+  },
   //compileRescueBlock: function(node, iseq, push) {
   //  var bodyl = iseq.newLabel('rescue-body-start'),
   //      endl  = iseq.newLabel('rescue-body-end'),
@@ -1766,7 +1802,8 @@ Bully.Compiler = {
         hasElse = !!node.else_body,
         hasEnsure = !!node.ensure,
         labels = {},
-        rescueISeq, i;
+        sp = iseq.currentStackSize,
+        riseq, eiseq;
     if (!hasRescue && !hasEnsure && !hasElse) {
       this['compile' + (node.body).type](node.body, iseq, push);
       return;
@@ -1796,6 +1833,17 @@ Bully.Compiler = {
       if (labels.estop !== labels.rcont) { iseq.setLabel(labels.estop); }
       this['compile' + (node.ensure).type](node.ensure, iseq, false); // ensure result is always discarded
       iseq.setLabel(labels.econt);
+    }
+    if (hasRescue) {
+      riseq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
+      this.compileRescueBlocks(node.rescues, riseq);
+      iseq.addCatchEntry('rescue', riseq, labels.rstart, labels.rstop, labels.rcont, sp);
+      iseq.addCatchEntry('retry', null, labels.rstop, labels.rcont, labels.rstart, sp);
+    }
+    if (hasEnsure) {
+      eiseq = iseq.newChildISeq('ensure', 'ensure in ' + iseq.name);
+      this.compileEnsureBlock(node.ensure, eiseq);
+      iseq.addCatchEntry('ensure', eiseq, labels.estart, labels.estop, labels.econt, sp);
     }
   }
 };
