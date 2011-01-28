@@ -11,8 +11,7 @@ namespace :spec do
 
   desc 'Run compiler javascript tests'
   task :compiler => ['build:preprocess'] do
-    files = FileList['specs/compiler/**/*_spec.js']
-    sh "node #{files.join(' ')}"
+    sh "node ./specs/compiler/runner.js"
   end
 end
 
