@@ -1765,9 +1765,11 @@ Bully.Compiler = {
   compileBeginBlock: function(node, iseq, push) {
     var rescuesLen = node.rescues.length,
         hasRescue = rescuesLen > 0,
+        hasElse = !!node.else_body,
+        hasEnsure = !!node.ensure,
         labels = {},
         rescueISeq, i;
-    if (rescuesLen === 0 && !node.ensure && !node.else_body) {
+    if (!hasRescue && !hasEnsure && !hasElse) {
       this['compile' + (node.body).type](node.body, iseq, push);
       return;
     }
@@ -1777,24 +1779,40 @@ Bully.Compiler = {
       labels.rcont = iseq.newLabel();
       iseq.setLabel(labels.rstart);
     }
+    if (hasEnsure) {
+      labels.estart = hasRescue ? labels.rstart : iseq.newLabel();
+      labels.estop = (hasRescue && push) ? labels.rcont : iseq.newLabel();
+      labels.econt = iseq.newLabel();
+      if (!hasRescue) {
+        iseq.setLabel(labels.estart);
+      }
+    }
     this['compile' + (node.body).type](node.body, iseq, true);
     if (hasRescue) {
       iseq.setLabel(labels.rstop);
-      iseq.setLabel(labels.rcont);
+      if (!hasElse) {
+        iseq.setLabel(labels.rcont);
+      }
     }
-    if (node.else_body || !push) {
+    if (hasElse || !push) {
       iseq.addInstruction('pop');
     }
-    if (node.else_body) {
-      this['compile' + (node.else_body).type](node.else_body, iseq, push);
+    if (hasElse) {
+      this['compile' + (node.else_body).type](node.else_body, iseq, true);
+      if (hasRescue) {
+        iseq.setLabel(labels.rcont);
+      }
+      if (!push) {
+        iseq.addInstruction('pop')
+      }
     }
-    //if (node.else_body) {
-    //  COMPILE_NODE(node.else_body, iseq, push);
-    //}
-    //if (node.ensure) {
-    //  iseq.setLabel(ensurel);
-    //  COMPILE_NODE(node.ensure, iseq, push);
-    //}
+    if (hasEnsure && labels.estop !== labels.rcont) {
+      iseq.setLabel(labels.estop);
+    }
+    if (hasEnsure) {
+      this['compile' + (node.ensure).type](node.ensure, iseq, false);
+      iseq.setLabel(labels.econt);
+    }
   }
 };
 }());(function() {

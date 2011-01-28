@@ -564,7 +564,6 @@ TestIt('Compiler: begin blocks with only rescue clause with unused value', {
                          end; 1");
 
     this.body = this.iseq[BodyIdx];
-    //this.rescueCatchEntry = this.seq[CatchIdx][0];
   },
 
   'should compile body and pop resulting value': function(t) {
@@ -593,7 +592,6 @@ TestIt('Compiler: begin blocks with only rescue clause with used value', {
                          end");
 
     this.body = this.iseq[BodyIdx];
-    //this.rescueCatchEntry = this.seq[CatchIdx][0];
   },
 
   'should compile body and leave resulting value on stack': function(t) {
@@ -613,10 +611,10 @@ TestIt('Compiler: begin blocks with only rescue clause with used value', {
 
 TestIt('Compiler: begin blocks with only else clause and unused value', {
   'before all': function(t) {
-    this.iseq = compile("begin      \n\
-                          p('hi')   \n\
-                         else       \n\
-                          p('else') \n\
+    this.iseq = compile("begin       \n\
+                           p('hi')   \n\
+                         else        \n\
+                           p('else') \n\
                          end; 1");
 
     this.body = this.iseq[BodyIdx];
@@ -642,16 +640,16 @@ TestIt('Compiler: begin blocks with only else clause and unused value', {
 
 TestIt('Compiler: begin blocks with only else clause and used value', {
   'before all': function(t) {
-    this.iseq = compile("begin      \n\
-                          p('hi')   \n\
-                         else       \n\
-                          p('else') \n\
+    this.iseq = compile("begin       \n\
+                           p('hi')   \n\
+                         else        \n\
+                           p('else') \n\
                          end");
 
     this.body = this.iseq[BodyIdx];
   },
 
-  'should compile else body into body and pop resulting value': function(t) {
+  'should compile else body into body and leave result on the stack': function(t) {
     var exp = [
       ['putself'],
       ['putstring', 'hi'],
@@ -667,14 +665,364 @@ TestIt('Compiler: begin blocks with only else clause and used value', {
   }
 });
 
+TestIt('Compiler: begin blocks with only ensure clause and unused value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end; 1");
 
-// rescue only
-// else only
-// only ensure
-// rescue and else
-// rescue and ensure
-// else and ensure
-// rescue, else, and ensure
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure body into body with start, stop, continue labels and pop resulting value': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-2',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-3',
+      ['putobject', 1],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with only ensure clause and used value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure body into body with start, stop, continue labels and leave result value on the stack': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-3',
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue and else clause and unused value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         else          \n\
+                           p('else')   \n\
+                         end; 1");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile else body into body with start, stop, continue rescue labels and pop resulting value': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      'label-3',
+      ['pop'],
+      ['putobject', 1],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue and else clause and used value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         else          \n\
+                           p('else')   \n\
+                         end");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile else body into body with start, stop, continue rescue labels and leave value on stack': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      'label-3',
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue and ensure clause and unused value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end; 1");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure body into body with start, stop, continue rescue and ensure labels and pop resulting value': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      'label-3',
+      ['pop'],
+      'label-4',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-5',
+      ['putobject', 1],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue and ensure clause and used value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure body into body with start, stop, continue rescue and ensure labels and leave value on the stack': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      'label-3',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-4',
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue, else, and ensure clauses and unused value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         else          \n\
+                           p('else')   \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end; 1");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure and else bodies into body with start, stop, continue rescue and ensure labels and pop resulting value': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      'label-3',
+      ['pop'],
+      'label-4',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-5',
+      ['putobject', 1],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with rescue, else, and ensure clauses and used value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         rescue        \n\
+                           p('rescue') \n\
+                         else          \n\
+                           p('else')   \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure and else bodies into body with start, stop, continue rescue and ensure labels and leave value on the stack': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      'label-2',
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      'label-3',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-4',
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with else and ensure clauses and unused value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         else          \n\
+                           p('else')   \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end; 1");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure and else bodies into body with start, stop, continue ensure labels and pop resulting value': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-2',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-3',
+      ['putobject', 1],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with else and ensure clauses and used value', {
+  'before all': function(t) {
+    this.iseq = compile("begin         \n\
+                           p('hi')     \n\
+                         else          \n\
+                           p('else')   \n\
+                         ensure        \n\
+                           p('ensure') \n\
+                         end");
+
+    this.body = this.iseq[BodyIdx];
+  },
+
+  'should compile ensure and else bodies into body with start, stop, continue ensure labels and leave value on the stack': function(t) {
+    var exp = [
+      'label-1',
+      ['putself'],
+      ['putstring', 'hi'],
+      ['send', 'p', 1],
+      ['pop'],
+      ['putself'],
+      ['putstring', 'else'],
+      ['send', 'p', 1],
+      'label-2',
+      ['putself'],
+      ['putstring', 'ensure'],
+      ['send', 'p', 1],
+      ['pop'],
+      'label-3',
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+// x rescue only
+// x else only
+// x ensure only
+// x rescue and else
+// x rescue and ensure
+// x rescue, else, and ensure
+// x else and ensure
 //
 // each of the above when result is used and when not
 
