@@ -333,19 +333,19 @@ TestIt('Compiler: non-singleton method definitions with params', {
   'should add optional argument labels and body start label at index 3 of arguments descriptor': function(t) {
     var args = compile('def foo(a=1,b=2); end')[BodyIdx][1][1][ArgsIdx];
 
-    t.assertEqual(['optarg-a-1', 'optarg-b-2', 'bodystart-3'], args[3]);
+    t.assertEqual(['optarg-a-0', 'optarg-b-3', 'bodystart-6'], args[3]);
   },
 
   'should compile default values for optional arugments at beginning of body with appropriate labels': function(t) {
     var methodbody = compile('def foo(a=1,b=2); a + b; end')[BodyIdx][1][1][BodyIdx];
         exp = [
-          'optarg-a-1',
+          'optarg-a-0',
           ['putobject', 1],
           ['setlocal', 0],
-          'optarg-b-2',
+          'optarg-b-3',
           ['putobject', 2],
           ['setlocal', 1],
-          'bodystart-3',
+          'bodystart-6',
           ['getlocal', 0],
           ['getlocal', 1],
           ['send', '+', 1],
@@ -411,11 +411,11 @@ TestIt('Compiler: if expressions', {
     var body = compile("if true\np('true')\nend")[BodyIdx],
         exp  = [
           ['putobject', true],
-          ['branchunless', 'label-1'],
+          ['branchunless', 'label-5'],
           ['putself'],
           ['putstring', 'true'],
           ['send', 'p', 1],
-          'label-1',
+          'label-5',
           ['leave']
         ];
 
@@ -426,16 +426,16 @@ TestIt('Compiler: if expressions', {
     var body = compile("if true\np('true')\nelse\np('false')\nend")[BodyIdx],
         exp  = [
           ['putobject', true],
-          ['branchunless', 'label-1'],
+          ['branchunless', 'label-6'],
           ['putself'],
           ['putstring', 'true'],
           ['send', 'p', 1],
-          ['jump', 'label-2'],
-          'label-1',
+          ['jump', 'label-10'],
+          'label-6',
           ['putself'],
           ['putstring', 'false'],
           ['send', 'p', 1],
-          'label-2',
+          'label-10',
           ['leave']
         ];
 
@@ -446,25 +446,25 @@ TestIt('Compiler: if expressions', {
     var body = compile("if 1\np('1')\nelsif 2\np('2')\nelsif 3\np('3')\nend")[BodyIdx],
         exp  = [
           ['putobject', 1],
-          ['branchunless', 'label-1'],
+          ['branchunless', 'label-6'],
           ['putself'],
           ['putstring', '1'],
           ['send', 'p', 1],
-          ['jump', 'label-3'],
-          'label-1',
+          ['jump', 'label-19'],
+          'label-6',
           ['putobject', 2],
-          ['branchunless', 'label-2'],
+          ['branchunless', 'label-13'],
           ['putself'],
           ['putstring', '2'],
           ['send', 'p', 1],
-          ['jump', 'label-3'],
-          'label-2',
+          ['jump', 'label-19'],
+          'label-13',
           ['putobject', 3],
-          ['branchunless', 'label-3'],
+          ['branchunless', 'label-19'],
           ['putself'],
           ['putstring', '3'],
           ['send', 'p', 1],
-          'label-3',
+          'label-19',
           ['leave']
         ];
 
@@ -475,30 +475,30 @@ TestIt('Compiler: if expressions', {
     var body = compile("if 1\np('1')\nelsif 2\np('2')\nelsif 3\np('3')\nelse\np('4')\nend")[BodyIdx],
         exp  = [
           ['putobject', 1],
-          ['branchunless', 'label-1'],
+          ['branchunless', 'label-6'],
           ['putself'],
           ['putstring', '1'],
           ['send', 'p', 1],
-          ['jump', 'label-4'],
-          'label-1',
+          ['jump', 'label-24'],
+          'label-6',
           ['putobject', 2],
-          ['branchunless', 'label-2'],
+          ['branchunless', 'label-13'],
           ['putself'],
           ['putstring', '2'],
           ['send', 'p', 1],
-          ['jump', 'label-4'],
-          'label-2',
+          ['jump', 'label-24'],
+          'label-13',
           ['putobject', 3],
-          ['branchunless', 'label-3'],
+          ['branchunless', 'label-20'],
           ['putself'],
           ['putstring', '3'],
           ['send', 'p', 1],
-          ['jump', 'label-4'],
-          'label-3',
+          ['jump', 'label-24'],
+          'label-20',
           ['putself'],
           ['putstring', '4'],
           ['send', 'p', 1],
-          'label-4',
+          'label-24',
           ['leave']
         ];
 
@@ -513,26 +513,26 @@ TestIt('Compiler: if expressions', {
           ['putobject', 2],
           ['setlocal', 1],
           ['getlocal', 0],
-          ['branchunless', 'label-1'],
+          ['branchunless', 'label-11'],
           ['putself'],
           ['putstring', 'x'],
           ['send', 'p', 1],
           ['pop'],
-          ['jump', 'label-3'],
-          'label-1',
+          ['jump', 'label-24'],
+          'label-11',
           ['getlocal', 1],
-          ['branchunless', 'label-2'],
+          ['branchunless', 'label-19'],
           ['putself'],
           ['putstring', 'y'],
           ['send', 'p', 1],
           ['pop'],
-          ['jump', 'label-3'],
-          'label-2',
+          ['jump', 'label-24'],
+          'label-19',
           ['putself'],
           ['putstring', 'z'],
           ['send', 'p', 1],
           ['pop'],
-          'label-3',
+          'label-24',
           ['putobject', 1],
           ['leave']
         ];
@@ -568,12 +568,12 @@ TestIt('Compiler: begin blocks with only rescue clause with unused value', {
 
   'should compile body and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
-      'label-3',
+      'rstop-4',
+      'rcont-5',
       ['pop'],
       ['putobject', 1],
       ['leave'],
@@ -596,12 +596,12 @@ TestIt('Compiler: begin blocks with only rescue clause with used value', {
 
   'should compile body and leave resulting value on stack': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
-      'label-3',
+      'rstop-4',
+      'rcont-5',
       ['leave']
     ];
 
@@ -678,17 +678,17 @@ TestIt('Compiler: begin blocks with only ensure clause and unused value', {
 
   'should compile ensure body into body with start, stop, continue labels and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'estart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
       ['pop'],
-      'label-2',
+      'estop-5',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-3',
+      'econt-10',
       ['putobject', 1],
       ['leave']
     ];
@@ -710,16 +710,16 @@ TestIt('Compiler: begin blocks with only ensure clause and used value', {
 
   'should compile ensure body into body with start, stop, continue labels and leave result value on the stack': function(t) {
     var exp = [
-      'label-1',
+      'estart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
+      'estop-4',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-3',
+      'econt-9',
       ['leave']
     ];
 
@@ -742,16 +742,16 @@ TestIt('Compiler: begin blocks with rescue and else clause and unused value', {
 
   'should compile else body into body with start, stop, continue rescue labels and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
+      'rstop-4',
       ['pop'],
       ['putself'],
       ['putstring', 'else'],
       ['send', 'p', 1],
-      'label-3',
+      'rcont-9',
       ['pop'],
       ['putobject', 1],
       ['leave']
@@ -776,16 +776,16 @@ TestIt('Compiler: begin blocks with rescue and else clause and used value', {
 
   'should compile else body into body with start, stop, continue rescue labels and leave value on stack': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
+      'rstop-4',
       ['pop'],
       ['putself'],
       ['putstring', 'else'],
       ['send', 'p', 1],
-      'label-3',
+      'rcont-9',
       ['leave']
     ];
 
@@ -808,19 +808,19 @@ TestIt('Compiler: begin blocks with rescue and ensure clause and unused value', 
 
   'should compile ensure body into body with start, stop, continue rescue and ensure labels and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
-      'label-3',
+      'rstop-4',
+      'rcont-5',
       ['pop'],
-      'label-4',
+      'estop-7',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-5',
+      'econt-12',
       ['putobject', 1],
       ['leave']
     ];
@@ -844,17 +844,17 @@ TestIt('Compiler: begin blocks with rescue and ensure clause and used value', {
 
   'should compile ensure body into body with start, stop, continue rescue and ensure labels and leave value on the stack': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
-      'label-3',
+      'rstop-4',
+      'rcont-5',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-4',
+      'econt-10',
       ['leave']
     ];
 
@@ -879,23 +879,23 @@ TestIt('Compiler: begin blocks with rescue, else, and ensure clauses and unused 
 
   'should compile ensure and else bodies into body with start, stop, continue rescue and ensure labels and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
+      'rstop-4',
       ['pop'],
       ['putself'],
       ['putstring', 'else'],
       ['send', 'p', 1],
-      'label-3',
+      'rcont-9',
       ['pop'],
-      'label-4',
+      'estop-11',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-5',
+      'econt-16',
       ['putobject', 1],
       ['leave']
     ];
@@ -921,21 +921,21 @@ TestIt('Compiler: begin blocks with rescue, else, and ensure clauses and used va
 
   'should compile ensure and else bodies into body with start, stop, continue rescue and ensure labels and leave value on the stack': function(t) {
     var exp = [
-      'label-1',
+      'rstart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
-      'label-2',
+      'rstop-4',
       ['pop'],
       ['putself'],
       ['putstring', 'else'],
       ['send', 'p', 1],
-      'label-3',
+      'rcont-9',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-4',
+      'econt-14',
       ['leave']
     ];
 
@@ -958,7 +958,7 @@ TestIt('Compiler: begin blocks with else and ensure clauses and unused value', {
 
   'should compile ensure and else bodies into body with start, stop, continue ensure labels and pop resulting value': function(t) {
     var exp = [
-      'label-1',
+      'estart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
@@ -967,12 +967,12 @@ TestIt('Compiler: begin blocks with else and ensure clauses and unused value', {
       ['putstring', 'else'],
       ['send', 'p', 1],
       ['pop'],
-      'label-2',
+      'estop-9',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-3',
+      'econt-14',
       ['putobject', 1],
       ['leave']
     ];
@@ -996,7 +996,7 @@ TestIt('Compiler: begin blocks with else and ensure clauses and used value', {
 
   'should compile ensure and else bodies into body with start, stop, continue ensure labels and leave value on the stack': function(t) {
     var exp = [
-      'label-1',
+      'estart-0',
       ['putself'],
       ['putstring', 'hi'],
       ['send', 'p', 1],
@@ -1004,12 +1004,12 @@ TestIt('Compiler: begin blocks with else and ensure clauses and used value', {
       ['putself'],
       ['putstring', 'else'],
       ['send', 'p', 1],
-      'label-2',
+      'estop-8',
       ['putself'],
       ['putstring', 'ensure'],
       ['send', 'p', 1],
       ['pop'],
-      'label-3',
+      'econt-13',
       ['leave']
     ];
 

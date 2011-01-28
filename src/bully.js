@@ -1405,7 +1405,6 @@ ISeq = function(type, name) {
   this.catchEntries = [];
   this.currentStackSize = 0;
   this.maxStackSize = 0;
-  this.nextLabelNumber = 0;
   return this;
 };
 ISeq.prototype = {
@@ -1429,7 +1428,7 @@ ISeq.prototype = {
     return this;
   },
   addOptionalArg: function(name) {
-    var label = this.newLabel('optarg-' + name),
+    var label = new Label('optarg-' + name),
         idx = this.addLocal(name);
     this.optionalArgLabels.push(label);
     return {index: idx, label: label};
@@ -1439,7 +1438,7 @@ ISeq.prototype = {
     return this;
   },
   labelBodyStart: function() {
-    this.bodyStartLabel = this.newLabel('bodystart');
+    this.bodyStartLabel = new Label('bodystart');
     this.setLabel(this.bodyStartLabel);
     return this.bodyStartLabel;
   },
@@ -1452,9 +1451,6 @@ ISeq.prototype = {
       this.maxStackSize = this.currentStackSize;
     }
     return this;
-  },
-  newLabel: function(name) {
-    return new Label(++this.nextLabelNumber, name);
   },
   setLabel: function(label) {
     label.position = this.currentPosition();
@@ -1595,8 +1591,7 @@ Instruction.prototype = {
     return a;
   }
 };
-Label = function(number, name) {
-  this.number = number;
+Label = function(name) {
   this.name = name || 'label';
   this.position = null;
   this.sp = null;
@@ -1604,7 +1599,10 @@ Label = function(number, name) {
 };
 Label.prototype = {
   toRaw: function() {
-    return this.name + '-' + this.number;
+    if (this.position === null) {
+      throw new Error('Label#toRaw: label has not been set: ' + this.name);
+    }
+    return this.name + '-' + this.position;
   }
 };
 //------------------------------------------------------------------------------
@@ -1692,8 +1690,8 @@ Bully.Compiler = {
   },
   compileIf: function(node, iseq, push) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
-    for (i = 0; i < len; i++) { labels.push(iseq.newLabel()); }
-    endLabel = node.else_body ? iseq.newLabel() : labels[len - 1];
+    for (i = 0; i < len; i++) { labels.push(new Label()); }
+    endLabel = node.else_body ? new Label() : labels[len - 1];
     for (i = 0; i < len; i++) {
       this['compile' + (node.conditions[i]).type](node.conditions[i], iseq, true);
       iseq.addInstruction('branchunless', labels[i]);
@@ -1774,14 +1772,14 @@ Bully.Compiler = {
       return;
     }
     if (hasRescue) {
-      labels.rstart = iseq.newLabel();
-      labels.rstop = iseq.newLabel();
-      labels.rcont = iseq.newLabel();
+      labels.rstart = new Label('rstart');
+      labels.rstop = new Label('rstop');
+      labels.rcont = new Label('rcont');
     }
     if (hasEnsure) {
-      labels.estart = hasRescue ? labels.rstart : iseq.newLabel();
-      labels.estop = (hasRescue && push) ? labels.rcont : iseq.newLabel();
-      labels.econt = iseq.newLabel();
+      labels.estart = hasRescue ? labels.rstart : new Label('estart');
+      labels.estop = (hasRescue && push) ? labels.rcont : new Label('estop');
+      labels.econt = new Label('econt');
     }
     if (hasRescue) { iseq.setLabel(labels.rstart); }
     if (hasEnsure && !hasRescue) { iseq.setLabel(labels.estart); }
