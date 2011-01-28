@@ -87,14 +87,14 @@ TestIt('Compiler: begin blocks with only rescue clause with unused value', {
       ['putbuiltin', 'StandardError'],
       ['getdynamic', 0, 0],
       ['send', '===', 1],
-      ['branchif', 'bodystart-5'],
-      ['jump', 'bodyend-10'],
-      'bodystart-5',
+      ['branchif', 'start-5'],
+      ['jump', 'next-10'],
+      'start-5',
       ['putself'],
       ['putstring', 'rescue'],
       ['send', 'p', 1],
       ['leave'],
-      'bodyend-10',
+      'next-10',
       ['getdynamic', 0, 0],
       ['throw']
     ];
@@ -667,193 +667,175 @@ TestIt('Compiler: begin blocks with else and ensure clauses and used value', {
   }
 });
 
+TestIt('Compiler: begin blocks with rescue with variable name', {
+  'before all': function(t) {
+    this.iseq = compile("begin                \n\
+                           p('hi')            \n\
+                         rescue FooError => e \n\
+                           p e                \n\
+                         end");
 
-//TestIt('Compiler: begin blocks with no rescues, ensures, or else', {
-//  'should simply compile the body': function(t) {
-//    var body = compile("begin\n3 * 2\nend")[Helper.BodyIdx],
-//        exp  = [
-//          ['putobject', 3],
-//          ['putobject', 2],
-//          ['send', '*', 1],
-//          ['leave']
-//        ];
-//
-//    t.assertEqual(exp, body);
-//  }
-//});
-//
-//TestIt('Compiler: begin blocks with with a bare rescue clause', {
-//  'before all': function(t) {
-//    this.iseq = compile("begin     \n\
-//                          p('hi')  \n\
-//                        rescue     \n\
-//                          p('bye') \n\
-//                        end");
-//    this.body = this.iseq[Helper.BodyIdx];
-//    this.rescueEntry = this.iseq[Helper.CatchIdx][0];
-//    this.rescueIseq  = this.rescueEntry[1];
-//  },
-//
-//  'should insert start, end, and continue labels around compiled begin body': function(t) {
-//    var exp = [
-//      'begin-start-1',
-//      ['putself'],
-//      ['putstring', 'hi'],
-//      ['send', 'p', 1],
-//      'begin-end-2',
-//      'begin-after-3',
-//      ['leave']
-//    ]
-//
-//    t.assertEqual(exp, this.body);
-//  },
-//
-//  'should insert a rescue catch entry with type "rescue" and name "rescue in <compiled>"': function(t) {
-//    t.assertEqual('rescue', this.rescueEntry[0]);
-//  },
-//
-//  "rescue catch entry's iseq should have type 'rescue' and name 'rescue in <compiled>'": function(t) {
-//    t.assertEqual('rescue', this.rescueIseq[Helper.TypeIdx]);
-//    t.assertEqual('rescue in <compiled>', this.rescueIseq[Helper.NameIdx]);
-//  },
-//
-//  "rescue catch entry should have start, end, and continue labels set": function(t) {
-//    t.assertEqual('begin-start-1', this.rescueEntry[2]);
-//    t.assertEqual('begin-end-2', this.rescueEntry[3]);
-//    t.assertEqual('begin-after-3', this.rescueEntry[4]);
-//  },
-//
-//  "rescue catch entry should have stack pointer set to 0": function(t) {
-//    t.assertEqual(0, this.rescueEntry[5]);
-//  },
-//
-//  "rescue catch entry's iseq should have a local variable called '#$!' at index 0": function(t) {
-//    t.assertEqual(['#$!'], this.rescueIseq[Helper.LocalsIdx]);
-//  },
-//
-//  "rescue catch entry's iseq should contain check for StandardError": function(t) {
-//    var exp = [
-//      ['putbuiltin', 'StandardError'],
-//      ['getdynamic', 0, 0],
-//      ['send', '===', 1],
-//      ['branchunless', 'rescue-body-end-2'],
-//      'rescue-body-start-1',
-//      ['putself'],
-//      ['putstring', 'bye'],
-//      ['send', 'p', 1],
-//      ['leave'],
-//      'rescue-body-end-2',
-//      ['getdynamic', 0, 0],
-//      ['throw']
-//    ];
-//
-//    t.assertEqual(exp, this.rescueIseq[Helper.BodyIdx]);
-//  }
-//});
-//
-//TestIt('Compiler: begin blocks with with qualified rescue clauses', {
-//  'before all': function(t) {
-//    this.iseq = compile("begin                \n\
-//                          p('hi')             \n\
-//                        rescue Error1, Error2 \n\
-//                          p('1 or 2')         \n\
-//                        rescue Error3         \n\
-//                          p('3')              \n\
-//                        end");
-//    this.body = this.iseq[Helper.BodyIdx];
-//    this.rescueEntry = this.iseq[Helper.CatchIdx][0];
-//    this.rescueIseq  = this.rescueEntry[1];
-//  },
-//
-//  'should contain checks for each given exception class': function(t) {
-//    var exp = [
-//      ['putnil'],
-//      ['getconstant', 'Error1'],
-//      ['getdynamic', 0, 0],
-//      ['send', '===', 1],
-//      ['branchif', 'rescue-body-start-1'],
-//      ['putnil'],
-//      ['getconstant', 'Error2'],
-//      ['getdynamic', 0, 0],
-//      ['send', '===', 1],
-//      ['branchunless', 'rescue-body-end-2'],
-//      'rescue-body-start-1',
-//      ['putself'],
-//      ['putstring', '1 or 2'],
-//      ['send', 'p', 1],
-//      ['leave'],
-//      'rescue-body-end-2',
-//      ['putnil'],
-//      ['getconstant', 'Error3'],
-//      ['getdynamic', 0, 0],
-//      ['send', '===', 1],
-//      ['branchunless', 'rescue-body-end-4'],
-//      'rescue-body-start-3',
-//      ['putself'],
-//      ['putstring', '3'],
-//      ['send', 'p', 1],
-//      ['leave'],
-//      'rescue-body-end-4',
-//      ['getdynamic', 0, 0],
-//      ['throw']
-//    ];
-//
-//    t.assertEqual(exp, this.rescueIseq[Helper.BodyIdx]);
-//  }
-//});
-//
-//TestIt('Compiler: begin blocks with with qualified rescue clauses with variable names', {
-//  'before all': function(t) {
-//    this.iseq = compile("begin            \n\
-//                          p('hi')         \n\
-//                        rescue Error => e \n\
-//                          p(e)            \n\
-//                        end");
-//    this.body = this.iseq[Helper.BodyIdx];
-//    this.rescueEntry = this.iseq[Helper.CatchIdx][0];
-//    this.rescueIseq  = this.rescueEntry[1];
-//  },
-//
-//  "should add the variable name to the enclosing iseq's locals array": function(t) {
-//    t.assertEqual(['e'], this.iseq[Helper.LocalsIdx]);
-//  },
-//
-//  'should assign the exception object to the given variable name': function(t) {
-//    var exp = [
-//      ['putnil'],
-//      ['getconstant', 'Error'],
-//      ['getdynamic', 0, 0],
-//      ['send', '===', 1],
-//      ['branchunless', 'rescue-body-end-2'],
-//      'rescue-body-start-1',
-//      ['getdynamic', 0, 0],
-//      ['setlocal', 0],
-//      ['putself'],
-//      ['getlocal', 0],
-//      ['send', 'p', 1],
-//      ['leave'],
-//      'rescue-body-end-2',
-//      ['getdynamic', 0, 0],
-//      ['throw']
-//    ];
-//
-//    t.assertEqual(exp, this.rescueIseq[Helper.BodyIdx]);
-//  }
-//});
-//
-//TestIt('Compiler: begin blocks that appear in an expression', {
-//  'before all': function(t) {
-//    this.iseq = compile("foo(1, 2, begin     \n\
-//                                     p('hi')  \n\
-//                                   rescue     \n\
-//                                     p('bye') \n\
-//                                   end)");
-//    this.body = this.iseq[Helper.BodyIdx];
-//    this.rescueEntry = this.iseq[Helper.CatchIdx][0];
-//  },
-//
-//  'should have a non-zero stack pointer in the rescue catch entry': function(t) {
-//    t.assertEqual(3, this.rescueEntry[5]);
-//  }
-//});
-//
+    this.body        = this.iseq[Helper.BodyIdx];
+    this.catchTable  = this.iseq[Helper.CatchIdx];
+    this.rescueEntry = this.catchTable[0];
+    this.rescueISeq  = this.rescueEntry[1];
+    this.rescueBody  = this.rescueISeq[Helper.BodyIdx];
+  },
+
+  'local variable should be defined in the parent iseq': function(t) {
+    t.assertEqual(['e'], this.iseq[Helper.LocalsIdx]);
+    t.assertEqual(['#$!'], this.rescueISeq[Helper.LocalsIdx]);
+  },
+
+  'rescue catch entry iseq should assign exception object to local variable': function(t) {
+    var exp = [
+      ['putnil'],
+      ['getconstant', 'FooError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-6'],
+      ['jump', 'next-13'],
+      'start-6',
+      ['getdynamic', 0, 0],
+      ['setlocal', 0],
+      ['putself'],
+      ['getlocal', 0],
+      ['send', 'p', 1],
+      ['leave'],
+      'next-13',
+      ['getdynamic', 0, 0],
+      ['throw']
+    ];
+
+    t.assertEqual(exp, this.rescueBody);
+  }
+});
+
+TestIt('Compiler: begin blocks with multiple types in one rescue block', {
+  'before all': function(t) {
+    this.iseq = compile("begin                               \n\
+                           p('hi')                           \n\
+                         rescue FooError, BarError, BazError \n\
+                           p('rescue')                       \n\
+                         end");
+
+    this.body        = this.iseq[Helper.BodyIdx];
+    this.catchTable  = this.iseq[Helper.CatchIdx];
+    this.rescueEntry = this.catchTable[0];
+    this.rescueISeq  = this.rescueEntry[1];
+    this.rescueBody  = this.rescueISeq[Helper.BodyIdx];
+  },
+
+  'rescue catch entry iseq should have checks for each type': function(t) {
+    var exp = [
+      ['putnil'],
+      ['getconstant', 'FooError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-16'],
+      ['putnil'],
+      ['getconstant', 'BarError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-16'],
+      ['putnil'],
+      ['getconstant', 'BazError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-16'],
+      ['jump', 'next-21'],
+      'start-16',
+      ['putself'],
+      ['putstring', 'rescue'],
+      ['send', 'p', 1],
+      ['leave'],
+      'next-21',
+      ['getdynamic', 0, 0],
+      ['throw']
+    ];
+
+    t.assertEqual(exp, this.rescueBody);
+  }
+});
+
+TestIt('Compiler: begin blocks with multiple rescue blocks', {
+  'before all': function(t) {
+    this.iseq = compile("begin                            \n\
+                           p('hi')                        \n\
+                         rescue FooError, BarError => e1  \n\
+                           p e1                           \n\
+                         rescue BazError, QuuxError => e2 \n\
+                           p e2                           \n\
+                         end");
+
+    this.body        = this.iseq[Helper.BodyIdx];
+    this.catchTable  = this.iseq[Helper.CatchIdx];
+    this.rescueEntry = this.catchTable[0];
+    this.rescueISeq  = this.rescueEntry[1];
+    this.rescueBody  = this.rescueISeq[Helper.BodyIdx];
+  },
+
+  'rescue catch entry iseq should have checks for each block and type': function(t) {
+    var exp = [
+      ['putnil'],
+      ['getconstant', 'FooError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-11'],
+      ['putnil'],
+      ['getconstant', 'BarError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-11'],
+      ['jump', 'next-18'],
+      'start-11',
+      ['getdynamic', 0, 0],
+      ['setlocal', 0],
+      ['putself'],
+      ['getlocal', 0],
+      ['send', 'p', 1],
+      ['leave'],
+      'next-18',
+      ['putnil'],
+      ['getconstant', 'BazError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-30'],
+      ['putnil'],
+      ['getconstant', 'QuuxError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-30'],
+      ['jump', 'next-37'],
+      'start-30',
+      ['getdynamic', 0, 0],
+      ['setlocal', 1],
+      ['putself'],
+      ['getlocal', 1],
+      ['send', 'p', 1],
+      ['leave'],
+      'next-37',
+      ['getdynamic', 0, 0],
+      ['throw']
+    ];
+
+    t.assertEqual(exp, this.rescueBody);
+  }
+});
+
+TestIt('Compiler: begin blocks that appear in an expression', {
+  'before all': function(t) {
+    this.iseq = compile("foo(1, 2, begin     \n\
+                                     p('hi')  \n\
+                                   rescue     \n\
+                                     p('bye') \n\
+                                   end)");
+    this.body = this.iseq[Helper.BodyIdx];
+    this.rescueEntry = this.iseq[Helper.CatchIdx][0];
+  },
+
+  'should have a non-zero stack pointer in the rescue catch entry': function(t) {
+    t.assertEqual(3, this.rescueEntry[5]);
+  }
+});
+

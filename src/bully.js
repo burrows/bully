@@ -1722,9 +1722,7 @@ Bully.Compiler = {
   },
   compileRescueBlocks: function(rescues, iseq) {
     var len = rescues.length,
-        bodystart = new Label('bodystart'),
-        bodyend = new Label('bodyend'),
-        node, types, i, j;
+        startl, nextl, node, localIdx, types, typeslen, i, j;
     // Rescue blocks always have a 'private' local varable (not available from
     // Bully code) that contains a reference to the exception object. We can't
     // use addLocal here because rescue ISeq objects store all of their local
@@ -1733,22 +1731,36 @@ Bully.Compiler = {
     iseq.locals[0] = '#$!';
     for (i = 0; i < len; i++) {
       node = rescues[i];
+      startl = new Label('start');
+      nextl = new Label('next');
       if (node.exception_types) {
+        types = node.exception_types;
+        typeslen = types.length;
+        for (j = 0; j < typeslen; j++) {
+          this['compile' + (types[j]).type](types[j], iseq, true);
+          iseq.addInstruction('getdynamic', 0, 0);
+          iseq.addInstruction('send', '===', 1);
+          iseq.addInstruction('branchif', startl);
+        }
       }
       else {
         iseq.addInstruction('putbuiltin', 'StandardError');
         iseq.addInstruction('getdynamic', 0, 0);
         iseq.addInstruction('send', '===', 1);
-        iseq.addInstruction('branchif', bodystart);
-        iseq.addInstruction('jump', bodyend);
+        iseq.addInstruction('branchif', startl);
       }
-      iseq.setLabel(bodystart);
+      iseq.addInstruction('jump', nextl);
+      iseq.setLabel(startl);
+      if (node.name) {
+        iseq.addInstruction('getdynamic', 0, 0);
+        iseq.addInstruction('setlocal', iseq.addLocal(node.name));
+      }
       this['compile' + (node.body).type](node.body, iseq, true);
       iseq.addInstruction('leave');
-      iseq.setLabel(bodyend);
-      iseq.addInstruction('getdynamic', 0, 0);
-      iseq.addInstruction('throw');
+      iseq.setLabel(nextl);
     }
+    iseq.addInstruction('getdynamic', 0, 0);
+    iseq.addInstruction('throw');
   },
   compileEnsureBlock: function(node, iseq) {
     iseq.locals[0] = '#$!';
@@ -1756,46 +1768,6 @@ Bully.Compiler = {
     iseq.addInstruction('getdynamic', 0, 0);
     iseq.addInstruction('throw');
   },
-  //compileRescueBlock: function(node, iseq, push) {
-  //  var bodyl = iseq.newLabel('rescue-body-start'),
-  //      endl  = iseq.newLabel('rescue-body-end'),
-  //      localIdx, len, i;
-  //  // Rescue blocks always have a 'private' local varable (not available from
-  //  // Bully code) that contains a reference to the exception object. We can't
-  //  // use addLocal here because rescue ISeq objects store all of their local
-  //  // variables in their parent ISeq so we have to forcefully add it to this
-  //  // ISeq's locals array.
-  //  iseq.locals[0] = '#$!';
-  //  if (node.exception_types) {
-  //    len = node.exception_types.length;
-  //    for (i = 0; i < len; i++) {
-  //      COMPILE_NODE(node.exception_types[i], iseq, true);
-  //      iseq.addInstruction('getdynamic', 0, 0);
-  //      iseq.addInstruction('send', '===', 1);
-  //      if (i === len - 1) {
-  //        iseq.addInstruction('branchunless', endl);
-  //      }
-  //      else {
-  //        iseq.addInstruction('branchif', bodyl);
-  //      }
-  //    }
-  //  }
-  //  else {
-  //    iseq.addInstruction('putbuiltin', 'StandardError');
-  //    iseq.addInstruction('getdynamic', 0, 0);
-  //    iseq.addInstruction('send', '===', 1);
-  //    iseq.addInstruction('branchunless', endl);
-  //  }
-  //  iseq.setLabel(bodyl);
-  //  if (node.name) {
-  //    localIdx = iseq.addLocal(node.name);
-  //    iseq.addInstruction('getdynamic', 0, 0);
-  //    iseq.addInstruction('setlocal', localIdx);
-  //  }
-  //  COMPILE_NODE(node.body, iseq, push);
-  //  iseq.addInstruction('leave');
-  //  iseq.setLabel(endl);
-  //},
   compileBeginBlock: function(node, iseq, push) {
     var rescuesLen = node.rescues.length,
         hasRescue = rescuesLen > 0,
