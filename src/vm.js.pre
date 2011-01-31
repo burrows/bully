@@ -1,14 +1,17 @@
 (function() {
 
 var StackFrame = function(opts) {
-  this.ip      = 0;
-  this.sp      = 0;
-  this.iseq    = opts.iseq || null;
-  this.stack   = opts.stackSize ? new Array(opts.stackSize) : [];
-  this.self    = opts.self || Bully.main;
-  this.modules = [];
-  this.parent  = opts.parent || null;
-  this.locals  = [];
+  this.ip        = 0;
+  this.sp        = 0;
+  this.iseq      = opts.iseq || null;
+  this.stack     = opts.stackSize ? new Array(opts.stackSize) : [];
+  this.self      = opts.self || Bully.main;
+  this.modules   = [];
+  this.parent    = opts.parent || null;
+  this.locals    = opts.locals || [];
+  this.isDynamic = 'isDynamic' in opts ? opts.isDynamic : false;
+
+  return this;
 };
 
 StackFrame.prototype = {
@@ -44,15 +47,39 @@ StackFrame.prototype = {
   }
 };
 
+#define VM_STATE_NORMAL 0
+#define VM_STATE_RAISE  1
+
 Bully.VM = {
+  frames: [],
+
+  state: VM_STATE_NORMAL,
+
+  currentFrame: function() {
+    return this.frames[this.frames.length - 1];
+  },
+
+  pushFrame: function(frame) {
+    this.frames.push(frame);
+    return this;
+  },
+
+  popFrame: function() {
+    return this.frames.pop();
+  },
+
   // Runs a compiled Bully program.
   run: function(iseq) {
+    this.frames = [];
+    this.state  = VM_STATE_NORMAL;
+
     return this.runISeq(iseq, [], { self: Bully.main });
   },
 
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[ISEQ_BODY_IDX], len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
+        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
+        ex;
 
     // process labels
     if (!iseq.labels) {
@@ -67,12 +94,13 @@ Bully.VM = {
     sfOpts.iseq      = iseq;
 
     sf = new StackFrame(sfOpts);
-    this.currentSf = sf;
+    this.pushFrame(sf);
 
     if ((startLabel = this.setupArguments(iseq, args, sf))) {
       sf.ip = iseq.labels[startLabel];
     }
 
+    main_loop:
     for (; sf.ip < len; sf.ip++) {
       ins = body[sf.ip];
 
@@ -115,18 +143,31 @@ Bully.VM = {
           this.sendMethod(recv, ins[1], sendargs, sf);
           break;
         case 'setlocal':
-          sf.locals[ins[1]] = sf.pop();
+          localSF = sf;
+          while (localSF.isDynamic) { localSF = localSF.parent; }
+          localSF.locals[ins[1]] = sf.pop();
           break;
         case 'getlocal':
-          sf.push(sf.locals[ins[1]]);
+          localSF = sf;
+          while (localSF.isDynamic) { localSF = localSF.parent; }
+          sf.push(localSF.locals[ins[1]]);
+          break;
+        case 'setdynamic':
+          localSF = sf;
+          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+          localSF.locals[ins[1]] = sf.pop();
+          break;
+        case 'getdynamic':
+          localSF = sf;
+          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+          sf.push(localSF.locals[ins[1]]);
           break;
         case 'getconstant':
           klass = sf.pop();
           sf.push(this.getConstant(klass, ins[1]));
           break;
-        case 'getdynamic':
-          // FIXME
-          sf.push(this.dollarBang);
+        case 'branchif':
+          if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
           break;
         case 'branchunless':
           if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
@@ -134,10 +175,14 @@ Bully.VM = {
         case 'jump':
           sf.ip = iseq.labels[ins[1]];
           break;
+        case 'throw':
+          ex = sf.pop(); // FIXME: why is ex object pushed onto stack?
+          this.state = VM_STATE_RAISE;
+          break;
         case 'leave':
-          return;
+          break main_loop;
         default:
-          throw 'invalid opcode: ' + ins[0];
+          throw new Error('unknown opcode: ' + ins[0]);
       }
     }
 
@@ -145,6 +190,8 @@ Bully.VM = {
     if (sf.parent) {
       for (i = 0; i < sf.sp; i++) { sf.parent.push(sf.stack[i]); }
     }
+
+    this.popFrame();
   },
 
   setupArguments: function(iseq, args, sf) {
@@ -202,36 +249,43 @@ Bully.VM = {
   },
 
   raise: function(ex) {
-    var sf = this.currentSf,
+    var sf = this.currentFrame(),
         catchTbl, catchLen, type, start, stop, cont, catchEntry, i;
 
-    this.dollarBang = ex;
-
-    while (sf) {
+    do {
       catchTbl = sf.iseq[ISEQ_CATCH_TBL_IDX];
       catchLen = catchTbl.length;
+
+      this.state = VM_STATE_NORMAL;
 
       for (i = 0; i < catchLen; i++) {
         catchEntry = catchTbl[i];
         type       = catchEntry[CATCH_ENTRY_TYPE_IDX];
+        start      = sf.iseq.labels[catchEntry[CATCH_ENTRY_START_LBL_IDX]];
+        stop       = sf.iseq.labels[catchEntry[CATCH_ENTRY_STOP_LBL_IDX]];
+        cont       = sf.iseq.labels[catchEntry[CATCH_ENTRY_CONT_LBL_IDX]];
 
-        if (type !== 'rescue') { continue; }
+        if (!(start <= sf.ip && sf.ip <= stop)) { continue; }
 
-        start = sf.iseq.labels[catchEntry[CATCH_ENTRY_START_LBL_IDX]];
-        stop  = sf.iseq.labels[catchEntry[CATCH_ENTRY_STOP_LBL_IDX]];
-        cont  = sf.iseq.labels[catchEntry[CATCH_ENTRY_CONT_LBL_IDX]];
-
-        if (sf.ip >= start && sf.ip <= stop) {
-          sf.ip = catchEntry[CATCH_ENTRY_SP_IDX];
+        if (type === 'rescue' || type === 'ensure') {
+          sf.sp = catchEntry[CATCH_ENTRY_SP_IDX];
           this.runISeq(catchEntry[CATCH_ENTRY_ISEQ_IDX], [],
-                       { parent: sf, self: sf.self });
-          sf.ip = cont;
-          return;
+                       { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+
+          if (this.state !== VM_STATE_RAISE) {
+            // exception was handled, so return and continue executing this iseq
+            sf.ip = cont;
+            return;
+          }
         }
       }
 
-      sf = sf.parent;
-    }
+      this.popFrame();
+    } while ((sf = this.currentFrame()))
+
+    // no rescue handler was found, so abort program
+    send(Bully.main, 'p', ex);
+    Bully.platform.exit(1);
   }
 };
 

@@ -703,19 +703,21 @@ Bully.init = function() {
   Bully.define_module_method(Bully.Kernel, 'at_exit', function(self, args, block) {
     Bully.at_exit = block;
   }, 0, 0);
-  Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
+  Bully.Kernel.exit = function(self, args) {
     var code = args[0] || 0, at_exit = Bully.at_exit;
     Bully.at_exit = null;
     if (at_exit) {
       Bully.dispatch_method(at_exit, 'call', []);
     }
     Bully.platform.exit(code);
-  }, 0, 1);
-  Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
+  };
+  Bully.define_module_method(Bully.Kernel, 'exit', Bully.Kernel.exit, 0, 1);
+  Bully.Kernel.p = function(self, args) {
     var str = Bully.dispatch_method(args[0], 'inspect', []).data;
     Bully.platform.puts(str);
     return null;
-  });
+  };
+  Bully.define_module_method(Bully.Kernel, 'p', Bully.Kernel.p, 1, 1);
   // raise can be called in the following ways:
   //
   //   raise
@@ -1828,7 +1830,9 @@ var StackFrame = function(opts) {
   this.self = opts.self || Bully.main;
   this.modules = [];
   this.parent = opts.parent || null;
-  this.locals = [];
+  this.locals = opts.locals || [];
+  this.isDynamic = 'isDynamic' in opts ? opts.isDynamic : false;
+  return this;
 };
 StackFrame.prototype = {
   toString: function() {
@@ -1857,13 +1861,27 @@ StackFrame.prototype = {
   }
 };
 Bully.VM = {
+  frames: [],
+  state: 0,
+  currentFrame: function() {
+    return this.frames[this.frames.length - 1];
+  },
+  pushFrame: function(frame) {
+    this.frames.push(frame);
+    return this;
+  },
+  popFrame: function() {
+    return this.frames.pop();
+  },
   // Runs a compiled Bully program.
   run: function(iseq) {
+    this.frames = [];
     return this.runISeq(iseq, [], { self: Bully.main });
   },
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[7], len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i;
+        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
+        ex;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -1875,10 +1893,11 @@ Bully.VM = {
     sfOpts.stackSize = iseq[3];
     sfOpts.iseq = iseq;
     sf = new StackFrame(sfOpts);
-    this.currentSf = sf;
+    this.pushFrame(sf);
     if ((startLabel = this.setupArguments(iseq, args, sf))) {
       sf.ip = iseq.labels[startLabel];
     }
+    main_loop:
     for (; sf.ip < len; sf.ip++) {
       ins = body[sf.ip];
       if (typeof ins !== 'object') { continue; }
@@ -1919,18 +1938,31 @@ Bully.VM = {
           this.sendMethod(recv, ins[1], sendargs, sf);
           break;
         case 'setlocal':
-          sf.locals[ins[1]] = sf.pop();
+          localSF = sf;
+          while (localSF.isDynamic) { localSF = localSF.parent; }
+          localSF.locals[ins[1]] = sf.pop();
           break;
         case 'getlocal':
-          sf.push(sf.locals[ins[1]]);
+          localSF = sf;
+          while (localSF.isDynamic) { localSF = localSF.parent; }
+          sf.push(localSF.locals[ins[1]]);
+          break;
+        case 'setdynamic':
+          localSF = sf;
+          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+          localSF.locals[ins[1]] = sf.pop();
+          break;
+        case 'getdynamic':
+          localSF = sf;
+          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+          sf.push(localSF.locals[ins[1]]);
           break;
         case 'getconstant':
           klass = sf.pop();
           sf.push(this.getConstant(klass, ins[1]));
           break;
-        case 'getdynamic':
-          // FIXME
-          sf.push(this.dollarBang);
+        case 'branchif':
+          if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
           break;
         case 'branchunless':
           if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
@@ -1938,16 +1970,21 @@ Bully.VM = {
         case 'jump':
           sf.ip = iseq.labels[ins[1]];
           break;
+        case 'throw':
+          ex = sf.pop(); // FIXME: why is ex object pushed onto stack?
+          this.state = 1;
+          break;
         case 'leave':
-          return;
+          break main_loop;
         default:
-          throw 'invalid opcode: ' + ins[0];
+          throw new Error('unknown opcode: ' + ins[0]);
       }
     }
     // copy the current stack to the parent stack
     if (sf.parent) {
       for (i = 0; i < sf.sp; i++) { sf.parent.push(sf.stack[i]); }
     }
+    this.popFrame();
   },
   setupArguments: function(iseq, args, sf) {
     var nargs = args.length,
@@ -1993,29 +2030,39 @@ Bully.VM = {
     }
   },
   raise: function(ex) {
-    var sf = this.currentSf,
+    var sf = this.currentFrame(),
         catchTbl, catchLen, type, start, stop, cont, catchEntry, i;
-    this.dollarBang = ex;
-    while (sf) {
+    // find rescue entry
+    // find ensure entry
+    // if (rescue) run rescue block; return
+    // else if (ensure) run ensure block
+    do {
       catchTbl = sf.iseq[6];
       catchLen = catchTbl.length;
+      this.state = 0;
       for (i = 0; i < catchLen; i++) {
         catchEntry = catchTbl[i];
         type = catchEntry[0];
-        if (type !== 'rescue') { continue; }
         start = sf.iseq.labels[catchEntry[2]];
         stop = sf.iseq.labels[catchEntry[3]];
         cont = sf.iseq.labels[catchEntry[4]];
-        if (sf.ip >= start && sf.ip <= stop) {
-          sf.ip = catchEntry[5];
+        if (!(start <= sf.ip && sf.ip <= stop)) { continue; }
+        if (type === 'rescue' || type === 'ensure') {
+          sf.sp = catchEntry[5];
           this.runISeq(catchEntry[1], [],
-                       { parent: sf, self: sf.self });
-          sf.ip = cont;
-          return;
+                       { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+          if (this.state !== 1) {
+            // exception was handled, so return and continue executing this iseq
+            sf.ip = cont;
+            return;
+          }
         }
       }
-      sf = sf.parent;
-    }
+      this.popFrame();
+    } while ((sf = this.currentFrame()))
+    // no rescue handler was found, so abort program
+    Bully.dispatch_method(Bully.main, 'p', [ex]);
+    Bully.platform.exit(1);
   }
 };
 }());

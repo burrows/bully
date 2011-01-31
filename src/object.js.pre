@@ -56,7 +56,7 @@ Bully.init_object = function() {
     Bully.at_exit = block;
   }, 0, 0);
 
-  Bully.define_module_method(Bully.Kernel, 'exit', function(self, args) {
+  Bully.Kernel.exit = function(self, args) {
     var code = args[0] || 0, at_exit = Bully.at_exit;
 
     Bully.at_exit = null;
@@ -66,13 +66,17 @@ Bully.init_object = function() {
     }
 
     Bully.platform.exit(code);
-  }, 0, 1);
+  };
 
-  Bully.define_module_method(Bully.Kernel, 'p', function(self, args) {
+  Bully.define_module_method(Bully.Kernel, 'exit', Bully.Kernel.exit, 0, 1);
+
+  Bully.Kernel.p = function(self, args) {
     var str = send(args[0], 'inspect').data;
     Bully.platform.puts(str);
     return null;
-  });
+  };
+
+  Bully.define_module_method(Bully.Kernel, 'p', Bully.Kernel.p, 1, 1);
 
   // raise can be called in the following ways:
   //
