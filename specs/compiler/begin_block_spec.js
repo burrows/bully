@@ -96,7 +96,7 @@ TestIt('Compiler: begin blocks with only rescue clause with unused value', {
       ['leave'],
       'next-10',
       ['getdynamic', 0, 0],
-      ['throw']
+      ['throw', 0]
     ];
   
     t.assertEqual(exp, this.rescueBody);
@@ -269,7 +269,7 @@ TestIt('Compiler: begin blocks with only ensure clause and unused value', {
       ['send', 'p', 1],
       ['pop'],
       ['getdynamic', 0, 0],
-      ['throw']
+      ['throw', 0]
     ];
   
     t.assertEqual(exp, this.ensureBody);
@@ -704,7 +704,7 @@ TestIt('Compiler: begin blocks with rescue with variable name', {
       ['leave'],
       'next-13',
       ['getdynamic', 0, 0],
-      ['throw']
+      ['throw', 0]
     ];
 
     t.assertEqual(exp, this.rescueBody);
@@ -751,7 +751,7 @@ TestIt('Compiler: begin blocks with multiple types in one rescue block', {
       ['leave'],
       'next-21',
       ['getdynamic', 0, 0],
-      ['throw']
+      ['throw', 0]
     ];
 
     t.assertEqual(exp, this.rescueBody);
@@ -816,7 +816,7 @@ TestIt('Compiler: begin blocks with multiple rescue blocks', {
       ['leave'],
       'next-37',
       ['getdynamic', 0, 0],
-      ['throw']
+      ['throw', 0]
     ];
 
     t.assertEqual(exp, this.rescueBody);

@@ -1,7 +1,8 @@
 
 #define COMPILE_NODE(node, ...) this['compile' + (node).type](node, ##__VA_ARGS__)
 
-#define THROW_TYPE_RETURN 0
+#define VM_THROW_TYPE_RAISE 0
+#define VM_THROW_TYPE_RETRY 4
 
 (function() {
 
@@ -495,14 +496,14 @@ Bully.Compiler = {
     }
 
     iseq.addInstruction('getdynamic', 0, 0);
-    iseq.addInstruction('throw');
+    iseq.addInstruction('throw', VM_THROW_TYPE_RAISE);
   },
 
   compileEnsureBlock: function(node, iseq) {
     iseq.locals[0] = '#$!';
     COMPILE_NODE(node, iseq, false);
     iseq.addInstruction('getdynamic', 0, 0);
-    iseq.addInstruction('throw');
+    iseq.addInstruction('throw', VM_THROW_TYPE_RAISE);
   },
 
   compileBeginBlock: function(node, iseq, push) {
@@ -564,6 +565,11 @@ Bully.Compiler = {
       this.compileEnsureBlock(node.ensure, eiseq);
       iseq.addCatchEntry('ensure', eiseq, labels.estart, labels.estop, labels.econt, sp);
     }
+  },
+
+  compileRetry: function(node, iseq) {
+    iseq.addInstruction('putnil');
+    iseq.addInstruction('throw', VM_THROW_TYPE_RETRY);
   }
 };
 

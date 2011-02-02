@@ -21,6 +21,7 @@ Bully.Lexer.KEYWORDS = [
   'begin',
   'rescue',
   'ensure',
+  'retry',
   'super',
   'yield'
 ];

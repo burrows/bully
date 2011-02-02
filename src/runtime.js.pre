@@ -1,6 +1,10 @@
 (function() {
 var next_object_id = 1;
 
+var toString = function() {
+  return send(this, 'inspect').data;
+};
+
 // Returns a native javascript object with the properties necessary to be a
 // Bully object.
 //
@@ -14,9 +18,10 @@ Bully.make_object = function(obj, klass) {
   obj   = obj   || {};
   klass = klass || null;
 
-  obj.klass  = klass;
-  obj.iv_tbl = {};
-  obj.id     = next_object_id;
+  obj.klass    = klass;
+  obj.iv_tbl   = {};
+  obj.id       = next_object_id;
+  obj.toString = toString;
 
   next_object_id += 1;
 
@@ -708,6 +713,17 @@ Bully.define_global_const = function(name, val) {
   return Bully.const_set(Bully.Object, name, val);
 };
 
+Bully.RaiseException = function(ex) {
+  this.exception = ex;
+  return this;
+};
+
+Bully.RaiseException.prototype = {
+  toString: function() {
+    return "Bully.RaiseException: " + send(this.exception, 'to_s').data;
+  }
+};
+
 // Raises an exception with the given message.
 //
 // exception - An Exception class or instance.  If a class is received then it
@@ -723,7 +739,7 @@ Bully.raise = function(exception, message) {
     exception = Bully.dispatch_method(exception, 'new', args);
   }
 
-  Bully.VM.raise(exception);
+  throw new Bully.RaiseException(exception);
 };
 
 // Private: Bootstraps and initializes the Bully runtime.  This involves

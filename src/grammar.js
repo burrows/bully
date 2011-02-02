@@ -31,7 +31,8 @@ var grammar = {
   ],
 
   Statement: [
-    o('Return')
+    o('Return'),
+    o('Retry')
   ],
 
   Expression: [
@@ -70,6 +71,10 @@ var grammar = {
   Return: [
     o('RETURN Expression', "$$ = {type: 'Return', expression: $2};"),
     o('RETURN',            "$$ = {type: 'Return', expression: null};")
+  ],
+
+  Retry: [
+    o('RETRY', "$$ = {type: 'Retry'};")
   ],
 
   NumberLiteral: [
