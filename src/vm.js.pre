@@ -5,6 +5,8 @@
 #define ISEQ_STATUS_RETRY  2
 #define ISEQ_STATUS_RETURN 3
 
+#define VM_DEBUG(sf, msg) console.log(sf.toString() +  ': ' + msg)
+
 var StackFrame = function(iseq, opts) {
   this.iseq      = iseq;
   this.ip        = 0;
@@ -22,19 +24,8 @@ var StackFrame = function(iseq, opts) {
 
 StackFrame.prototype = {
   toString: function() {
-    var a = [], obj, i;
-
-    for (i = 0; i < this.sp; i++) {
-      obj = this.stack[i];
-      if (obj === null) {
-        a.push('nil');
-      }
-      else {
-        a.push(obj.toString());
-      }
-    }
-
-    return a.toString();
+    var name = this.iseq[ISEQ_NAME_IDX], type = this.iseq[ISEQ_TYPE_IDX];
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + Bully.Array.make(this.stack).toString() + ')';
   },
 
   push: function(obj) {
@@ -81,8 +72,8 @@ Bully.VM = {
   },
 
   runISeq: function(iseq, args, sfOpts) {
-    var body   = iseq[ISEQ_BODY_IDX],
-        len    = body.length,
+    var body  = iseq[ISEQ_BODY_IDX],
+        len   = body.length,
         sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
         ex;
 
@@ -195,16 +186,21 @@ Bully.VM = {
           break main_loop;
         }
       }
+      else if (sf.status === ISEQ_STATUS_RETRY) {
+        break main_loop;
+      }
     }
 
     // copy the current status and stack to the parent stack
     if (sf.parent) {
       sf.parent.status = sf.status;
+
       for (i = 0; i < sf.sp; i++) {
         sf.parent.push(sf.stack[i]);
       }
     }
-    else if (sf.status === ISEQ_STATUS_RAISE) {
+
+    if (!sf.parent && sf.status === ISEQ_STATUS_RAISE) {
       send(Bully.main, 'p', sf.pop());
       Bully.platform.exit(1);
     }
@@ -280,7 +276,8 @@ Bully.VM = {
   handleException: function(ex) {
     var sf          = this.currentFrame(),
         rescueEntry = this._findCatchEntry('rescue', sf),
-        ensureEntry = this._findCatchEntry('ensure', sf)
+        ensureEntry = this._findCatchEntry('ensure', sf),
+        retryEntry  = this._findCatchEntry('retry', sf),
         ex;
 
     if (!rescueEntry && !ensureEntry) { return; }
@@ -296,6 +293,12 @@ Bully.VM = {
         // the exception was rescued, so set the instuction pointer to the
         // entry's continue label and continue executing the current frame
         sf.ip = sf.iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+        return;
+      }
+      else if (sf.status === ISEQ_STATUS_RETRY) {
+        sf.sp = retryEntry[CATCH_ENTRY_SP_IDX];
+        sf.ip = sf.iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+        sf.status = ISEQ_STATUS_NORMAL;
         return;
       }
       else if (ensureEntry) {
@@ -326,7 +329,7 @@ Bully.VM = {
       start     = sf.iseq.labels[entry[CATCH_ENTRY_START_LBL_IDX]];
       stop      = sf.iseq.labels[entry[CATCH_ENTRY_STOP_LBL_IDX]];
 
-      if (entryType === type && start <= sf.ip && sf.ip <= stop) {
+      if (entryType === type && start <= sf.ip + 1 && sf.ip + 1 <= stop) {
         return entry;
       }
     }
@@ -343,7 +346,8 @@ Bully.VM = {
         sf.push(obj);
         return;
       case VM_THROW_TYPE_RETRY:
-        break;
+        sf.status = ISEQ_STATUS_RETRY;
+        return;
       default:
         throw new Error('invalid throw type: ' + throwType);
     }
