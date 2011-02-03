@@ -76,3 +76,51 @@ TestIt('Compiler: number literals', {
   }
 });
 
+TestIt('Compiler: symbol literals', {
+  'should add no instruction if symbol is not used in an expression': function(t) {
+    var body = compile(':foo; 2')[Helper.BodyIdx],
+        exp  = [
+          ['putobject', 2],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+
+  'should add putsymbol instruction if used in an expression': function(t) {
+    var body = compile(':foo')[Helper.BodyIdx],
+        exp  = [
+          ['putsymbol', 'foo'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+});
+
+TestIt('Compiler: array literals', {
+  'should add no instruction if array is not used in an expression': function(t) {
+    var body = compile('[1,2,3]; 2')[Helper.BodyIdx],
+        exp  = [
+          ['putobject', 2],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+
+  'should compile each item and then add a newarray instruction if used in an expression': function(t) {
+    var body = compile('p [1,:two,"three"]')[Helper.BodyIdx],
+        exp  = [
+          ['putself'],
+          ['putobject', 1],
+          ['putsymbol', 'two'],
+          ['putstring', 'three'],
+          ['newarray', 3],
+          ['send', 'p', 1],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});

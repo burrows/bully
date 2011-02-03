@@ -75,7 +75,7 @@ Bully.VM = {
     var body  = iseq[ISEQ_BODY_IDX],
         len   = body.length,
         sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
-        ex;
+        ary;
 
     // process labels
     if (!iseq.labels) {
@@ -124,6 +124,14 @@ Bully.VM = {
           break;
         case 'putstring':
           sf.push(Bully.String.make(ins[1]));
+          break;
+        case 'putsymbol':
+          sf.push(ins[1]);
+          break;
+        case 'newarray':
+          ary = new Array(ins[1]);
+          for (i = ins[1] - 1; i >= 0; i--) { ary[i] = sf.pop(); }
+          sf.push(Bully.Array.make(ary));
           break;
         case 'definemethod':
           stackiseq = sf.pop();

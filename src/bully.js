@@ -1568,6 +1568,7 @@ Instruction.ConstantStackDeltas = {
   nop: 0,
   putnil: 1,
   putstring: 1,
+  putsymbol: 1,
   putbuiltin: 1,
   putcurrentmodule: 1,
   putiseq: 1,
@@ -1592,6 +1593,8 @@ Instruction.stackDelta = function(insn) {
   switch (opcode) {
     case 'send':
       return -insn.operands[1];
+    case 'newarray':
+      return insn.operands[0] - 1;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -1687,6 +1690,10 @@ Bully.Compiler = {
     this['compile' + (node.expression).type](node.expression, iseq, true);
     iseq.addInstruction('setlocal', idx);
   },
+  compileNilLiteral: function(node, iseq, push) {
+    if (!push) { return; }
+    iseq.addInstruction('putnil');
+  },
   compileNumberLiteral: function(node, iseq, push) {
     if (!push) { return; }
     iseq.addInstruction('putobject', parseFloat(node.value));
@@ -1702,6 +1709,19 @@ Bully.Compiler = {
   compileFalseLiteral: function(node, iseq, push) {
     if (!push) { return; }
     iseq.addInstruction('putobject', false);
+  },
+  compileSymbolLiteral: function(node, iseq, push) {
+    if (!push) { return; }
+    iseq.addInstruction('putsymbol', node.value.slice(1));
+  },
+  compileArrayLiteral: function(node, iseq, push) {
+    var i, len;
+    if (!push) { return; }
+    len = node.expressions.length;
+    for (i = 0; i < len; i++) {
+      this['compile' + (node.expressions[i]).type](node.expressions[i], iseq, push);
+    }
+    iseq.addInstruction('newarray', len);
   },
   compileIf: function(node, iseq, push) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
@@ -1893,7 +1913,7 @@ Bully.VM = {
     var body = iseq[7],
         len = body.length,
         sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
-        ex;
+        ary;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -1936,6 +1956,14 @@ Bully.VM = {
           break;
         case 'putstring':
           sf.push(Bully.String.make(ins[1]));
+          break;
+        case 'putsymbol':
+          sf.push(ins[1]);
+          break;
+        case 'newarray':
+          ary = new Array(ins[1]);
+          for (i = ins[1] - 1; i >= 0; i--) { ary[i] = sf.pop(); }
+          sf.push(Bully.Array.make(ary));
           break;
         case 'definemethod':
           stackiseq = sf.pop();
