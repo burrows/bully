@@ -1874,8 +1874,10 @@ var StackFrame = function(iseq, opts) {
 };
 StackFrame.prototype = {
   toString: function() {
-    var name = this.iseq[1], type = this.iseq[2];
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + Bully.Array.make(this.stack).toString() + ')';
+    var name = this.iseq[1],
+        type = this.iseq[2],
+        body = this.iseq[7];
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + Bully.Array.make(this.stack).toString() + ')';
   },
   push: function(obj) {
     this.stack[this.sp++] = obj;
@@ -1925,97 +1927,122 @@ Bully.VM = {
     sf = new StackFrame(iseq, sfOpts);
     sf.stackSize = iseq[3];
     this.pushFrame(sf);
-    if ((startLabel = this.setupArguments(iseq, args, sf))) {
-      sf.ip = iseq.labels[startLabel];
+    try {
+      if ((startLabel = this.setupArguments(iseq, args, sf))) {
+        sf.ip = iseq.labels[startLabel];
+      }
+    }
+    // FIXME: clean this up
+    catch (e) {
+      if (e instanceof Bully.RaiseException) {
+        sf.status = 1;
+        sf.push(e.exception);
+        if (sf.parent) {
+          sf.parent.status = sf.status;
+          for (i = 0; i < sf.sp; i++) {
+            sf.parent.push(sf.stack[i]);
+          }
+        }
+        this.popFrame();
+        return;
+      } else { throw e; }
     }
     main_loop:
     for (; sf.ip < len; sf.ip++) {
       ins = body[sf.ip];
       if (typeof ins !== 'object') { continue; }
-      switch (ins[0]) {
-        case 'pop':
-          sf.pop();
-          break;
-        case 'putnil':
-          sf.push(null);
-          break;
-        case 'putself':
-          sf.push(sf.self);
-          break;
-        case 'putbuiltin':
-          sf.push(Bully[ins[1]]);
-          break;
-        case 'putcurrentmodule':
-          sf.push(sf.currentModule());
-          break;
-        case 'putiseq':
-          sf.push(ins[1]);
-          break;
-        case 'putobject':
-          sf.push(ins[1]);
-          break;
-        case 'putstring':
-          sf.push(Bully.String.make(ins[1]));
-          break;
-        case 'putsymbol':
-          sf.push(ins[1]);
-          break;
-        case 'newarray':
-          ary = new Array(ins[1]);
-          for (i = ins[1] - 1; i >= 0; i--) { ary[i] = sf.pop(); }
-          sf.push(Bully.Array.make(ary));
-          break;
-        case 'definemethod':
-          stackiseq = sf.pop();
-          mod = sf.pop();
-          Bully.define_method(mod, ins[1], stackiseq);
-          break;
-        case 'send':
-          sendargs = [];
-          for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
-          recv = sf.pop();
-          this.sendMethod(recv, ins[1], sendargs, sf);
-          break;
-        case 'setlocal':
-          localSF = sf;
-          while (localSF.isDynamic) { localSF = localSF.parent; }
-          localSF.locals[ins[1]] = sf.pop();
-          break;
-        case 'getlocal':
-          localSF = sf;
-          while (localSF.isDynamic) { localSF = localSF.parent; }
-          sf.push(localSF.locals[ins[1]]);
-          break;
-        case 'setdynamic':
-          localSF = sf;
-          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
-          localSF.locals[ins[1]] = sf.pop();
-          break;
-        case 'getdynamic':
-          localSF = sf;
-          for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
-          sf.push(localSF.locals[ins[1]]);
-          break;
-        case 'getconstant':
-          klass = sf.pop();
-          sf.push(this.getConstant(klass, ins[1]));
-          break;
-        case 'branchif':
-          if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
-          break;
-        case 'branchunless':
-          if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
-          break;
-        case 'jump':
-          sf.ip = iseq.labels[ins[1]];
-          break;
-        case 'throw':
-          this._throw(sf.pop(), ins[1]);
-          break;
-        case 'leave':
-          break main_loop;
-        default:
-          throw new Error('unknown opcode: ' + ins[0]);
+      try {
+        switch (ins[0]) {
+          case 'pop':
+            sf.pop();
+            break;
+          case 'putnil':
+            sf.push(null);
+            break;
+          case 'putself':
+            sf.push(sf.self);
+            break;
+          case 'putbuiltin':
+            sf.push(Bully[ins[1]]);
+            break;
+          case 'putcurrentmodule':
+            sf.push(sf.currentModule());
+            break;
+          case 'putiseq':
+            sf.push(ins[1]);
+            break;
+          case 'putobject':
+            sf.push(ins[1]);
+            break;
+          case 'putstring':
+            sf.push(Bully.String.make(ins[1]));
+            break;
+          case 'putsymbol':
+            sf.push(ins[1]);
+            break;
+          case 'newarray':
+            ary = new Array(ins[1]);
+            for (i = ins[1] - 1; i >= 0; i--) { ary[i] = sf.pop(); }
+            sf.push(Bully.Array.make(ary));
+            break;
+          case 'definemethod':
+            stackiseq = sf.pop();
+            mod = sf.pop();
+            Bully.define_method(mod, ins[1], stackiseq);
+            break;
+          case 'send':
+            sendargs = [];
+            for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
+            recv = sf.pop();
+            this.sendMethod(recv, ins[1], sendargs, sf);
+            break;
+          case 'setlocal':
+            localSF = sf;
+            while (localSF.isDynamic) { localSF = localSF.parent; }
+            localSF.locals[ins[1]] = sf.pop();
+            break;
+          case 'getlocal':
+            localSF = sf;
+            while (localSF.isDynamic) { localSF = localSF.parent; }
+            sf.push(localSF.locals[ins[1]]);
+            break;
+          case 'setdynamic':
+            localSF = sf;
+            for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+            localSF.locals[ins[1]] = sf.pop();
+            break;
+          case 'getdynamic':
+            localSF = sf;
+            for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
+            sf.push(localSF.locals[ins[1]]);
+            break;
+          case 'getconstant':
+            klass = sf.pop();
+            sf.push(this.getConstant(klass, ins[1]));
+            break;
+          case 'branchif':
+            if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
+            break;
+          case 'branchunless':
+            if (!Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
+            break;
+          case 'jump':
+            sf.ip = iseq.labels[ins[1]];
+            break;
+          case 'throw':
+            this._throw(sf.pop(), ins[1]);
+            break;
+          case 'leave':
+            break main_loop;
+          default:
+            throw new Error('unknown opcode: ' + ins[0]);
+        }
+      }
+      catch (e) {
+        if (e instanceof Bully.RaiseException) {
+          sf.status = 1;
+          sf.push(e.exception);
+        } else { throw e; }
       }
       // check to see if an exception was raised or bubbled up
       if (sf.status === 1) {
@@ -2051,6 +2078,9 @@ Bully.VM = {
         start = null,
         i;
     // FIXME: check number of arguments passed
+    if (nargs < nreq) {
+      Bully.raise(Bully.ArgumentError, 'wrong number of arguments (' + nargs + ' for ' + nreq + ')')
+    }
     // copy arguments to local variables
     for (i = 0; i < nargs; i++) {
       sf.locals[i] = args[i];
@@ -2069,17 +2099,7 @@ Bully.VM = {
         status;
     // FIXME: make sure method is found
     if (typeof method === 'function') {
-      // FIXME: this may not capture all raised exceptions (ex. those raised by define_class)
-      try {
-        sf.push(method.call(null, recv, args));
-      }
-      catch (e) {
-        if (e instanceof Bully.RaiseException) {
-          sf.status = 1;
-          sf.push(e.exception);
-        }
-        else { throw e; }
-      }
+      sf.push(method.call(null, recv, args));
     }
     else {
       this.runISeq(method, args, { parent: sf, self: recv });
@@ -2095,7 +2115,7 @@ Bully.VM = {
       return Bully.const_get(klass, name);
     }
   },
-  handleException: function(ex) {
+  handleException: function() {
     var sf = this.currentFrame(),
         rescueEntry = this._findCatchEntry('rescue', sf),
         ensureEntry = this._findCatchEntry('ensure', sf),
