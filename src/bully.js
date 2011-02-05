@@ -1638,8 +1638,7 @@ Bully.Compiler = {
     }
   },
   compileCall: function(node, iseq, push) {
-    var argLen = node.args ? node.args.length : 0,
-        localIdx, i;
+    var argLen = node.args ? node.args.length : 0, i;
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
       if (push) { iseq.addInstruction('getlocal', iseq.localIndex(node.name)); }
@@ -1756,8 +1755,7 @@ Bully.Compiler = {
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileRescueBlocks: function(rescues, iseq) {
-    var len = rescues.length,
-        startl, nextl, node, localIdx, types, typeslen, i, j;
+    var len = rescues.length, startl, nextl, node, types, typeslen, idx, i, j;
     // Rescue blocks always have a 'private' local varable (not available from
     // Bully code) that contains a reference to the exception object. We can't
     // use addLocal here because rescue ISeq objects store all of their local
@@ -1787,8 +1785,10 @@ Bully.Compiler = {
       iseq.addInstruction('jump', nextl);
       iseq.setLabel(startl);
       if (node.name) {
+        idx = iseq.hasLocal(node.name) ? iseq.localIndex(node.name) :
+          iseq.addLocal(node.name);
         iseq.addInstruction('getdynamic', 0, 0);
-        iseq.addInstruction('setlocal', iseq.addLocal(node.name));
+        iseq.addInstruction('setlocal', idx);
       }
       this['compile' + (node.body).type](node.body, iseq, true);
       iseq.addInstruction('leave');
@@ -1877,7 +1877,7 @@ StackFrame.prototype = {
     var name = this.iseq[1],
         type = this.iseq[2],
         body = this.iseq[7];
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + Bully.Array.make(this.stack).toString() + ')';
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.stack.toString() + ')';
   },
   push: function(obj) {
     this.stack[this.sp++] = obj;
@@ -2068,11 +2068,34 @@ Bully.VM = {
         nopt = desc[1],
         splat = desc[2],
         labels = desc[3],
-        start = null,
+        min = nreq,
+        max = splat >= 0 ? -1 : nreq + nopt,
+        msg = 'wrong number of arguments (',
         i;
-    // FIXME: check number of arguments passed
-    if (nargs < nreq) {
-      Bully.raise(Bully.ArgumentError, 'wrong number of arguments (' + nargs + ' for ' + nreq + ')')
+    if (min === max) {
+      // 0 or more required arguments, no optionals
+      if (nargs !== min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+    }
+    else if (max === -1) {
+      // no limit on args
+      if (nargs < min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+    }
+    else {
+      // bounded number of args
+      if (nargs < min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+      else if (nargs > max) {
+        msg += nargs + ' for ' + max + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
     }
     // copy arguments to local variables
     for (i = 0; i < nargs; i++) {

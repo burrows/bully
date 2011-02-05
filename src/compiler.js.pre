@@ -316,8 +316,7 @@ Bully.Compiler = {
   },
 
   compileCall: function(node, iseq, push) {
-    var argLen   = node.args ? node.args.length : 0,
-        localIdx, i;
+    var argLen = node.args ? node.args.length : 0, i;
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
@@ -475,8 +474,7 @@ Bully.Compiler = {
   },
 
   compileRescueBlocks: function(rescues, iseq) {
-    var len  = rescues.length,
-        startl, nextl, node, localIdx, types, typeslen, i, j;
+    var len = rescues.length, startl, nextl, node, types, typeslen, idx, i, j;
 
     // Rescue blocks always have a 'private' local varable (not available from
     // Bully code) that contains a reference to the exception object. We can't
@@ -512,8 +510,11 @@ Bully.Compiler = {
       iseq.setLabel(startl);
 
       if (node.name) {
+        idx = iseq.hasLocal(node.name) ? iseq.localIndex(node.name) :
+          iseq.addLocal(node.name);
+
         iseq.addInstruction('getdynamic', 0, 0);
-        iseq.addInstruction('setlocal', iseq.addLocal(node.name));
+        iseq.addInstruction('setlocal', idx);
       }
 
       COMPILE_NODE(node.body, iseq, true);

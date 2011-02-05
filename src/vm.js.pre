@@ -5,7 +5,7 @@
 #define ISEQ_STATUS_RETRY  2
 #define ISEQ_STATUS_RETURN 3
 
-#define VM_DEBUG(sf, msg) console.log(sf.toString() +  ': ' + msg)
+#define VM_DEBUG(sf, msg) Bully.platform.puts(sf.toString() +  ': ' + msg)
 
 var StackFrame = function(iseq, opts) {
   this.iseq      = iseq;
@@ -27,7 +27,7 @@ StackFrame.prototype = {
     var name = this.iseq[ISEQ_NAME_IDX],
         type = this.iseq[ISEQ_TYPE_IDX],
         body = this.iseq[ISEQ_BODY_IDX];
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + Bully.Array.make(this.stack).toString() + ')';
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.stack.toString() + ')';
   },
 
   push: function(obj) {
@@ -244,12 +244,35 @@ Bully.VM = {
         nopt   = desc[ISEQ_ARGS_NUM_OPT_IDX],
         splat  = desc[ISEQ_ARGS_SPLAT_IDX],
         labels = desc[ISEQ_ARGS_LABELS_IDX],
-        start  = null,
+        min    = nreq,
+        max    = splat >= 0 ? -1 : nreq + nopt,
+        msg    = 'wrong number of arguments (',
         i;
 
-    // FIXME: check number of arguments passed
-    if (nargs < nreq) {
-      Bully.raise(Bully.ArgumentError, 'wrong number of arguments (' + nargs + ' for ' + nreq + ')')
+    if (min === max) {
+      // 0 or more required arguments, no optionals
+      if (nargs !== min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+    }
+    else if (max === -1) {
+      // no limit on args
+      if (nargs < min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+    }
+    else {
+      // bounded number of args
+      if (nargs < min) {
+        msg += nargs + ' for ' + min + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
+      else if (nargs > max) {
+        msg += nargs + ' for ' + max + ')';
+        Bully.raise(Bully.ArgumentError, msg);
+      }
     }
 
     // copy arguments to local variables
@@ -300,7 +323,6 @@ Bully.VM = {
         ensureEntry = this._findCatchEntry('ensure', sf),
         retryEntry  = this._findCatchEntry('retry', sf),
         ex;
-
 
     if (!rescueEntry && !ensureEntry) { return; }
 
