@@ -1,0 +1,119 @@
+def ok(expr, msg)
+  if expr
+    puts 'OK: ' + msg
+  else
+    puts 'FAIL: ' + msg
+  end
+end
+
+def fail(msg)
+  puts 'FAIL: ' + msg
+end
+
+#-------------------------------------------------------------------------------
+# Conditionals
+#-------------------------------------------------------------------------------
+x = true
+y = false
+r = nil
+
+if x
+  r = 'if'
+else
+  r = 'else'
+end
+ok(r == 'if', 'if body should be executed')
+
+if y
+  r = 'if'
+else
+  r = 'else'
+end
+ok(r == 'else', 'else body should be executed')
+
+if y
+  r = 'if'
+elsif x
+  r = 'elsif'
+else
+  r = 'else'
+end
+ok(r == 'elsif', 'elsif body should be executed')
+
+#-------------------------------------------------------------------------------
+# Methods
+#-------------------------------------------------------------------------------
+def req_only(req1, req2)
+  [req1, req2]
+end
+
+def opt_only(opt1=:opt1, opt2=:opt2)
+  [opt1, opt2]
+end
+
+def splat_only(*splat)
+  splat
+end
+
+def req_and_opt(req1, req2, opt1=:opt1, opt2=:opt2)
+  [req1, req2, opt1, opt2]
+end
+
+def req_opt_and_splat(req1, req2, opt1=:opt1, opt2=:opt2, *splat)
+  [req1, req2, opt1, opt2, splat]
+end
+
+ok(req_only(1,2) == [1,2], 'required args should be set')
+ok(opt_only == [:opt1, :opt2], 'optional args should set defaults when no arg is given')
+ok(opt_only(1) == [1, :opt2], 'optional args should set defaults when some args are given')
+ok(opt_only(1, 2) == [1, 2], 'optional args should set no defaults when all args are given')
+ok(splat_only(1,2,3) == [1,2,3], 'splat args should suck all remaining args into an array')
+ok(req_and_opt(10,20) == [10, 20, :opt1, :opt2], 'optional args with required opts 1')
+ok(req_and_opt(10,20,30) == [10, 20, 30, :opt2], 'optional args with required opts 2')
+ok(req_and_opt(10,20,30,40) == [10, 20, 30, 40], 'optional args with required opts 3')
+ok(req_opt_and_splat(10,20) == [10, 20, :opt1, :opt2, []], 'required optional and splat params 1')
+ok(req_opt_and_splat(10,20,30,40) == [10, 20, 30, 40, []], 'required optional and splat params 2')
+ok(req_opt_and_splat(10,20,30,40,50,60,70) == [10, 20, 30, 40, [50,60,70]], 'required optional and splat params 3')
+
+begin
+  req_only(1)
+  fail('fewer than min args should raise ArgumentError to req_only')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (1 for 2)', 'ArgumentError message when too few args to req_only')
+end
+
+begin
+  req_only(1,2,3)
+  fail('more than max args should raise ArgumentError to req_only')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (3 for 2)', 'ArgumentError message when too many args to req_only')
+end
+
+begin
+  req_and_opt(1)
+  fail('fewer than min args should raise ArgumentError to req_and_opt')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (1 for 2)', 'ArgumentError message when too few args to req_and_opt')
+end
+
+begin
+  req_and_opt(1,2,3,4,5,6)
+  fail('more than max args should raise ArgumentError to req_and_opt')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (6 for 4)', 'ArgumentError message when too many args to req_and_opt')
+end
+
+begin
+  req_opt_and_splat(1)
+  fail('fewer than min args should raise ArgumentError to req_opt_and_splat')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (1 for 2)', 'ArgumentError message when too few args to req_opt_and_splat')
+end
+
+begin
+  req_opt_and_splat(1,2,3,4,5,6,7,8,9,10,11,12,13,14)
+  ok(true, 'no upper bound and number of args to req_opt_and_splat')
+rescue ArgumentError => e
+  fail('args with splat should not raise ArgumentError for too many params')
+end
+
