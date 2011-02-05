@@ -145,12 +145,13 @@ TestIt('Compiler: non-singleton method definitions with no params', {
   },
 
   'should add putnil instruction if definition is used in an expression': function(t) {
-    var body = compile('x = def foo; end')[Helper.BodyIdx],
+    var body = compile('x = def foo; end; nil')[Helper.BodyIdx],
         len = body.length;
 
-    t.assertEqual('definemethod',  body[len - 4][0]);
-    t.assertEqual(['putnil'],      body[len - 3]);
-    t.assertEqual(['setlocal', 0], body[len - 2]);
+    t.assertEqual('definemethod',  body[len - 5][0]);
+    t.assertEqual(['putnil'],      body[len - 4]);
+    t.assertEqual(['setlocal', 0], body[len - 3]);
+    t.assertEqual(['putnil'],      body[len - 2]);
     t.assertEqual(['leave'],       body[len - 1]);
   }
 });

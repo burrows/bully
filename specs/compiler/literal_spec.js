@@ -44,6 +44,7 @@ TestIt('Compiler: boolean literals', {
           ['putobject', true],
           ['setlocal', 0],
           ['putobject', false],
+          ['dup'],
           ['setlocal', 1],
           ['leave']
         ];

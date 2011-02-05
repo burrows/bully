@@ -1579,6 +1579,7 @@ Instruction.ConstantStackDeltas = {
   getconstant: 0,
   getdynamic: 1,
   pop: -1,
+  dup: 1,
   definemethod: -2,
   branchif: -1,
   branchunless: -1,
@@ -1633,6 +1634,10 @@ Bully.Compiler = {
   },
   compileBody: function(node, iseq, push) {
     var lines = node.lines, len = lines.length, i;
+    if (len === 0) {
+      iseq.addInstruction('putnil');
+      return;
+    }
     for (i = 0; i < len; i++) {
       this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1));
     }
@@ -1687,6 +1692,8 @@ Bully.Compiler = {
     var idx = iseq.hasLocal(node.name) ?
       iseq.localIndex(node.name) : iseq.addLocal(node.name);
     this['compile' + (node.expression).type](node.expression, iseq, true);
+    // ensure that there is a value left on the stack
+    if (push) { iseq.addInstruction('dup'); }
     iseq.addInstruction('setlocal', idx);
   },
   compileNilLiteral: function(node, iseq, push) {
@@ -1876,14 +1883,20 @@ StackFrame.prototype = {
   toString: function() {
     var name = this.iseq[1],
         type = this.iseq[2],
-        body = this.iseq[7];
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.stack.toString() + ')';
+        body = this.iseq[7],
+        stack = [], stackitem, i;
+    for (i = 0; i < this.sp; i++) {
+      stackitem = this.stack[i];
+      stack.push(stackitem === null ? 'null' : stackitem.toString());
+    }
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: [' + stack.join(', ') + '])';
   },
   push: function(obj) {
     this.stack[this.sp++] = obj;
     return this;
   },
   pop: function() {
+    if (this.sp === 0) { throw new Error('stack is too small for pop!'); }
     return this.stack[--this.sp];
   },
   peek: function() {
@@ -1928,7 +1941,7 @@ Bully.VM = {
     var body = iseq[7],
         len = body.length,
         sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
-        ary;
+        ary, localvar;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -1959,6 +1972,9 @@ Bully.VM = {
         switch (ins[0]) {
           case 'pop':
             sf.pop();
+            break;
+          case 'dup':
+            sf.push(sf.peek());
             break;
           case 'putnil':
             sf.push(null);
@@ -2008,7 +2024,8 @@ Bully.VM = {
           case 'getlocal':
             localSF = sf;
             while (localSF.isDynamic) { localSF = localSF.parent; }
-            sf.push(localSF.locals[ins[1]]);
+            localvar = localSF.locals[ins[1]];
+            sf.push(localvar === undefined ? null : localvar);
             break;
           case 'setdynamic':
             localSF = sf;

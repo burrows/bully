@@ -839,3 +839,52 @@ TestIt('Compiler: begin blocks that appear in an expression', {
   }
 });
 
+TestIt('Compiler: begin blocks with empty body', {
+  'before all': function(t) {
+    this.iseq = compile("begin; end");
+    this.body = this.iseq[Helper.BodyIdx];
+  },
+
+  'should insert putnil instruction': function(t) {
+    var exp = [
+      ['putnil'],
+      ['leave']
+    ];
+
+    t.assertEqual(exp, this.body);
+  }
+});
+
+TestIt('Compiler: begin blocks with empty rescue body', {
+  'before all': function(t) {
+    this.iseq = compile("begin     \n\
+                           p('hi') \n\
+                         rescue    \n\
+                         end");
+
+    this.body        = this.iseq[Helper.BodyIdx];
+    this.catchTable  = this.iseq[Helper.CatchIdx];
+    this.rescueEntry = this.catchTable[0];
+    this.rescueISeq  = this.rescueEntry[1];
+    this.rescueBody  = this.rescueISeq[Helper.BodyIdx];
+  },
+
+  'should insert a putnil instruction in rescue body': function(t) {
+    var exp = [
+      ['putbuiltin', 'StandardError'],
+      ['getdynamic', 0, 0],
+      ['send', '===', 1],
+      ['branchif', 'start-5'],
+      ['jump', 'next-8'],
+      'start-5',
+      ['putnil'],
+      ['leave'],
+      'next-8',
+      ['getdynamic', 0, 0],
+      ['throw', 0]
+    ];
+  
+    t.assertEqual(exp, this.rescueBody);
+  }
+});
+

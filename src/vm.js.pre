@@ -24,10 +24,16 @@ var StackFrame = function(iseq, opts) {
 
 StackFrame.prototype = {
   toString: function() {
-    var name = this.iseq[ISEQ_NAME_IDX],
-        type = this.iseq[ISEQ_TYPE_IDX],
-        body = this.iseq[ISEQ_BODY_IDX];
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.stack.toString() + ')';
+    var name  = this.iseq[ISEQ_NAME_IDX],
+        type  = this.iseq[ISEQ_TYPE_IDX],
+        body  = this.iseq[ISEQ_BODY_IDX],
+        stack = [], stackitem, i;
+
+    for (i = 0; i < this.sp; i++) {
+      stackitem = this.stack[i];
+      stack.push(stackitem === null ? 'null' : stackitem.toString());
+    }
+    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: [' + stack.join(', ') + '])';
   },
 
   push: function(obj) {
@@ -36,6 +42,7 @@ StackFrame.prototype = {
   },
 
   pop: function() {
+    if (this.sp === 0) { throw new Error('stack is too small for pop!'); }
     return this.stack[--this.sp];
   },
 
@@ -94,7 +101,7 @@ Bully.VM = {
     var body  = iseq[ISEQ_BODY_IDX],
         len   = body.length,
         sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
-        ary;
+        ary, localvar;
 
     // process labels
     if (!iseq.labels) {
@@ -131,6 +138,9 @@ Bully.VM = {
         switch (ins[0]) {
           case 'pop':
             sf.pop();
+            break;
+          case 'dup':
+            sf.push(sf.peek());
             break;
           case 'putnil':
             sf.push(null);
@@ -180,7 +190,8 @@ Bully.VM = {
           case 'getlocal':
             localSF = sf;
             while (localSF.isDynamic) { localSF = localSF.parent; }
-            sf.push(localSF.locals[ins[1]]);
+            localvar = localSF.locals[ins[1]];
+            sf.push(localvar === undefined ? null : localvar);
             break;
           case 'setdynamic':
             localSF = sf;

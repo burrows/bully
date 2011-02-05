@@ -41,6 +41,157 @@ end
 ok(r == 'elsif', 'elsif body should be executed')
 
 #-------------------------------------------------------------------------------
+# Exceptions
+#-------------------------------------------------------------------------------
+rescue_run = false
+begin
+  raise 'something'
+  fail 'executed code after raise'
+rescue StandardError => e
+  rescue_run = true
+end
+ok(rescue_run == true, 'should rescue StandardError')
+
+rescue_run = false
+else_run = false
+begin
+  y = 1 + 1
+rescue
+  rescue_run = true
+else
+  else_run = true
+end
+ok(rescue_run == false, 'rescue should not be executed')
+ok(else_run == true, 'else should be executed')
+
+rescue_run = false
+else_run = false
+begin
+  raise 'error'
+rescue
+  rescue_run = true
+else
+  else_run = true
+end
+ok(rescue_run == true, 'rescue should be executed')
+ok(else_run == false, 'else should not be executed')
+
+rescue_run = false
+else_run = false
+ensure_run = false
+begin
+  raise 'error'
+rescue
+  rescue_run = true
+else
+  else_run = true
+ensure
+  ensure_run = true
+end
+ok(rescue_run == true, 'rescue should be executed')
+ok(else_run == false, 'else should not be executed')
+ok(ensure_run == true, 'ensure should be executed')
+
+rescue_run = false
+else_run = false
+ensure_run = false
+begin
+  y = 2 + 2
+rescue
+  rescue_run = true
+else
+  else_run = true
+ensure
+  ensure_run = true
+end
+ok(rescue_run == false, 'rescue should not be executed')
+ok(else_run == true, 'else should be executed')
+ok(ensure_run == true, 'ensure should be executed')
+
+arg_rescue = false
+name_rescue = false
+begin
+  raise NameError
+rescue ArgumentError
+  arg_rescue = true
+rescue NameError
+  name_rescue = true
+end
+ok(arg_rescue == false, 'ArgumentError should not be rescued')
+ok(name_rescue == true, 'NameError should be rescued')
+
+def replace_error
+  begin
+    raise ArgumentError
+  rescue
+    raise NameError
+  end
+end
+
+arg_rescue = false
+name_rescue = false
+begin
+  replace_error
+rescue ArgumentError
+  arg_rescue = true
+rescue NameError
+  name_rescue = true
+end
+ok(arg_rescue == false, 'ArgumentError should not bubble')
+ok(name_rescue == true, 'NameError should bubble')
+
+begin
+  raise RuntimeError, 'foo bar'
+rescue ArgumentError => argument_error
+rescue RuntimeError => runtime_error
+end
+ok(argument_error == nil, 'argument_error local var should not be set')
+ok(runtime_error.is_a?(RuntimeError) == true, 'runtime_error local var should be set to exception object')
+ok(runtime_error.message == 'foo bar', 'runtime_error local var should be set to exception object')
+
+x = 1 + begin
+  2
+end
+ok(x == 3, 'begin block should yield result')
+
+x = 1 + begin
+  100 + raise
+  2
+rescue
+  3
+end
+ok(x == 4, 'begin block should yield result of rescue when an exception is raised')
+
+x = 1 + begin
+  2
+rescue
+  3
+else
+  4
+end
+ok(x == 5, 'begin block should yield result of else body when no exception is raised')
+
+x = 1 + begin
+  2
+rescue
+  3
+ensure
+  4
+end
+ok(x == 3, 'begin block should yield result of body when no exception is raised and there is an ensure block')
+
+#x = 0
+#begin
+#  x = x + 1
+#  raise 
+#rescue
+#  if x == 1
+#    retry
+#  end
+#end
+#ok(x == 2, 'retry should re-run the begin body')
+
+#-------------------------------------------------------------------------------
 # Methods
 #-------------------------------------------------------------------------------
 def req_only(req1, req2)

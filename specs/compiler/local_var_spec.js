@@ -11,7 +11,7 @@ TestIt('Compiler: local variable assignments', {
   },
 
   'should add setlocal instruction with the correct index': function(t) {
-    var body = compile('foo = 1; bar = 2; foo = 3')[Helper.BodyIdx],
+    var body = compile('foo = 1; bar = 2; foo = 3; nil')[Helper.BodyIdx],
         exp  = [
           ['putobject', 1],
           ['setlocal', 0],
@@ -19,6 +19,21 @@ TestIt('Compiler: local variable assignments', {
           ['setlocal', 1],
           ['putobject', 3],
           ['setlocal', 0],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+
+  'should add a dup instruction if assignment is used in an expression': function(t) {
+    var body = compile('p(foo = 1)')[Helper.BodyIdx],
+        exp  = [
+          ['putself'],
+          ['putobject', 1],
+          ['dup'],
+          ['setlocal', 0],
+          ['send', 'p', 1],
           ['leave']
         ];
 

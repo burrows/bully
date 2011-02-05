@@ -241,6 +241,7 @@ Instruction.ConstantStackDeltas = {
   getconstant:       0,
   getdynamic:        1,
   pop:              -1,
+  dup:               1,
   definemethod:     -2,
   branchif:         -1,
   branchunless:     -1,
@@ -309,6 +310,11 @@ Bully.Compiler = {
 
   compileBody: function(node, iseq, push) {
     var lines = node.lines, len = lines.length, i;
+
+    if (len === 0) {
+      iseq.addInstruction('putnil');
+      return;
+    }
 
     for (i = 0; i < len; i++) {
       COMPILE_NODE(lines[i], iseq, push && (i === len - 1));
@@ -382,6 +388,9 @@ Bully.Compiler = {
       iseq.localIndex(node.name) : iseq.addLocal(node.name);
 
     COMPILE_NODE(node.expression, iseq, true);
+
+    // ensure that there is a value left on the stack
+    if (push) { iseq.addInstruction('dup'); }
 
     iseq.addInstruction('setlocal', idx);
   },
