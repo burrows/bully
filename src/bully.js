@@ -1904,7 +1904,20 @@ Bully.VM = {
     return this;
   },
   popFrame: function() {
-    return this.frames.pop();
+    var i, sf = this.frames.pop();
+    // check for uncaught exception
+    if (!sf.parent && sf.status === 1) {
+      Bully.dispatch_method(Bully.main, 'p', [sf.pop()]);
+      Bully.platform.exit(1);
+    }
+    // copy the current status and stack to the parent stack
+    if (sf.parent) {
+      sf.parent.status = sf.status;
+      for (i = 0; i < sf.sp; i++) {
+        sf.parent.push(sf.stack[i]);
+      }
+    }
+    return sf;
   },
   // Runs a compiled Bully program.
   run: function(iseq) {
@@ -1927,22 +1940,13 @@ Bully.VM = {
     sf = new StackFrame(iseq, sfOpts);
     sf.stackSize = iseq[3];
     this.pushFrame(sf);
-    try {
-      if ((startLabel = this.setupArguments(iseq, args, sf))) {
-        sf.ip = iseq.labels[startLabel];
-      }
-    }
-    // FIXME: clean this up
+    try { this.setupArguments(iseq, args, sf); }
     catch (e) {
+      // exceptions raised in argument setup code need to exit the frame
+      // immediately so that the calling frame can handle the exception
       if (e instanceof Bully.RaiseException) {
         sf.status = 1;
         sf.push(e.exception);
-        if (sf.parent) {
-          sf.parent.status = sf.status;
-          for (i = 0; i < sf.sp; i++) {
-            sf.parent.push(sf.stack[i]);
-          }
-        }
         this.popFrame();
         return;
       } else { throw e; }
@@ -2055,17 +2059,6 @@ Bully.VM = {
         break main_loop;
       }
     }
-    // copy the current status and stack to the parent stack
-    if (sf.parent) {
-      sf.parent.status = sf.status;
-      for (i = 0; i < sf.sp; i++) {
-        sf.parent.push(sf.stack[i]);
-      }
-    }
-    if (!sf.parent && sf.status === 1) {
-      Bully.dispatch_method(Bully.main, 'p', [sf.pop()]);
-      Bully.platform.exit(1);
-    }
     this.popFrame();
   },
   setupArguments: function(iseq, args, sf) {
@@ -2089,10 +2082,10 @@ Bully.VM = {
       sf.locals[splat] = Bully.Array.make(args.slice(nreq + nopt));
     }
     if (nopt > 0) {
-      return nargs >= nreq + nopt ? labels[labels.length - 1] :
-        labels[nargs - nreq];
+      sf.ip = nargs >= nreq + nopt ?
+        sf.iseq.labels[labels[labels.length - 1]] :
+        sf.iseq.labels[labels[nargs - nreq]];
     }
-    return null;
   },
   sendMethod: function(recv, name, args, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name),
