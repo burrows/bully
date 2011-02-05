@@ -1941,15 +1941,15 @@ Bully.VM = {
     sf.stackSize = iseq[3];
     this.pushFrame(sf);
     try { this.setupArguments(iseq, args, sf); }
-    catch (e) {
+    catch (e1) {
       // exceptions raised in argument setup code need to exit the frame
       // immediately so that the calling frame can handle the exception
-      if (e instanceof Bully.RaiseException) {
+      if (e1 instanceof Bully.RaiseException) {
         sf.status = 1;
-        sf.push(e.exception);
+        sf.push(e1.exception);
         this.popFrame();
         return;
-      } else { throw e; }
+      } else { throw e1; }
     }
     main_loop:
     for (; sf.ip < len; sf.ip++) {
@@ -2042,11 +2042,11 @@ Bully.VM = {
             throw new Error('unknown opcode: ' + ins[0]);
         }
       }
-      catch (e) {
-        if (e instanceof Bully.RaiseException) {
+      catch (e2) {
+        if (e2 instanceof Bully.RaiseException) {
           sf.status = 1;
-          sf.push(e.exception);
-        } else { throw e; }
+          sf.push(e2.exception);
+        } else { throw e2; }
       }
       // check to see if an exception was raised or bubbled up
       if (sf.status === 1) {
