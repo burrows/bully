@@ -2156,21 +2156,20 @@ Bully.VM = {
     var sf = this.currentFrame(),
         rescueEntry = this._findCatchEntry('rescue', sf),
         ensureEntry = this._findCatchEntry('ensure', sf),
-        retryEntry = this._findCatchEntry('retry', sf),
-        ex;
+        retryEntry, ex;
     if (!rescueEntry && !ensureEntry) { return; }
     ex = sf.pop();
     if (rescueEntry) {
       sf.sp = rescueEntry[5];
+      sf.ip = sf.iseq.labels[rescueEntry[4]];
       this.runISeq(rescueEntry[1], [],
         { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
       if (sf.status === 0) {
-        // the exception was rescued, so set the instuction pointer to the
-        // entry's continue label and continue executing the current frame
-        sf.ip = sf.iseq.labels[rescueEntry[4]];
+        // the exception was rescued, so continue executing the current frame
         return;
       }
       else if (sf.status === 2) {
+        retryEntry = this._findCatchEntry('retry', sf),
         sf.sp = retryEntry[5];
         sf.ip = sf.iseq.labels[retryEntry[4]];
         sf.status = 0;
@@ -2187,9 +2186,9 @@ Bully.VM = {
     // if it exists and let the exception bubble up
     if (ensureEntry) {
       sf.sp = ensureEntry[5];
+      sf.ip = sf.iseq.labels[ensureEntry[4]];
       this.runISeq(ensureEntry[1], [],
         { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
-      sf.ip = sf.iseq.labels[ensureEntry[4]];
     }
   },
   _findCatchEntry: function(type, sf) {
@@ -2200,7 +2199,7 @@ Bully.VM = {
       entryType = entry[0];
       start = sf.iseq.labels[entry[2]];
       stop = sf.iseq.labels[entry[3]];
-      if (entryType === type && start <= sf.ip + 1 && sf.ip + 1 <= stop) {
+      if (entryType === type && start <= sf.ip && sf.ip <= stop) {
         return entry;
       }
     }

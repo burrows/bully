@@ -40,6 +40,32 @@ else
 end
 ok(r == 'elsif', 'elsif body should be executed')
 
+x = if true
+      126
+    end
+ok(x == 126, 'if should evaluate to value of body if expression is true')
+
+x = if false
+      21
+    else
+      22
+    end
+ok(x == 22, 'if should evaluate to value of else body if expression is false')
+
+x = if false
+      17
+    elsif true
+      18
+    else
+      19
+    end
+ok(x == 18, 'if should evaluate to value of elsif body with true expression')
+
+x = if false
+      9
+    end
+ok(x == nil, 'if should evaluate to nil if expression is false and no else')
+
 #-------------------------------------------------------------------------------
 # Exceptions
 #-------------------------------------------------------------------------------
@@ -180,16 +206,39 @@ ensure
 end
 ok(x == 3, 'begin block should yield result of body when no exception is raised and there is an ensure block')
 
-#x = 0
-#begin
-#  x = x + 1
-#  raise 
-#rescue
-#  if x == 1
-#    retry
-#  end
-#end
-#ok(x == 2, 'retry should re-run the begin body')
+x = 0
+begin
+  x = x + 1
+  raise 
+rescue
+  if x == 1
+    retry
+  end
+end
+ok(x == 2, 'retry should re-run the begin body')
+
+x = 0
+y = begin
+  x = x + 1
+  raise if x == 1
+  10
+rescue
+  retry
+end
+ok(y == 10, 'begin should yield value of body when retry is run')
+
+x = 0
+y = begin
+  x = x + 1
+  raise
+  10
+rescue
+  if x == 1
+    retry
+  end
+  27
+end
+ok(y == 27, 'begin should yield value of rescue block when raise occurs after a retry')
 
 #-------------------------------------------------------------------------------
 # Methods

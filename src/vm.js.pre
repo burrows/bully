@@ -332,8 +332,7 @@ Bully.VM = {
     var sf          = this.currentFrame(),
         rescueEntry = this._findCatchEntry('rescue', sf),
         ensureEntry = this._findCatchEntry('ensure', sf),
-        retryEntry  = this._findCatchEntry('retry', sf),
-        ex;
+        retryEntry, ex;
 
     if (!rescueEntry && !ensureEntry) { return; }
 
@@ -341,16 +340,16 @@ Bully.VM = {
 
     if (rescueEntry) {
       sf.sp = rescueEntry[CATCH_ENTRY_SP_IDX];
+      sf.ip = sf.iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
       this.runISeq(rescueEntry[CATCH_ENTRY_ISEQ_IDX], [],
         { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
 
       if (sf.status === ISEQ_STATUS_NORMAL) {
-        // the exception was rescued, so set the instuction pointer to the
-        // entry's continue label and continue executing the current frame
-        sf.ip = sf.iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+        // the exception was rescued, so continue executing the current frame
         return;
       }
       else if (sf.status === ISEQ_STATUS_RETRY) {
+        retryEntry = this._findCatchEntry('retry', sf),
         sf.sp = retryEntry[CATCH_ENTRY_SP_IDX];
         sf.ip = sf.iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];
         sf.status = ISEQ_STATUS_NORMAL;
@@ -368,9 +367,9 @@ Bully.VM = {
     // if it exists and let the exception bubble up
     if (ensureEntry) {
       sf.sp = ensureEntry[CATCH_ENTRY_SP_IDX];
+      sf.ip = sf.iseq.labels[ensureEntry[CATCH_ENTRY_CONT_LBL_IDX]];
       this.runISeq(ensureEntry[CATCH_ENTRY_ISEQ_IDX], [],
         { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
-      sf.ip = sf.iseq.labels[ensureEntry[CATCH_ENTRY_CONT_LBL_IDX]];
     }
   },
 
@@ -384,7 +383,7 @@ Bully.VM = {
       start     = sf.iseq.labels[entry[CATCH_ENTRY_START_LBL_IDX]];
       stop      = sf.iseq.labels[entry[CATCH_ENTRY_STOP_LBL_IDX]];
 
-      if (entryType === type && start <= sf.ip + 1 && sf.ip + 1 <= stop) {
+      if (entryType === type && start <= sf.ip && sf.ip <= stop) {
         return entry;
       }
     }
