@@ -443,14 +443,14 @@ Bully.Compiler = {
 
     for (i = 0; i < len; i++) { labels.push(new Label()); }
 
-    endLabel = node.else_body ? new Label() : labels[len - 1];
+    endLabel = node.else_body || push ? new Label() : labels[len - 1];
 
     for (i = 0; i < len; i++) {
       COMPILE_NODE(node.conditions[i], iseq, true);
       iseq.addInstruction('branchunless', labels[i]);
       COMPILE_NODE(node.bodies[i], iseq, push); 
 
-      if (i !== len - 1 || node.else_body) {
+      if (i !== len - 1 || node.else_body || push) {
         iseq.addInstruction('jump', endLabel);
       }
 
@@ -459,6 +459,10 @@ Bully.Compiler = {
 
     if (node.else_body) {
       COMPILE_NODE(node.else_body, iseq, push); 
+      iseq.setLabel(endLabel);
+    }
+    else if (push) {
+      iseq.addInstruction('putnil');
       iseq.setLabel(endLabel);
     }
   },

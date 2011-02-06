@@ -1732,18 +1732,22 @@ Bully.Compiler = {
   compileIf: function(node, iseq, push) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
     for (i = 0; i < len; i++) { labels.push(new Label()); }
-    endLabel = node.else_body ? new Label() : labels[len - 1];
+    endLabel = node.else_body || push ? new Label() : labels[len - 1];
     for (i = 0; i < len; i++) {
       this['compile' + (node.conditions[i]).type](node.conditions[i], iseq, true);
       iseq.addInstruction('branchunless', labels[i]);
       this['compile' + (node.bodies[i]).type](node.bodies[i], iseq, push);
-      if (i !== len - 1 || node.else_body) {
+      if (i !== len - 1 || node.else_body || push) {
         iseq.addInstruction('jump', endLabel);
       }
       iseq.setLabel(labels[i]);
     }
     if (node.else_body) {
       this['compile' + (node.else_body).type](node.else_body, iseq, push);
+      iseq.setLabel(endLabel);
+    }
+    else if (push) {
+      iseq.addInstruction('putnil');
       iseq.setLabel(endLabel);
     }
   },
