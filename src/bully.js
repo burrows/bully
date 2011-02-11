@@ -1626,6 +1626,27 @@ Bully.Compiler = {
                         1);
     if (!push) { iseq.addInstruction('pop'); }
   },
+  compileModule: function(node, iseq, push) {
+    var constant = node.constant,
+        basenames = constant.names.slice(),
+        name = basenames.pop(),
+        modiseq = new ISeq('class', '<module:' + name + '>');
+    this['compile' + (node.body).type](node.body, modiseq, true);
+    modiseq.addInstruction('leave');
+    if (basenames.length > 0) {
+      this.compileConstantNames(iseq, constant.global, basenames);
+    }
+    else if (constant.global) {
+      iseq.addInstruction('putbuiltin', 'Object');
+    }
+    else {
+      iseq.addInstruction('putcurrentmodule');
+    }
+    iseq.addInstruction('putnil'); // dummy super expression
+    iseq.addInstruction('defineclass', name, modiseq,
+                        2);
+    if (!push) { iseq.addInstruction('pop'); }
+  },
   compileCall: function(node, iseq, push) {
     var argLen = node.args ? node.args.length : 0, i;
     // check to see if this is actually a local variable reference

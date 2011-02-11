@@ -121,7 +121,7 @@ TestIt('Compiler: singleton class definitions', {
     var classbody = this.body[3][2],
         exp = [
           ['putobject', 3],
-          ['leave'],
+          ['leave']
         ];
 
     t.assertEqual('BullyInstructionSequence', classbody[0]);
@@ -131,15 +131,37 @@ TestIt('Compiler: singleton class definitions', {
   }
 });
 
-TestIt('Compiler: module definitions', {
-  //'should insert defineclass instruction with type 2 and nil as the superclass': function(t) {
-  //  var body = compile('module Foo; end'),
-  //      exp  = [
-  //        ['putcurrentmodule'],
-  //        ['putnil'],
-  //        ['defineclass', 'Foo', 2],
-  //      ];
+TestIt('Compiler: module definition with bare constant', {
+  'before all': function(t) {
+    this.iseq = compile("module Foo; 7; end");
+    this.body = this.iseq[Helper.BodyIdx];
+  },
 
-  //  t.assertEqual(exp, body);
-  //}
+  'should insert a putcurrentmodule instruction for the module base': function(t) {
+    t.assertEqual(['putcurrentmodule'], this.body[0]);
+  },
+  
+  'should insert a putnil instruction for the superclass': function(t) {
+    t.assertEqual(['putnil'], this.body[1]);
+  },
+  
+  'should insert a defineclass instruction with the module name and type 2': function(t) {
+    t.assertEqual('defineclass', this.body[2][0]);
+    t.assertEqual('Foo', this.body[2][1]);
+    t.assertEqual(2, this.body[2][3]);
+  },
+
+  'should insert an iseq for the module body as the second argument to defineclass': function(t) {
+    var modbody = this.body[2][2],
+        exp = [
+          ['putobject', 7],
+          ['leave'],
+        ];
+
+    t.assertEqual('BullyInstructionSequence', modbody[0]);
+    t.assertEqual('class', modbody[Helper.TypeIdx]);
+    t.assertEqual('<module:Foo>', modbody[Helper.NameIdx]);
+    t.assertEqual(exp, modbody[Helper.BodyIdx]);
+  }
 });
+
