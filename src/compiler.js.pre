@@ -629,6 +629,11 @@ Bully.Compiler = {
   compileRetry: function(node, iseq) {
     iseq.addInstruction('putnil');
     iseq.addInstruction('throw', VM_THROW_TYPE_RETRY);
+  },
+
+  compileReturn: function(node, iseq) {
+    COMPILE_NODE(node.expression, iseq, true);
+    iseq.addInstruction('leave');
   }
 };
 

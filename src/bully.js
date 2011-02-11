@@ -1814,6 +1814,10 @@ Bully.Compiler = {
   compileRetry: function(node, iseq) {
     iseq.addInstruction('putnil');
     iseq.addInstruction('throw', 4);
+  },
+  compileReturn: function(node, iseq) {
+    this['compile' + (node.expression).type](node.expression, iseq, true);
+    iseq.addInstruction('leave');
   }
 };
 }());(function() {
