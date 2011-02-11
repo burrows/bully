@@ -4,6 +4,10 @@
 #define VM_THROW_TYPE_RAISE 0
 #define VM_THROW_TYPE_RETRY 4
 
+#define VM_DEFINECLASS_TYPE_CLASS 0
+#define VM_DEFINECLASS_TYPE_SINGLETON_CLASS 1
+#define VM_DEFINECLASS_TYPE_MODULE 2
+
 (function() {
 
 var ISeq, Instruction, Label;
@@ -347,7 +351,7 @@ Bully.Compiler = {
         name      = basenames.pop(),
         classiseq = new ISeq('class', '<class:' + name + '>');
 
-    COMPILE_NODE(node.body, classiseq, push);
+    COMPILE_NODE(node.body, classiseq, true);
     classiseq.addInstruction('leave');
 
     if (basenames.length > 0) {
@@ -367,7 +371,22 @@ Bully.Compiler = {
       iseq.addInstruction('putnil');
     }
 
-    iseq.addInstruction('defineclass', name, classiseq, 0);
+    iseq.addInstruction('defineclass', name, classiseq,
+                        VM_DEFINECLASS_TYPE_CLASS);
+
+    if (!push) { iseq.addInstruction('pop'); }
+  },
+
+  compileSingletonClass: function(node, iseq, push) {
+    var classiseq = new ISeq('singletonclass', 'singletonclass');
+
+    COMPILE_NODE(node.body, classiseq, true);
+    classiseq.addInstruction('leave');
+
+    COMPILE_NODE(node.object, iseq, true);
+    iseq.addInstruction('putnil');
+    iseq.addInstruction('defineclass', 'singletonclass', classiseq,
+                        VM_DEFINECLASS_TYPE_SINGLETON_CLASS);
 
     if (!push) { iseq.addInstruction('pop'); }
   },

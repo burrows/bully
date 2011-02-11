@@ -97,6 +97,38 @@ TestIt('Compiler: class definition with globally scoped constant name', {
 });
 
 TestIt('Compiler: singleton class definitions', {
+  'before all': function(t) {
+    this.iseq = compile("class << Foo; 3; end");
+    this.body = this.iseq[Helper.BodyIdx];
+  },
+
+  'should compile the object reference as the class base': function(t) {
+    t.assertEqual(['putnil'], this.body[0]);
+    t.assertEqual(['getconstant', 'Foo'], this.body[1]);
+  },
+  
+  'should insert a putnil instruction for the superclass': function(t) {
+    t.assertEqual(['putnil'], this.body[2]);
+  },
+  
+  'should insert a defineclass instruction with a class name of "singletonclass" and type 1': function(t) {
+    t.assertEqual('defineclass', this.body[3][0]);
+    t.assertEqual('singletonclass', this.body[3][1]);
+    t.assertEqual(1, this.body[3][3]);
+  },
+
+  'should insert an iseq for the class body as the second argument to defineclass': function(t) {
+    var classbody = this.body[3][2],
+        exp = [
+          ['putobject', 3],
+          ['leave'],
+        ];
+
+    t.assertEqual('BullyInstructionSequence', classbody[0]);
+    t.assertEqual('singletonclass', classbody[Helper.TypeIdx]);
+    t.assertEqual('singletonclass', classbody[Helper.NameIdx]);
+    t.assertEqual(exp, classbody[Helper.BodyIdx]);
+  }
 });
 
 TestIt('Compiler: module definitions', {

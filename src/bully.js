@@ -1595,7 +1595,7 @@ Bully.Compiler = {
         basenames = constant.names.slice(),
         name = basenames.pop(),
         classiseq = new ISeq('class', '<class:' + name + '>');
-    this['compile' + (node.body).type](node.body, classiseq, push);
+    this['compile' + (node.body).type](node.body, classiseq, true);
     classiseq.addInstruction('leave');
     if (basenames.length > 0) {
       this.compileConstantNames(iseq, constant.global, basenames);
@@ -1612,7 +1612,18 @@ Bully.Compiler = {
     else {
       iseq.addInstruction('putnil');
     }
-    iseq.addInstruction('defineclass', name, classiseq, 0);
+    iseq.addInstruction('defineclass', name, classiseq,
+                        0);
+    if (!push) { iseq.addInstruction('pop'); }
+  },
+  compileSingletonClass: function(node, iseq, push) {
+    var classiseq = new ISeq('singletonclass', 'singletonclass');
+    this['compile' + (node.body).type](node.body, classiseq, true);
+    classiseq.addInstruction('leave');
+    this['compile' + (node.object).type](node.object, iseq, true);
+    iseq.addInstruction('putnil');
+    iseq.addInstruction('defineclass', 'singletonclass', classiseq,
+                        1);
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileCall: function(node, iseq, push) {
