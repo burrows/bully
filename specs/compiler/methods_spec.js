@@ -116,32 +116,27 @@ TestIt('Compiler: non-singleton method definitions with no params', {
     t.assertEqual(['putcurrentmodule'], body[0]);
   },
 
-  'should use add the definemethod instruction with the method name and false to indicate its not a singleton method': function(t) {
+  'should add the definemethod instruction with the method name and false to indicate its not a singleton method': function(t) {
     var body = compile('def foo; end')[Helper.BodyIdx];
 
-    t.assertEqual(['definemethod', 'foo', false], body[2]);
+    t.assertEqual('definemethod', body[1][0]);
+    t.assertEqual('foo', body[1][1]);
+    t.assertEqual(false, body[1][3]);
   },
 
-  'should add the compiled method body using putiseq': function(t) {
-    var body = compile('def foo; end')[Helper.BodyIdx];
-
-    t.assertEqual('putiseq', body[1][0]);
-  },
-
-  'should compile the method body into a new iseq of type "method" and the name of the method': function(t) {
+  'should compile the method body into a new iseq of type "method" and the name of the method an insert as the second param to definemethod': function(t) {
     var body = compile('def foo; 1; end')[Helper.BodyIdx],
-        iseq = body[1][1],
-        methodbody = iseq[Helper.BodyIdx],
+        miseq = body[1][2],
+        mbody = miseq[Helper.BodyIdx],
         exp = [
           ['putobject', 1],
           ['leave']
         ];
 
-    t.assertEqual('BullyInstructionSequence', iseq[0]);
-    t.assertEqual('foo', iseq[Helper.NameIdx]);
-    t.assertEqual('method', iseq[Helper.TypeIdx]);
-
-    t.assertEqual(exp, methodbody);
+    t.assertEqual('BullyInstructionSequence', miseq[0]);
+    t.assertEqual('foo', miseq[Helper.NameIdx]);
+    t.assertEqual('method', miseq[Helper.TypeIdx]);
+    t.assertEqual(exp, mbody);
   },
 
   'should add putnil instruction if definition is used in an expression': function(t) {
@@ -159,39 +154,39 @@ TestIt('Compiler: non-singleton method definitions with no params', {
 TestIt('Compiler: non-singleton method definitions with params', {
   'should add param names to locals': function(t) {
     var body = compile('def foo(a, b, c = 1, *d); end')[Helper.BodyIdx],
-        iseq = body[1][1];
+        iseq = body[1][2];
 
     t.assertEqual(['a', 'b', 'c', 'd'], iseq[Helper.LocalsIdx]);
   },
 
   'should set number of required args at index 0 of arguments descriptor': function(t) {
-    var args = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][1][Helper.ArgsIdx];
+    var args = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
 
     t.assertEqual(3, args[0]);
   },
 
   'should set number of optional args at index 1 of arguments descriptor': function(t) {
-    var args = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][1][Helper.ArgsIdx];
+    var args = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
 
     t.assertEqual(2, args[1]);
   },
 
   'should set index of splat param at index 2 of arguments descriptor': function(t) {
-    var args1 = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][1][Helper.ArgsIdx],
-        args2 = compile('def foo(a,b,c=1); end')[Helper.BodyIdx][1][1][Helper.ArgsIdx];
+    var args1 = compile('def foo(a, b, c, d = 1, e = 2, *f); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx],
+        args2 = compile('def foo(a,b,c=1); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
 
     t.assertEqual(5, args1[2]);
     t.assertEqual(-1, args2[2]);
   },
 
   'should add optional argument labels and body start label at index 3 of arguments descriptor': function(t) {
-    var args = compile('def foo(a=1,b=2); end')[Helper.BodyIdx][1][1][Helper.ArgsIdx];
+    var args = compile('def foo(a=1,b=2); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
 
     t.assertEqual(['optarg-a-0', 'optarg-b-3', 'bodystart-6'], args[3]);
   },
 
   'should compile default values for optional arugments at beginning of body with appropriate labels': function(t) {
-    var methodbody = compile('def foo(a=1,b=2); a + b; end')[Helper.BodyIdx][1][1][Helper.BodyIdx];
+    var methodbody = compile('def foo(a=1,b=2); a + b; end')[Helper.BodyIdx][1][2][Helper.BodyIdx];
         exp = [
           'optarg-a-0',
           ['putobject', 1],

@@ -1465,7 +1465,7 @@ ISeq.prototype = {
         result, catchEntry, i;
     // DEBUG
     if (this.currentStackSize !== 1) {
-      throw new Error('ISeq#toRaw: error, stack size is: ' + this.currentStackSize);
+      throw new Error('ISeq#toRaw(' + this.name + '): error, stack size is: ' + this.currentStackSize);
     }
     args[0] = this.numRequiredArgs;
     args[1] = nopt;
@@ -1527,7 +1527,8 @@ Instruction.ConstantStackDeltas = {
   getdynamic: 1,
   pop: -1,
   dup: 1,
-  definemethod: -2,
+  defineclass: -1,
+  definemethod: -1,
   branchif: -1,
   branchunless: -1,
   jump: 0,
@@ -1589,6 +1590,31 @@ Bully.Compiler = {
       this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1));
     }
   },
+  compileClass: function(node, iseq, push) {
+    var constant = node.constant,
+        basenames = constant.names.slice(),
+        name = basenames.pop(),
+        classiseq = new ISeq('class', '<class:' + name + '>');
+    this['compile' + (node.body).type](node.body, classiseq, push);
+    classiseq.addInstruction('leave');
+    if (basenames.length > 0) {
+      this.compileConstantNames(iseq, constant.global, basenames);
+    }
+    else if (constant.global) {
+      iseq.addInstruction('putbuiltin', 'Object');
+    }
+    else {
+      iseq.addInstruction('putcurrentmodule');
+    }
+    if (node.super_expr) {
+      this['compile' + (node.super_expr).type](node.super_expr, iseq, true);
+    }
+    else {
+      iseq.addInstruction('putnil');
+    }
+    iseq.addInstruction('defineclass', name, classiseq, 0);
+    if (!push) { iseq.addInstruction('pop'); }
+  },
   compileCall: function(node, iseq, push) {
     var argLen = node.args ? node.args.length : 0, i;
     // check to see if this is actually a local variable reference
@@ -1631,8 +1657,7 @@ Bully.Compiler = {
     this['compile' + (node.body).type](node.body, defiseq, true);
     defiseq.addInstruction('leave');
     iseq.addInstruction('putcurrentmodule');
-    iseq.addInstruction('putiseq', defiseq);
-    iseq.addInstruction('definemethod', node.name, false);
+    iseq.addInstruction('definemethod', node.name, defiseq, false);
     if (push) { iseq.addInstruction('putnil'); }
   },
   compileLocalAssign: function(node, iseq, push) {
@@ -1698,18 +1723,21 @@ Bully.Compiler = {
       iseq.setLabel(endLabel);
     }
   },
-  compileConstantRef: function(node, iseq, push) {
-    var len = node.names.length, i;
-    if (node.global) {
+  compileConstantNames: function(iseq, global, names) {
+    var len = names.length, i;
+    if (global) {
       iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
       iseq.addInstruction('putnil');
     }
-    iseq.addInstruction('getconstant', node.names[0]);
+    iseq.addInstruction('getconstant', names[0]);
     for (i = 1; i < len; i++) {
-      iseq.addInstruction('getconstant', node.names[i]);
+      iseq.addInstruction('getconstant', names[i]);
     }
+  },
+  compileConstantRef: function(node, iseq, push) {
+    this.compileConstantNames(iseq, node.global, node.names);
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileRescueBlocks: function(rescues, iseq) {
@@ -1912,7 +1940,7 @@ Bully.VM = {
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[7],
         len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, stackiseq, klass, i, localSF,
+        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF,
         ary, localvar;
     // process labels
     if (!iseq.labels) {
@@ -1977,9 +2005,8 @@ Bully.VM = {
             sf.push(Bully.Array.make(ary));
             break;
           case 'definemethod':
-            stackiseq = sf.pop();
             mod = sf.pop();
-            Bully.define_method(mod, ins[1], stackiseq);
+            Bully.define_method(mod, ins[1], ins[2]);
             break;
           case 'send':
             sendargs = [];

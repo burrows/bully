@@ -5,7 +5,7 @@ var Helper  = require(__dirname + '/helper').Helper,
 
 TestIt('Compiler: begin blocks with no rescues, ensures, or else', {
   'before all': function(t) {
-    this.iseq = compile("begin\n3 * 2\nend")
+    this.iseq = compile("begin\n3 * 2\nend");
     this.body = this.iseq[Helper.BodyIdx];
     this.catchTable = this.iseq[Helper.CatchIdx];
   },
