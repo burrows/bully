@@ -108,7 +108,7 @@ Bully.Rewriter.prototype = {
         next   = this.peek(),
         next2  = this.peek(2),
         before = ['IDENTIFIER', 'SUPER', 'YIELD'],
-        after  = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '[', '::'];
+        after  = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', 'TRUE', 'FALSE', 'NIL', '@', '[', '::'];
 
     if (!prev || !cur || !next) { return false; }
 

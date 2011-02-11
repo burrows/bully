@@ -1,9 +1,6 @@
 (function() {
-var next_object_id = 1;
-
-var toString = function() {
-  return send(this, 'inspect').data;
-};
+var next_object_id = 1,
+    toString = function() { return send(this, 'inspect').data; };
 
 // Returns a native javascript object with the properties necessary to be a
 // Bully object.
@@ -59,81 +56,6 @@ Bully.is_immediate = function(obj) {
                 obj === null     ||
                 obj === true     ||
                 obj === false;
-};
-
-// Used by dispatch_method to check the number of arguments passed to a method.
-// Bully methods can accept a fixed number of arguments, optional arguments, and
-// splat arguments.  When methods are defined, their minimum and maximum number
-// of arguments are calculated from the method signature.  Those values are used
-// here to check whether the number of arguments passed is acceptable.  If an
-// incorrect number of arguments are passed, then an ArgumentError exception is
-// raised.
-//
-// min - The minimum number of arguments the method accepts.
-// max - The maximum number of arguments the method accepts.
-// n   - The number of arguments passed to the method.
-//
-// Returns nothing.
-// Raises ArgumentError if an incorrect number of arguments are passed.
-Bully.check_method_args = function(min, max, n) {
-  var msg = 'wrong number of arguments (';
-
-  if (min === max) {
-    // 0 or more required arguments, no optionals
-    if (n !== min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else if (max === -1) {
-    // no limit on args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else {
-    // bounded number of args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-    else if (n > max) {
-      msg += n + ' for ' + max + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-};
-
-// Looks up and invokes a method on the given object.  If the method cannot be
-// found anywhere in the object's inheritance chain, the method 'method_missing'
-// will be sent to the object instead.
-//
-// Method dispatch is very straightforward, we simply start with the given
-// object's class and check to see if the method is defined in its m_tbl
-// property.  If the method is not found, we simply traverse the superclass
-// chain until it can be located.  If the method is not found, the process
-// starts over again to look for the 'method_missing' method.
-//
-// obj   - The object to invoke the method on.
-// name  - The name of the method to invoke.
-// args  - A javascript array containing the arguments to send (optional).
-// block - A Proc instance to pass to the method (optional).
-//
-// Returns the return value of the invoked method.
-Bully.dispatch_method = function(obj, name, args, block) {
-  var fn = Bully.find_method(Bully.class_of(obj), name);
-
-  args = args || [];
-
-  if (!fn) {
-    args.unshift(name);
-    return Bully.dispatch_method(obj, 'method_missing', args, block);
-  }
-
-  Bully.check_method_args(fn.min_args, fn.max_args, args.length);
-
-  return fn.call(null, obj, args, block);
 };
 
 // Looks up and invokes the given method name starting from the given object's
@@ -736,7 +658,7 @@ Bully.raise = function(exception, message) {
 
   if (send(exception, 'is_a?', Bully.Class)) {
     args      = message ? [Bully.String.make(message)] : [];
-    exception = Bully.dispatch_method(exception, 'new', args);
+    exception = Bully.VM.sendMethod(exception, 'new', args);
   }
 
   throw new Bully.RaiseException(exception);

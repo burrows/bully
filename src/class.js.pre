@@ -19,7 +19,7 @@ Bully.init_class = function() {
     o.klass = self;
 
     if (Bully.respond_to(o, 'initialize')) {
-      Bully.dispatch_method(o, 'initialize', args);
+      Bully.VM.sendMethod(o, 'initialize', args);
     }
 
     return o;

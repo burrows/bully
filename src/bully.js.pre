@@ -1,6 +1,6 @@
 exports.Bully = Bully = {};
 
-#define send(obj, name, ...) Bully.dispatch_method(obj, name, [__VA_ARGS__])
+#define send(obj, name, ...) Bully.VM.sendMethod(obj, name, [__VA_ARGS__])
 
 #include "runtime.js.pre"
 #include "object.js.pre"

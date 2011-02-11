@@ -70,7 +70,7 @@ Bully.VM = {
   },
 
   popFrame: function() {
-    var i, sf = this.frames.pop();
+    var sf = this.frames.pop(), ret = null;
 
     // check for uncaught exception
     if (!sf.parent && sf.status === ISEQ_STATUS_RAISE) {
@@ -78,16 +78,33 @@ Bully.VM = {
       Bully.platform.exit(1);
     }
 
+    // DEBUG
+    switch (sf.status) {
+      case ISEQ_STATUS_NORMAL:
+      case ISEQ_STATUS_RAISE:
+        if (sf.sp !== 1) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 1)');
+        }
+        break;
+      case ISEQ_STATUS_RETRY:
+        if (sf.sp !== 0) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 0)');
+        }
+        break;
+      default:
+        throw new Error('invalid ISeq status: ' + sf.status);
+    }
+
     // copy the current status and stack to the parent stack
     if (sf.parent) {
       sf.parent.status = sf.status;
-
-      for (i = 0; i < sf.sp; i++) {
-        sf.parent.push(sf.stack[i]);
+      if (sf.sp > 0) {
+        ret = sf.pop();
+        sf.parent.push(ret);
       }
     }
 
-    return sf;
+    return ret;
   },
 
   // Runs a compiled Bully program.
@@ -123,8 +140,7 @@ Bully.VM = {
       if (e1 instanceof Bully.RaiseException) {
         sf.status = ISEQ_STATUS_RAISE;
         sf.push(e1.exception);
-        this.popFrame();
-        return;
+        return this.popFrame();
       } else { throw e1; }
     }
 
@@ -180,7 +196,7 @@ Bully.VM = {
             sendargs = [];
             for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
             recv = sf.pop();
-            this.sendMethod(recv, ins[1], sendargs, sf);
+            this.sendMethod(recv, ins[1], sendargs, null, sf);
             break;
           case 'setlocal':
             localSF = sf;
@@ -245,20 +261,26 @@ Bully.VM = {
       }
     }
 
-    this.popFrame();
+    return this.popFrame();
   },
 
-  setupArguments: function(iseq, args, sf) {
-    var nargs  = args.length,
-        desc   = iseq[ISEQ_ARGS_IDX],
-        nreq   = desc[ISEQ_ARGS_NUM_REQ_IDX],
-        nopt   = desc[ISEQ_ARGS_NUM_OPT_IDX],
-        splat  = desc[ISEQ_ARGS_SPLAT_IDX],
-        labels = desc[ISEQ_ARGS_LABELS_IDX],
-        min    = nreq,
-        max    = splat >= 0 ? -1 : nreq + nopt,
-        msg    = 'wrong number of arguments (',
-        i;
+  // Private: Checks that the number of arguments passed to a method are acceptable.
+  //
+  // Bully methods can accept a fixed number of arguments, optional arguments, and
+  // splat arguments.  When methods are defined, their minimum and maximum number
+  // of arguments are calculated from the method signature.  Those values are used
+  // here to check whether the number of arguments passed is acceptable.  If an
+  // incorrect number of arguments are passed, then an ArgumentError exception is
+  // raised.
+  //
+  // min   - The minimum number of arguments the method accepts.
+  // max   - The maximum number of arguments the method accepts.
+  // nargs - The number of arguments passed to the method.
+  //
+  // Returns nothing.
+  // Raises ArgumentError if an incorrect number of arguments are passed.
+  checkArgumentCount: function(min, max, nargs) {
+    var msg = 'wrong number of arguments (';
 
     if (min === max) {
       // 0 or more required arguments, no optionals
@@ -285,6 +307,20 @@ Bully.VM = {
         Bully.raise(Bully.ArgumentError, msg);
       }
     }
+  },
+
+  setupArguments: function(iseq, args, sf) {
+    var nargs  = args.length,
+        desc   = iseq[ISEQ_ARGS_IDX],
+        nreq   = desc[ISEQ_ARGS_NUM_REQ_IDX],
+        nopt   = desc[ISEQ_ARGS_NUM_OPT_IDX],
+        splat  = desc[ISEQ_ARGS_SPLAT_IDX],
+        labels = desc[ISEQ_ARGS_LABELS_IDX],
+        min    = nreq,
+        max    = splat >= 0 ? -1 : nreq + nopt,
+        i;
+
+    this.checkArgumentCount(min, max, nargs);
 
     // copy arguments to local variables
     for (i = 0; i < nargs; i++) {
@@ -302,18 +338,50 @@ Bully.VM = {
     }
   },
 
-  sendMethod: function(recv, name, args, sf) {
+  // Looks up and invokes a method on the given receiver object.  If the method
+  // cannot be found anywhere in the object's inheritance chain, the method
+  // 'method_missing' will be sent to the object instead.
+  //
+  // If sendMethod is called in the context of a stack frame (via the 'send'
+  // instruction) then it will place the return value of the method onto the
+  // stack.  If sendMethod is called outside the context of a stack frame (e.g.
+  // a method implemented in javascript calls it) then the return value of
+  // them method is simply returned.
+  //
+  // Method dispatch is very straightforward, we simply start with the given
+  // object's class and check to see if the method is defined in its m_tbl
+  // property.  If the method is not found, we simply traverse the superclass
+  // chain until it can be located.  If the method is not found, the process
+  // starts over again to look for the 'method_missing' method.
+  //
+  // recv  - The object to invoke the method on.
+  // name  - The name of the method to invoke.
+  // args  - A javascript array containing the arguments to send (optional).
+  // block - FIXME (optional).
+  // sf    - The current StackFrame object (optional).
+  //
+  // Returns the return value of the method.
+  sendMethod: function(recv, name, args, block, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name),
-        status;
+        result, status;
 
-    // FIXME: make sure method is found
+    args = args || [];
+
+    if (!method) {
+      args.unshift(name);
+      return this.sendMethod(recv, 'method_missing', args, block, sf);
+    }
 
     if (typeof method === 'function') {
-      sf.push(method.call(null, recv, args));
+      this.checkArgumentCount(method.min_args, method.max_args, args.length);
+      result = method.call(null, recv, args);
+      if (sf) { sf.push(result); }
     }
     else {
-      this.runISeq(method, args, { parent: sf, self: recv });
+      result = this.runISeq(method, args, { parent: sf, self: recv });
     }
+
+    return result;
   },
 
   getConstant: function(klass, name) {

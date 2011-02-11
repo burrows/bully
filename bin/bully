@@ -61,7 +61,7 @@ function evaluateCode(code) {
   ast = Bully.parser.parse((new Bully.Lexer()).tokenize(code));
   exit_code = Bully.Evaluator.evaluate(ast);
 
-  Bully.dispatch_method(Bully.main, 'exit', exit_code);
+  Bully.VM.sendMethod(Bully.main, 'exit', exit_code);
 };
 
 function evaluateFiles(files) {
@@ -74,7 +74,7 @@ function evaluateFiles(files) {
     exit_code = Bully.VM.run(iseq);
   }
 
-  Bully.dispatch_method(Bully.main, 'exit', exit_code);
+  Bully.VM.sendMethod(Bully.main, 'exit', exit_code);
 };
 
 opts.parse(options);

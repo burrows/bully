@@ -317,3 +317,18 @@ rescue ArgumentError => e
   fail('args with splat should not raise ArgumentError for too many params')
 end
 
+begin
+  "foo".to_s(1)
+  fail('calling a method defined in JS should check number of arguments')
+rescue ArgumentError => e
+  ok(e.message == 'wrong number of arguments (1 for 0)', 'methods implemented in JS should check number of arguments')
+end
+
+o = Object.new
+begin
+  o.stuff
+  fail('unknown method should raise exception')
+rescue NoMethodError => e
+  ok(e.message.slice(0, 24)  == "undefined method 'stuff'", 'unknown method should raise NoMethodError')
+end
+

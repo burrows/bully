@@ -88,14 +88,28 @@ ISeq.prototype = {
       this.maxStackSize = this.currentStackSize;
     }
 
+    // Branch and jump instructions make keeping track of the current stack size
+    // a bit problematic.  We can't just scan through the list of instructions
+    // adding offsets along the way since these instructions cause some of the
+    // other instructions to be skipped.  To maintain the correct current stack
+    // size, we store the current stack size at the time the branch/jump
+    // instruction is added on the label object that it jumps to and then
+    // restore that value as the current stack size when the label is set (see
+    // setLabel below).
+    if (opcode === 'branchif' || opcode == 'branchunless' || opcode === 'jump') {
+      insn.operands[0].currentStackSize = this.currentStackSize;
+    }
+
     return this;
   },
 
   setLabel: function(label) {
     label.position = this.currentPosition();
-    label.sp = this.currentStackSize;
-
     this.instructions.push(label);
+
+    if ('currentStackSize' in label) {
+      this.currentStackSize = label.currentStackSize;
+    }
 
     return this;
   },
@@ -174,6 +188,11 @@ ISeq.prototype = {
         ic         = this.instructions.length,
         result, catchEntry, i;
 
+    // DEBUG
+    if (this.currentStackSize !== 1) {
+      throw new Error('ISeq#toRaw: error, stack size is: ' + this.currentStackSize);
+    }
+
     args[ISEQ_ARGS_NUM_REQ_IDX] = this.numRequiredArgs;
     args[ISEQ_ARGS_NUM_OPT_IDX] = nopt;
     args[ISEQ_ARGS_SPLAT_IDX]   = this.splatIndex;
@@ -246,8 +265,7 @@ Instruction.ConstantStackDeltas = {
   branchif:         -1,
   branchunless:     -1,
   jump:              0,
-  leave:             0,
-  throw:             0
+  leave:             0
 };
 
 Instruction.stackDelta = function(insn) {
@@ -260,7 +278,9 @@ Instruction.stackDelta = function(insn) {
     case 'send':
       return -insn.operands[1];
     case 'newarray':
-      return insn.operands[0] - 1;
+      return 1 - insn.operands[0];
+    case 'throw':
+      return insn.operands[0] === VM_THROW_TYPE_RETRY ? -1 : 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -282,7 +302,6 @@ Instruction.prototype = {
 Label = function(name) {
   this.name     = name || 'label';
   this.position = null;
-  this.sp       = null;
 
   return this;
 };

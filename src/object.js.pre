@@ -21,7 +21,7 @@ Bully.init_object = function() {
   Bully.define_method(Bully.Kernel, 'to_s', Bully.Kernel.to_s, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'inspect', function(self, args) {
-    return Bully.dispatch_method(self, 'to_s', args);
+    return Bully.VM.sendMethod(self, 'to_s', args);
   }, 0, 0);
 
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
@@ -33,7 +33,7 @@ Bully.init_object = function() {
     
     args = args.slice(1);
 
-    return Bully.dispatch_method(self, name, args);
+    return Bully.VM.sendMethod(self, name, args);
   }, 1, -1);
 
   Bully.define_method(Bully.Kernel, '!', function(self, args) {

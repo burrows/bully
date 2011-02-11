@@ -30,7 +30,7 @@ Bully.init_module = function() {
       return Bully.String.make('#<Class:' + send(obj, 'to_s').data + '>');
     }
 
-    name = Bully.dispatch_method(self, 'name', args);
+    name = Bully.VM.sendMethod(self, 'name', args);
 
     return name.data === "" ? Bully.Kernel.to_s(self, args) : name;
   }, 0, 0);

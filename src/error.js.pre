@@ -7,7 +7,7 @@ Bully.init_error = function() {
   }, 0, 1);
 
   Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
-    return Bully.dispatch_method(self, 'new', args);
+    return Bully.VM.sendMethod(self, 'new', args);
   }, 0, 1);
 
   Bully.define_method(Bully.Exception, 'message', function(self, args) {

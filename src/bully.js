@@ -1,9 +1,7 @@
 exports.Bully = Bully = {};
 (function() {
-var next_object_id = 1;
-var toString = function() {
-  return Bully.dispatch_method(this, 'inspect', []).data;
-};
+var next_object_id = 1,
+    toString = function() { return Bully.VM.sendMethod(this, 'inspect', []).data; };
 // Returns a native javascript object with the properties necessary to be a
 // Bully object.
 //
@@ -54,74 +52,6 @@ Bully.is_immediate = function(obj) {
                 obj === true ||
                 obj === false;
 };
-// Used by dispatch_method to check the number of arguments passed to a method.
-// Bully methods can accept a fixed number of arguments, optional arguments, and
-// splat arguments.  When methods are defined, their minimum and maximum number
-// of arguments are calculated from the method signature.  Those values are used
-// here to check whether the number of arguments passed is acceptable.  If an
-// incorrect number of arguments are passed, then an ArgumentError exception is
-// raised.
-//
-// min - The minimum number of arguments the method accepts.
-// max - The maximum number of arguments the method accepts.
-// n   - The number of arguments passed to the method.
-//
-// Returns nothing.
-// Raises ArgumentError if an incorrect number of arguments are passed.
-Bully.check_method_args = function(min, max, n) {
-  var msg = 'wrong number of arguments (';
-  if (min === max) {
-    // 0 or more required arguments, no optionals
-    if (n !== min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else if (max === -1) {
-    // no limit on args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-  else {
-    // bounded number of args
-    if (n < min) {
-      msg += n + ' for ' + min + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-    else if (n > max) {
-      msg += n + ' for ' + max + ')';
-      Bully.raise(Bully.ArgumentError, msg);
-    }
-  }
-};
-// Looks up and invokes a method on the given object.  If the method cannot be
-// found anywhere in the object's inheritance chain, the method 'method_missing'
-// will be sent to the object instead.
-//
-// Method dispatch is very straightforward, we simply start with the given
-// object's class and check to see if the method is defined in its m_tbl
-// property.  If the method is not found, we simply traverse the superclass
-// chain until it can be located.  If the method is not found, the process
-// starts over again to look for the 'method_missing' method.
-//
-// obj   - The object to invoke the method on.
-// name  - The name of the method to invoke.
-// args  - A javascript array containing the arguments to send (optional).
-// block - A Proc instance to pass to the method (optional).
-//
-// Returns the return value of the invoked method.
-Bully.dispatch_method = function(obj, name, args, block) {
-  var fn = Bully.find_method(Bully.class_of(obj), name);
-  args = args || [];
-  if (!fn) {
-    args.unshift(name);
-    return Bully.dispatch_method(obj, 'method_missing', args, block);
-  }
-  Bully.check_method_args(fn.min_args, fn.max_args, args.length);
-  return fn.call(null, obj, args, block);
-};
 // Looks up and invokes the given method name starting from the given object's
 // superclass.
 //
@@ -137,7 +67,7 @@ Bully.call_super = function(obj, name, args) {
   var fn = Bully.find_method(Bully.class_of(obj)._super, name);
   if (!fn) {
     Bully.raise(Bully.NoMethodError,
-      "super: no superclass method '" + name + "' for " + Bully.dispatch_method(obj, 'inspect', []).data);
+      "super: no superclass method '" + name + "' for " + Bully.VM.sendMethod(obj, 'inspect', []).data);
   }
   return fn.call(null, obj, args);
 };
@@ -249,7 +179,7 @@ Bully.make_metaclass = function(klass, _super) {
 // Returns nothing.
 Bully.class_inherited = function(_super, klass) {
   if (Bully.respond_to(_super, 'inherited')) {
-    Bully.dispatch_method(_super, 'inherited', [klass]);
+    Bully.VM.sendMethod(_super, 'inherited', [klass]);
   }
 };
 // Defines a new Class instance in the global scope with the given superclass.
@@ -281,7 +211,7 @@ Bully.define_class_under = function(outer, name, _super) {
   var outer_class = Bully.real_class_of(outer), super_class, klass, classpath;
   // make sure the outer module is actually a module
   if (outer_class !== Bully.Module && outer_class !== Bully.Class) {
-    Bully.raise(Bully.TypeError, Bully.dispatch_method(outer, 'inspect', []).data + ' is not a class/module');
+    Bully.raise(Bully.TypeError, Bully.VM.sendMethod(outer, 'inspect', []).data + ' is not a class/module');
   }
   // check to see if we already have a constant by the given name
   if (Bully.const_defined(outer, name, false)) {
@@ -295,7 +225,7 @@ Bully.define_class_under = function(outer, name, _super) {
     }
     // make sure super is actually a Class
     if (super_class !== Bully.Class) {
-      Bully.raise(Bully.TypeError, 'wrong argument type ' + Bully.dispatch_method(super_class, 'to_s', []).data + ' (expected Class)');
+      Bully.raise(Bully.TypeError, 'wrong argument type ' + Bully.VM.sendMethod(super_class, 'to_s', []).data + ' (expected Class)');
     }
     // make sure super is not a singleton class
     if (_super.is_singleton_class) {
@@ -304,7 +234,7 @@ Bully.define_class_under = function(outer, name, _super) {
   }
   // check to see if a constant with this name is alredy defined
   if (klass !== undefined) {
-    if (!Bully.dispatch_method(klass, 'is_a?', [Bully.Class])) {
+    if (!Bully.VM.sendMethod(klass, 'is_a?', [Bully.Class])) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
     if (_super && Bully.real_class(klass._super) !== _super) {
@@ -405,14 +335,14 @@ Bully.define_module_under = function(outer, name) {
   var outer_class = Bully.real_class_of(outer), mod, classpath;
   // make sure the outer module is actually a module
   if (outer_class !== Bully.Module && outer_class !== Bully.Class) {
-    Bully.raise(Bully.TypeError, Bully.dispatch_method(outer, 'inspect', []).data + ' is not a class/module');
+    Bully.raise(Bully.TypeError, Bully.VM.sendMethod(outer, 'inspect', []).data + ' is not a class/module');
   }
   // check to see if we already have a constant by the given name
   if (Bully.const_defined(outer, name, false)) {
     mod = Bully.const_get(outer, name);
   }
   if (mod !== undefined) {
-    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
+    if (!Bully.VM.sendMethod(mod, 'is_a?', [Bully.Module])) {
       Bully.raise(Bully.TypeError, name + ' is not a module');
     }
     return mod;
@@ -591,7 +521,7 @@ Bully.const_get = function(module, name) {
     }
     module = module._super;
   } while (module);
-  return Bully.dispatch_method(orig, 'const_missing', [name]);
+  return Bully.VM.sendMethod(orig, 'const_missing', [name]);
 };
 // Defines a constant under the given module's namespace.  Constants are stored
 // in the moduel's iv_tbl just like instance and class variables.  Naming
@@ -623,7 +553,7 @@ Bully.RaiseException = function(ex) {
 };
 Bully.RaiseException.prototype = {
   toString: function() {
-    return "Bully.RaiseException: " + Bully.dispatch_method(this.exception, 'to_s', []).data;
+    return "Bully.RaiseException: " + Bully.VM.sendMethod(this.exception, 'to_s', []).data;
   }
 };
 // Raises an exception with the given message.
@@ -635,9 +565,9 @@ Bully.RaiseException.prototype = {
 // Returns nothing.
 Bully.raise = function(exception, message) {
   var args;
-  if (Bully.dispatch_method(exception, 'is_a?', [Bully.Class])) {
+  if (Bully.VM.sendMethod(exception, 'is_a?', [Bully.Class])) {
     args = message ? [Bully.String.make(message)] : [];
-    exception = Bully.dispatch_method(exception, 'new', args);
+    exception = Bully.VM.sendMethod(exception, 'new', args);
   }
   throw new Bully.RaiseException(exception);
 };
@@ -677,11 +607,11 @@ Bully.init = function() {
   Bully.Kernel = Bully.define_module('Kernel');
   Bully.Kernel.to_s = function(self) {
     var klass = Bully.real_class_of(self),
-        name = Bully.dispatch_method(klass, 'name', []).data,
-        object_id = Bully.dispatch_method(self, 'object_id', []);
+        name = Bully.VM.sendMethod(klass, 'name', []).data,
+        object_id = Bully.VM.sendMethod(self, 'object_id', []);
     // handle the case where class is an anonymous class, which don't have names
     if (name === "") {
-      name = Bully.dispatch_method(klass, 'to_s', []).data;
+      name = Bully.VM.sendMethod(klass, 'to_s', []).data;
     }
     return Bully.String.make('#<' + name + ':' + object_id + '>');
   };
@@ -690,7 +620,7 @@ Bully.init = function() {
   }, 0, 0);
   Bully.define_method(Bully.Kernel, 'to_s', Bully.Kernel.to_s, 0, 0);
   Bully.define_method(Bully.Kernel, 'inspect', function(self, args) {
-    return Bully.dispatch_method(self, 'to_s', args);
+    return Bully.VM.sendMethod(self, 'to_s', args);
   }, 0, 0);
   Bully.define_method(Bully.Kernel, 'respond_to?', function(self, args) {
     return Bully.respond_to(self, args[0]);
@@ -698,18 +628,18 @@ Bully.init = function() {
   Bully.define_method(Bully.Kernel, 'send', function(self, args) {
     var name = args[0];
     args = args.slice(1);
-    return Bully.dispatch_method(self, name, args);
+    return Bully.VM.sendMethod(self, name, args);
   }, 1, -1);
   Bully.define_method(Bully.Kernel, '!', function(self, args) {
     return !Bully.test(self);
   }, 0, 0);
   Bully.define_module_method(Bully.Kernel, 'puts', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
+    var str = Bully.VM.sendMethod(args[0], 'to_s', []).data;
     Bully.platform.puts(str);
     return null;
   });
   Bully.define_module_method(Bully.Kernel, 'print', function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'to_s', []).data;
+    var str = Bully.VM.sendMethod(args[0], 'to_s', []).data;
     Bully.platform.print(str);
     return null;
   });
@@ -720,13 +650,13 @@ Bully.init = function() {
     var code = args[0] || 0, at_exit = Bully.at_exit;
     Bully.at_exit = null;
     if (at_exit) {
-      Bully.dispatch_method(at_exit, 'call', []);
+      Bully.VM.sendMethod(at_exit, 'call', []);
     }
     Bully.platform.exit(code);
   };
   Bully.define_module_method(Bully.Kernel, 'exit', Bully.Kernel.exit, 0, 1);
   Bully.Kernel.p = function(self, args) {
-    var str = Bully.dispatch_method(args[0], 'inspect', []).data;
+    var str = Bully.VM.sendMethod(args[0], 'inspect', []).data;
     Bully.platform.puts(str);
     return null;
   };
@@ -745,14 +675,14 @@ Bully.init = function() {
     var exception;
     if (args.length === 0) {
       exception = Bully.current_exception ||
-        Bully.dispatch_method(Bully.RuntimeError, 'new', []);
+        Bully.VM.sendMethod(Bully.RuntimeError, 'new', []);
     }
     else if (args.length === 1) {
-      if (Bully.dispatch_method(args[0], 'is_a?', [Bully.String])) {
-        exception = Bully.dispatch_method(Bully.RuntimeError, 'new', [args[0]]);
+      if (Bully.VM.sendMethod(args[0], 'is_a?', [Bully.String])) {
+        exception = Bully.VM.sendMethod(Bully.RuntimeError, 'new', [args[0]]);
       }
       else if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception', []);
+        exception = Bully.VM.sendMethod(args[0], 'exception', []);
       }
       else {
         Bully.raise(Bully.TypeError, 'exception class/object expected');
@@ -760,7 +690,7 @@ Bully.init = function() {
     }
     else {
       if (Bully.respond_to(args[0], 'exception')) {
-        exception = Bully.dispatch_method(args[0], 'exception', [args[1]]);
+        exception = Bully.VM.sendMethod(args[0], 'exception', [args[1]]);
       }
       else {
         Bully.raise(Bully.TypeError, 'exception class/object expected');
@@ -799,7 +729,7 @@ Bully.init = function() {
   }, 1, 1);
   Bully.define_method(Bully.Kernel, 'method_missing', function(self, args) {
     var name = args[0],
-        message = "undefined method '" + name + "' for " + Bully.dispatch_method(self, 'inspect', []).data;
+        message = "undefined method '" + name + "' for " + Bully.VM.sendMethod(self, 'inspect', []).data;
     Bully.raise(Bully.NoMethodError, message);
   }, 1, -1);
   Bully.define_method(Bully.Kernel, 'instance_eval', function(self, args, block) {
@@ -822,12 +752,12 @@ Bully.init = function() {
     return Bully.Array.make(ivars);
   }, 0, 0);
   Bully.define_method(Bully.Kernel, 'instance_variable_set', function(self, args) {
-    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    var id = Bully.VM.sendMethod(args[0], 'to_sym', []);
     // FIXME: make sure id is a valid id
     return Bully.ivar_set(self, id, args[1]);
   }, 2, 2);
   Bully.define_method(Bully.Kernel, 'instance_variable_get', function(self, args) {
-    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    var id = Bully.VM.sendMethod(args[0], 'to_sym', []);
     // FIXME: make sure id is a valid id
     return Bully.ivar_get(self, id);
   }, 1, 1);
@@ -856,9 +786,9 @@ Bully.init = function() {
     var obj, name;
     if (self.is_singleton_class) {
       obj = Bully.ivar_get(self, '__attached__');
-      return Bully.String.make('#<Class:' + Bully.dispatch_method(obj, 'to_s', []).data + '>');
+      return Bully.String.make('#<Class:' + Bully.VM.sendMethod(obj, 'to_s', []).data + '>');
     }
-    name = Bully.dispatch_method(self, 'name', args);
+    name = Bully.VM.sendMethod(self, 'name', args);
     return name.data === "" ? Bully.Kernel.to_s(self, args) : name;
   }, 0, 0);
   Bully.define_method(Bully.Module, 'instance_methods', function(self, args) {
@@ -875,8 +805,8 @@ Bully.init = function() {
   }, 0, 1);
   Bully.define_method(Bully.Module, 'include', function(self, args) {
     var mod = args[0], name;
-    if (!Bully.dispatch_method(mod, 'is_a?', [Bully.Module])) {
-      name = Bully.dispatch_method(Bully.dispatch_method(mod, 'class', []), 'name', []);
+    if (!Bully.VM.sendMethod(mod, 'is_a?', [Bully.Module])) {
+      name = Bully.VM.sendMethod(Bully.VM.sendMethod(mod, 'class', []), 'name', []);
       Bully.raise(Bully.TypeError, 'wrong argument type ' + name.data + ' (expected Module)');
     }
     Bully.include_module(self, args[0]);
@@ -922,7 +852,7 @@ Bully.init = function() {
     Bully.raise(Bully.NameError, 'uninitialized constant ' + args[0]);
   }, 1, 1);
   Bully.define_method(Bully.Module, 'const_defined?', function(self, args) {
-    var id = Bully.dispatch_method(args[0], 'to_sym', []);
+    var id = Bully.VM.sendMethod(args[0], 'to_sym', []);
     return Bully.const_defined(self, id, true);
   }, 1, 1);
   Bully.define_method(Bully.Module, 'constants', function(self, args) {
@@ -952,10 +882,10 @@ Bully.init = function() {
     return self;
   }, 0, 1);
   Bully.define_method(Bully.Class, 'new', function(self, args) {
-    var o = Bully.dispatch_method(self, 'allocate', []);
+    var o = Bully.VM.sendMethod(self, 'allocate', []);
     o.klass = self;
     if (Bully.respond_to(o, 'initialize')) {
-      Bully.dispatch_method(o, 'initialize', args);
+      Bully.VM.sendMethod(o, 'initialize', args);
     }
     return o;
   });
@@ -968,7 +898,7 @@ Bully.init = function() {
   });
 };Bully.init_main = function() {
   // main (top level self)
-  Bully.main = Bully.dispatch_method(Bully.Object, 'new', []);
+  Bully.main = Bully.VM.sendMethod(Bully.Object, 'new', []);
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.String.make('main');
   });
@@ -1048,7 +978,7 @@ Bully.init = function() {
 Bully.init_string = function() {
   Bully.String = Bully.define_class('String');
   Bully.String.make = function(js_str) {
-    var s = Bully.dispatch_method(Bully.String, 'new', []);
+    var s = Bully.VM.sendMethod(Bully.String, 'new', []);
     s.data = js_str;
     return s;
   };
@@ -1088,7 +1018,7 @@ Bully.init_string = function() {
   };
   Bully.define_method(Bully.String, 'inspect', Bully.String.inspect, 0, 0);
   Bully.define_method(Bully.String, '<<', function(self, args) {
-    Bully.String.cat(self, Bully.dispatch_method(args[0], 'to_s', []).data);
+    Bully.String.cat(self, Bully.VM.sendMethod(args[0], 'to_s', []).data);
     return self;
   }, 1, 1);
   Bully.String.to_sym = function(self) { return self.data; };
@@ -1102,25 +1032,25 @@ Bully.init_string = function() {
   Bully.Exception = Bully.define_class('Exception');
   Bully.define_method(Bully.Exception, 'initialize', function(self, args) {
     Bully.ivar_set(self, '@message', args[0] ||
-      Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []));
+      Bully.VM.sendMethod(Bully.VM.sendMethod(self, 'class', []), 'name', []));
   }, 0, 1);
   Bully.define_singleton_method(Bully.Exception, 'exception', function(self, args) {
-    return Bully.dispatch_method(self, 'new', args);
+    return Bully.VM.sendMethod(self, 'new', args);
   }, 0, 1);
   Bully.define_method(Bully.Exception, 'message', function(self, args) {
     return Bully.ivar_get(self, '@message');
   });
   Bully.define_method(Bully.Exception, 'to_s', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []),
-        message = Bully.dispatch_method(self, 'message', []);
+    var name = Bully.VM.sendMethod(Bully.VM.sendMethod(self, 'class', []), 'name', []),
+        message = Bully.VM.sendMethod(self, 'message', []);
     return Bully.String.make(name.data + ': ' + message.data);
   });
   Bully.define_method(Bully.Exception, 'inspect', function(self, args) {
-    var name = Bully.dispatch_method(Bully.dispatch_method(self, 'class', []), 'name', []);
-    return Bully.String.make('#<' + name.data + ': ' + Bully.dispatch_method(self, 'message', []).data + '>');
+    var name = Bully.VM.sendMethod(Bully.VM.sendMethod(self, 'class', []), 'name', []);
+    return Bully.String.make('#<' + name.data + ': ' + Bully.VM.sendMethod(self, 'message', []).data + '>');
   });
   Bully.define_singleton_method(Bully.Exception, '===', function(self, args) {
-    return Bully.dispatch_method(args[0], 'is_a?', [self]);
+    return Bully.VM.sendMethod(args[0], 'is_a?', [self]);
   });
   Bully.LoadError = Bully.define_class('LoadError', Bully.Exception);
   Bully.StandardError = Bully.define_class('StandardError', Bully.Exception);
@@ -1168,28 +1098,28 @@ Bully.init_string = function() {
   Bully.define_method(Bully.Array, 'inspect', function(self, args) {
     var i = 0, elems = [];
     for (i = 0; i < self.length; i += 1) {
-      elems.push(Bully.dispatch_method(self[i], 'inspect', []).data);
+      elems.push(Bully.VM.sendMethod(self[i], 'inspect', []).data);
     }
     return Bully.String.make('[' + elems.join(', ') + ']');
   });
   Bully.define_method(Bully.Array, 'each', function(self, args, proc) {
     var i;
     for (i = 0; i < self.length; i += 1) {
-      Bully.dispatch_method(proc, 'call', [self[i]]);
+      Bully.VM.sendMethod(proc, 'call', [self[i]]);
     }
     return self;
   });
   Bully.define_method(Bully.Array, 'join', function(self, args, block) {
     var strings = [], elem, i;
     for (i = 0; i < self.length; i += 1) {
-      strings.push(Bully.dispatch_method(self[i], 'to_s', []).data);
+      strings.push(Bully.VM.sendMethod(self[i], 'to_s', []).data);
     }
     return Bully.String.make(strings.join(args[0] ? args[0].data : ' '));
   });
   Bully.define_method(Bully.Array, 'include?', function(self, args) {
     var i;
     for (i = 0; i < self.length; i += 1) {
-      if (Bully.dispatch_method(self[i], '==', [args[0]])) {
+      if (Bully.VM.sendMethod(self[i], '==', [args[0]])) {
         return true;
       }
     }
@@ -1197,10 +1127,10 @@ Bully.init_string = function() {
   }, 1, 1);
   Bully.define_method(Bully.Array, '==', function(self, args) {
     var other = args[0], i;
-    if (!Bully.dispatch_method(other, 'is_a?', [Bully.Array])) { return false; }
+    if (!Bully.VM.sendMethod(other, 'is_a?', [Bully.Array])) { return false; }
     if (self.length !== other.length) { return false; }
     for (i = 0; i < self.length; i += 1) {
-      if (!Bully.dispatch_method(self[i], '==', [other[i]])) { return false; }
+      if (!Bully.VM.sendMethod(self[i], '==', [other[i]])) { return false; }
     }
     return true;
   }, 1, 1);
@@ -1222,12 +1152,12 @@ Bully.init_string = function() {
   Bully.Hash.set = function(hash, key, value) {
     var keys = Bully.ivar_get(hash, '__keys__');
     if (keys.indexOf(key) === -1) { keys.push(key); }
-    key = Bully.dispatch_method(key, 'hash', []);
+    key = Bully.VM.sendMethod(key, 'hash', []);
     hash[key] = value;
     return value;
   };
   Bully.Hash.get = function(hash, key) {
-    key = Bully.dispatch_method(key, 'hash', []);
+    key = Bully.VM.sendMethod(key, 'hash', []);
     return hash.hasOwnProperty(key) ? hash[key] : null;
   };
   Bully.define_singleton_method(Bully.Hash, 'new', function(self, args) {
@@ -1252,8 +1182,8 @@ Bully.init_string = function() {
   Bully.define_method(Bully.Hash, 'inspect', function(self, args) {
     var keys = Bully.ivar_get(self, '__keys__'), elems = [], i, s;
     for (i = 0; i < keys.length; i += 1) {
-      s = Bully.dispatch_method(keys[i], 'inspect', []).data + ' => ';
-      s += Bully.dispatch_method(Bully.Hash.get(self, keys[i]), 'inspect', []).data;
+      s = Bully.VM.sendMethod(keys[i], 'inspect', []).data + ' => ';
+      s += Bully.VM.sendMethod(Bully.Hash.get(self, keys[i]), 'inspect', []).data;
       elems.push(s);
     }
     return Bully.String.make('{' + elems.join(', ') + '}');
@@ -1325,7 +1255,7 @@ Bully.init_string = function() {
   Bully.define_method(Bully.Number, 'times', function(self, args, proc) {
     var i;
     for (i = 0; i < self; i += 1) {
-      Bully.dispatch_method(proc, 'call', [i]);
+      Bully.VM.sendMethod(proc, 'call', [i]);
     }
     return self;
   }, 0, 0);
@@ -1336,20 +1266,20 @@ Bully.init_enumerable = function() {
     var results = [], each_proc;
     each_proc = Bully.Proc.make(function(args) {
       var x = args[0];
-      if (Bully.dispatch_method(proc, 'call', [x])) { results.push(x); }
+      if (Bully.VM.sendMethod(proc, 'call', [x])) { results.push(x); }
     });
-    Bully.dispatch_method(self, 'each', [], each_proc);
+    Bully.VM.sendMethod(self, 'each', [], each_proc);
     return Bully.Array.make(results);
   }, 0, 0);
   Bully.define_method(Bully.Enumerable, 'all?', function(self, args, proc) {
     var r = true, done = new Error('done'), each_proc;
     each_proc = Bully.Proc.make(function(args) {
-      if (!Bully.dispatch_method(proc, 'call', [args[0]])) {
+      if (!Bully.VM.sendMethod(proc, 'call', [args[0]])) {
         r = false;
         throw done;
       }
     });
-    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    try { Bully.VM.sendMethod(self, 'each', [], each_proc); }
     catch (e) { if (e !== done) { throw e; } }
     return r;
   });
@@ -1359,12 +1289,12 @@ Bully.init_enumerable = function() {
       return args[0];
     });
     each_proc = Bully.Proc.make(function(args) {
-      if (Bully.dispatch_method(proc, 'call', [args[0]])) {
+      if (Bully.VM.sendMethod(proc, 'call', [args[0]])) {
         r = true;
         throw done;
       }
     });
-    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    try { Bully.VM.sendMethod(self, 'each', [], each_proc); }
     catch (e) { if (e !== done) { throw e; } }
     return r;
   });
@@ -1465,12 +1395,25 @@ ISeq.prototype = {
     if (this.currentStackSize > this.maxStackSize) {
       this.maxStackSize = this.currentStackSize;
     }
+    // Branch and jump instructions make keeping track of the current stack size
+    // a bit problematic.  We can't just scan through the list of instructions
+    // adding offsets along the way since these instructions cause some of the
+    // other instructions to be skipped.  To maintain the correct current stack
+    // size, we store the current stack size at the time the branch/jump
+    // instruction is added on the label object that it jumps to and then
+    // restore that value as the current stack size when the label is set (see
+    // setLabel below).
+    if (opcode === 'branchif' || opcode == 'branchunless' || opcode === 'jump') {
+      insn.operands[0].currentStackSize = this.currentStackSize;
+    }
     return this;
   },
   setLabel: function(label) {
     label.position = this.currentPosition();
-    label.sp = this.currentStackSize;
     this.instructions.push(label);
+    if ('currentStackSize' in label) {
+      this.currentStackSize = label.currentStackSize;
+    }
     return this;
   },
   addCatchEntry: function(type, iseq, start, stop, cont, sp) {
@@ -1520,6 +1463,10 @@ ISeq.prototype = {
         nopt = this.optionalArgLabels.length,
         ic = this.instructions.length,
         result, catchEntry, i;
+    // DEBUG
+    if (this.currentStackSize !== 1) {
+      throw new Error('ISeq#toRaw: error, stack size is: ' + this.currentStackSize);
+    }
     args[0] = this.numRequiredArgs;
     args[1] = nopt;
     args[2] = this.splatIndex;
@@ -1584,8 +1531,7 @@ Instruction.ConstantStackDeltas = {
   branchif: -1,
   branchunless: -1,
   jump: 0,
-  leave: 0,
-  throw: 0
+  leave: 0
 };
 Instruction.stackDelta = function(insn) {
   var opcode = insn.opcode, constants = this.ConstantStackDeltas;
@@ -1595,7 +1541,9 @@ Instruction.stackDelta = function(insn) {
     case 'send':
       return -insn.operands[1];
     case 'newarray':
-      return insn.operands[0] - 1;
+      return 1 - insn.operands[0];
+    case 'throw':
+      return insn.operands[0] === 4 ? -1 : 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -1613,7 +1561,6 @@ Instruction.prototype = {
 Label = function(name) {
   this.name = name || 'label';
   this.position = null;
-  this.sp = null;
   return this;
 };
 Label.prototype = {
@@ -1921,20 +1868,37 @@ Bully.VM = {
     return this;
   },
   popFrame: function() {
-    var i, sf = this.frames.pop();
+    var sf = this.frames.pop(), ret = null;
     // check for uncaught exception
     if (!sf.parent && sf.status === 1) {
-      Bully.dispatch_method(Bully.main, 'p', [sf.pop()]);
+      Bully.VM.sendMethod(Bully.main, 'p', [sf.pop()]);
       Bully.platform.exit(1);
+    }
+    // DEBUG
+    switch (sf.status) {
+      case 0:
+      case 1:
+        if (sf.sp !== 1) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 1)');
+        }
+        break;
+      case 2:
+        if (sf.sp !== 0) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 0)');
+        }
+        break;
+      default:
+        throw new Error('invalid ISeq status: ' + sf.status);
     }
     // copy the current status and stack to the parent stack
     if (sf.parent) {
       sf.parent.status = sf.status;
-      for (i = 0; i < sf.sp; i++) {
-        sf.parent.push(sf.stack[i]);
+      if (sf.sp > 0) {
+        ret = sf.pop();
+        sf.parent.push(ret);
       }
     }
-    return sf;
+    return ret;
   },
   // Runs a compiled Bully program.
   run: function(iseq) {
@@ -1964,8 +1928,7 @@ Bully.VM = {
       if (e1 instanceof Bully.RaiseException) {
         sf.status = 1;
         sf.push(e1.exception);
-        this.popFrame();
-        return;
+        return this.popFrame();
       } else { throw e1; }
     }
     main_loop:
@@ -2018,7 +1981,7 @@ Bully.VM = {
             sendargs = [];
             for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
             recv = sf.pop();
-            this.sendMethod(recv, ins[1], sendargs, sf);
+            this.sendMethod(recv, ins[1], sendargs, null, sf);
             break;
           case 'setlocal':
             localSF = sf;
@@ -2080,19 +2043,25 @@ Bully.VM = {
         break main_loop;
       }
     }
-    this.popFrame();
+    return this.popFrame();
   },
-  setupArguments: function(iseq, args, sf) {
-    var nargs = args.length,
-        desc = iseq[5],
-        nreq = desc[0],
-        nopt = desc[1],
-        splat = desc[2],
-        labels = desc[3],
-        min = nreq,
-        max = splat >= 0 ? -1 : nreq + nopt,
-        msg = 'wrong number of arguments (',
-        i;
+  // Private: Checks that the number of arguments passed to a method are acceptable.
+  //
+  // Bully methods can accept a fixed number of arguments, optional arguments, and
+  // splat arguments.  When methods are defined, their minimum and maximum number
+  // of arguments are calculated from the method signature.  Those values are used
+  // here to check whether the number of arguments passed is acceptable.  If an
+  // incorrect number of arguments are passed, then an ArgumentError exception is
+  // raised.
+  //
+  // min   - The minimum number of arguments the method accepts.
+  // max   - The maximum number of arguments the method accepts.
+  // nargs - The number of arguments passed to the method.
+  //
+  // Returns nothing.
+  // Raises ArgumentError if an incorrect number of arguments are passed.
+  checkArgumentCount: function(min, max, nargs) {
+    var msg = 'wrong number of arguments (';
     if (min === max) {
       // 0 or more required arguments, no optionals
       if (nargs !== min) {
@@ -2118,6 +2087,18 @@ Bully.VM = {
         Bully.raise(Bully.ArgumentError, msg);
       }
     }
+  },
+  setupArguments: function(iseq, args, sf) {
+    var nargs = args.length,
+        desc = iseq[5],
+        nreq = desc[0],
+        nopt = desc[1],
+        splat = desc[2],
+        labels = desc[3],
+        min = nreq,
+        max = splat >= 0 ? -1 : nreq + nopt,
+        i;
+    this.checkArgumentCount(min, max, nargs);
     // copy arguments to local variables
     for (i = 0; i < nargs; i++) {
       sf.locals[i] = args[i];
@@ -2131,16 +2112,46 @@ Bully.VM = {
         sf.iseq.labels[labels[nargs - nreq]];
     }
   },
-  sendMethod: function(recv, name, args, sf) {
+  // Looks up and invokes a method on the given receiver object.  If the method
+  // cannot be found anywhere in the object's inheritance chain, the method
+  // 'method_missing' will be sent to the object instead.
+  //
+  // If sendMethod is called in the context of a stack frame (via the 'send'
+  // instruction) then it will place the return value of the method onto the
+  // stack.  If sendMethod is called outside the context of a stack frame (e.g.
+  // a method implemented in javascript calls it) then the return value of
+  // them method is simply returned.
+  //
+  // Method dispatch is very straightforward, we simply start with the given
+  // object's class and check to see if the method is defined in its m_tbl
+  // property.  If the method is not found, we simply traverse the superclass
+  // chain until it can be located.  If the method is not found, the process
+  // starts over again to look for the 'method_missing' method.
+  //
+  // recv  - The object to invoke the method on.
+  // name  - The name of the method to invoke.
+  // args  - A javascript array containing the arguments to send (optional).
+  // block - FIXME (optional).
+  // sf    - The current StackFrame object (optional).
+  //
+  // Returns the return value of the method.
+  sendMethod: function(recv, name, args, block, sf) {
     var method = Bully.find_method(Bully.class_of(recv), name),
-        status;
-    // FIXME: make sure method is found
+        result, status;
+    args = args || [];
+    if (!method) {
+      args.unshift(name);
+      return this.sendMethod(recv, 'method_missing', args, block, sf);
+    }
     if (typeof method === 'function') {
-      sf.push(method.call(null, recv, args));
+      this.checkArgumentCount(method.min_args, method.max_args, args.length);
+      result = method.call(null, recv, args);
+      if (sf) { sf.push(result); }
     }
     else {
-      this.runISeq(method, args, { parent: sf, self: recv });
+      result = this.runISeq(method, args, { parent: sf, self: recv });
     }
+    return result;
   },
   getConstant: function(klass, name) {
     var modules;
@@ -2484,7 +2495,7 @@ Bully.Rewriter.prototype = {
         next = this.peek(),
         next2 = this.peek(2),
         before = ['IDENTIFIER', 'SUPER', 'YIELD'],
-        after = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', '@', '[', '::'];
+        after = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', 'TRUE', 'FALSE', 'NIL', '@', '[', '::'];
     if (!prev || !cur || !next) { return false; }
     if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE') {
       if (after.indexOf(next[0]) !== -1) { return true; }

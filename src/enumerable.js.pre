@@ -10,7 +10,7 @@ Bully.init_enumerable = function() {
       if (send(proc, 'call', x)) { results.push(x); }
     });
 
-    Bully.dispatch_method(self, 'each', [], each_proc);
+    Bully.VM.sendMethod(self, 'each', [], each_proc);
 
     return Bully.Array.make(results);
   }, 0, 0);
@@ -19,13 +19,13 @@ Bully.init_enumerable = function() {
     var r = true, done = new Error('done'), each_proc;
 
     each_proc = Bully.Proc.make(function(args) {
-      if (!Bully.dispatch_method(proc, 'call', [args[0]])) {
+      if (!Bully.VM.sendMethod(proc, 'call', [args[0]])) {
         r = false;
         throw done;
       }
     });
 
-    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    try { Bully.VM.sendMethod(self, 'each', [], each_proc); }
     catch (e) { if (e !== done) { throw e; } }
 
     return r;
@@ -39,13 +39,13 @@ Bully.init_enumerable = function() {
     });
 
     each_proc = Bully.Proc.make(function(args) {
-      if (Bully.dispatch_method(proc, 'call', [args[0]])) {
+      if (Bully.VM.sendMethod(proc, 'call', [args[0]])) {
         r = true;
         throw done;
       }
     });
 
-    try { Bully.dispatch_method(self, 'each', [], each_proc); }
+    try { Bully.VM.sendMethod(self, 'each', [], each_proc); }
     catch (e) { if (e !== done) { throw e; } }
 
     return r;
