@@ -234,7 +234,7 @@ Bully.define_class_under = function(outer, name, _super) {
   }
   // check to see if a constant with this name is alredy defined
   if (klass !== undefined) {
-    if (!Bully.VM.sendMethod(klass, 'is_a?', [Bully.Class])) {
+    if (Bully.real_class_of(klass) !== Bully.Class) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
     if (_super && Bully.real_class(klass._super) !== _super) {
@@ -342,7 +342,7 @@ Bully.define_module_under = function(outer, name) {
     mod = Bully.const_get(outer, name);
   }
   if (mod !== undefined) {
-    if (!Bully.VM.sendMethod(mod, 'is_a?', [Bully.Module])) {
+    if (Bully.real_class_of(mod) !== Bully.Module) {
       Bully.raise(Bully.TypeError, name + ' is not a module');
     }
     return mod;
@@ -1968,7 +1968,7 @@ Bully.VM = {
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[7],
         len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, super,
+        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, _super,
         ary, localvar;
     // process labels
     if (!iseq.labels) {
@@ -2033,17 +2033,17 @@ Bully.VM = {
             sf.push(Bully.Array.make(ary));
             break;
           case 'defineclass':
-            super = sf.pop();
+            _super = sf.pop();
             mod = sf.pop();
             switch (ins[3]) {
               case 0:
-                this.defineClass(sf, mod, super, ins[1], ins[2]);
+                this.defineClass(sf, mod, _super, ins[1], ins[2]);
                 break;
               case 1:
-                this.defineSingletonClass(sf, mod, ins[1], ins[2]);
+                this.openSingletonClass(sf, mod, ins[2]);
                 break;
               case 2:
-                this.defineClass(sf, mod, ins[1], ins[2]);
+                this.defineModule(sf, mod, ins[1], ins[2]);
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }
@@ -2228,9 +2228,17 @@ Bully.VM = {
     }
     return result;
   },
-  defineClass: function(sf, mod, super, name, iseq) {
-    var klass = Bully.define_class_under(mod, name, super);
+  defineClass: function(sf, outer, _super, name, iseq) {
+    var klass = Bully.define_class_under(outer, name, _super);
     this.runISeq(iseq, [], { parent: sf, self: klass, cbase: klass });
+  },
+  openSingletonClass: function(sf, obj, iseq) {
+    var klass = Bully.singleton_class(obj);
+    this.runISeq(iseq, [], { parent: sf, self: klass, cbase: klass });
+  },
+  defineModule: function(sf, outer, name, iseq) {
+    var mod = Bully.define_module_under(outer, name);
+    this.runISeq(iseq, [], { parent: sf, self: mod, cbase: mod });
   },
   getConstant: function(klass, name) {
     var modules;

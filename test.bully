@@ -363,3 +363,77 @@ ok(Class3.superclass == Class1, 'class definitions with a superclass')
 ok(Class3.new.bar == 'Class1#bar', 'child classes can access methods implemented in the superclass')
 ok(Class3.new.baz == 'Class3#baz', 'child classes can override methods implemented in the superclass')
 
+class Class1
+  def quux; end
+end
+
+ok(Class1.instance_methods(false) == [:bar, :baz, :quux], 'classes should be able to be reopened')
+
+begin
+  class Class1 < Class2; end
+  fail("changing a class' superclass should raise a TypeError exception")
+rescue TypeError => e
+  ok(e.message == 'superclass mismatch for class Class1', "changing a class' superclass should raise a TypeError exception")
+end
+
+module SomeModule; end
+begin
+  class SomeModule; end
+  fail('trying to change a module to a class should raise a TypeError exception')
+rescue TypeError => e
+  ok(e.message == 'SomeModule is not a class', 'trying to change a module to a class should raise a TypeError exception')
+end
+
+begin
+  class ClassSubclass < Class; end
+  fail("should not be able to subclass Class")
+rescue TypeError => e
+  ok(e.message == "can't make subclass of Class", "should not be able to subclass Class")
+end
+
+begin
+  class BadSuperclass < SomeModule; end
+  fail('superclass must be a Class')
+rescue TypeError => e
+  ok(e.message == 'wrong argument type Module (expected Class)', 'superclass must be a Class')
+end
+
+module Module1
+  def foo
+    'Module1#foo'
+  end
+
+  def bar
+    'Module1#bar'
+  end
+end
+
+ok(Module1.is_a?(Module) == true, 'module definitions should create an instance of Module')
+ok(Module1.instance_methods(false) == [:foo, :bar], 'module should know its instance methods')
+
+class Class4
+  include Module1
+end
+
+ok(Class4.new.foo == 'Module1#foo', 'including a module in a class should make its instance methods available to instances of the class')
+
+class SomeClass; end
+begin
+  module SomeClass; end
+  fail('trying to change a class to a module should raise a TypeError exception')
+rescue TypeError => e
+  ok(e.message == 'SomeClass is not a module', 'trying to change a class to a module should raise a TypeError exception')
+end
+
+o = Object.new
+class << o
+  def foo
+    'singleton#foo'
+  end
+end
+
+ok(o.respond_to?(:foo) == true, "defining a method in an object's singleton class makes the method available to the object")
+ok(o.foo == 'singleton#foo', 'objects can call methods defined on their singleton class')
+ok(Object.new.respond_to?(:foo) == false, "other objects do not have access to methods defined in another object's singleton class")
+
+

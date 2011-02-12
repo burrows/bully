@@ -265,7 +265,7 @@ Bully.define_class_under = function(outer, name, _super) {
 
   // check to see if a constant with this name is alredy defined
   if (klass !== undefined) {
-    if (!send(klass, 'is_a?', Bully.Class)) {
+    if (Bully.real_class_of(klass) !== Bully.Class) {
       Bully.raise(Bully.TypeError, name + ' is not a class');
     }
 
@@ -394,7 +394,7 @@ Bully.define_module_under = function(outer, name) {
   }
 
   if (mod !== undefined) {
-    if (!send(mod, 'is_a?', Bully.Module)) {
+    if (Bully.real_class_of(mod) !== Bully.Module) {
       Bully.raise(Bully.TypeError, name + ' is not a module');
     }
 
