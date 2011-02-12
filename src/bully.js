@@ -797,7 +797,7 @@ Bully.init = function() {
         include_super = args.length > 0 ?args[0] : true, symbol;
     do {
       for (symbol in klass.m_tbl) {
-        methods.push(Bully.String.make(symbol));
+        methods.push(symbol);
       }
       klass = klass._super;
     } while (klass && include_super);
@@ -1517,7 +1517,7 @@ Instruction.ConstantStackDeltas = {
   putstring: 1,
   putsymbol: 1,
   putbuiltin: 1,
-  putcurrentmodule: 1,
+  putcbase: 1,
   putiseq: 1,
   putobject: 1,
   putself: 1,
@@ -1604,7 +1604,7 @@ Bully.Compiler = {
       iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
-      iseq.addInstruction('putcurrentmodule');
+      iseq.addInstruction('putcbase');
     }
     if (node.super_expr) {
       this['compile' + (node.super_expr).type](node.super_expr, iseq, true);
@@ -1640,7 +1640,7 @@ Bully.Compiler = {
       iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
-      iseq.addInstruction('putcurrentmodule');
+      iseq.addInstruction('putcbase');
     }
     iseq.addInstruction('putnil'); // dummy super expression
     iseq.addInstruction('defineclass', name, modiseq,
@@ -1688,7 +1688,7 @@ Bully.Compiler = {
     if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
     this['compile' + (node.body).type](node.body, defiseq, true);
     defiseq.addInstruction('leave');
-    iseq.addInstruction('putcurrentmodule');
+    iseq.addInstruction('putcbase');
     iseq.addInstruction('definemethod', node.name, defiseq, false);
     if (push) { iseq.addInstruction('putnil'); }
   },
@@ -1885,8 +1885,8 @@ var StackFrame = function(iseq, opts) {
   this.iseq = iseq;
   this.ip = 0;
   this.sp = 0;
-  this.modules = [];
   this.status = 0;
+  this.cbase = opts.cbase || Bully.Object;
   this.stack = opts.stackSize ? new Array(opts.stackSize) : [];
   this.self = opts.self || Bully.main;
   this.parent = opts.parent || null;
@@ -1916,10 +1916,6 @@ StackFrame.prototype = {
   },
   peek: function() {
     return this.stack[this.sp - 1];
-  },
-  currentModule: function() {
-    var len = this.modules.length;
-    return len === 0 ? Bully.Object : this.modules[len - 1];
   }
 };
 Bully.VM = {
@@ -1972,7 +1968,7 @@ Bully.VM = {
   runISeq: function(iseq, args, sfOpts) {
     var body = iseq[7],
         len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF,
+        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, super,
         ary, localvar;
     // process labels
     if (!iseq.labels) {
@@ -2016,8 +2012,8 @@ Bully.VM = {
           case 'putbuiltin':
             sf.push(Bully[ins[1]]);
             break;
-          case 'putcurrentmodule':
-            sf.push(sf.currentModule());
+          case 'putcbase':
+            sf.push(sf.cbase);
             break;
           case 'putiseq':
             sf.push(ins[1]);
@@ -2035,6 +2031,22 @@ Bully.VM = {
             ary = new Array(ins[1]);
             for (i = ins[1] - 1; i >= 0; i--) { ary[i] = sf.pop(); }
             sf.push(Bully.Array.make(ary));
+            break;
+          case 'defineclass':
+            super = sf.pop();
+            mod = sf.pop();
+            switch (ins[3]) {
+              case 0:
+                this.defineClass(sf, mod, super, ins[1], ins[2]);
+                break;
+              case 1:
+                this.defineSingletonClass(sf, mod, ins[1], ins[2]);
+                break;
+              case 2:
+                this.defineClass(sf, mod, ins[1], ins[2]);
+                break;
+              default: throw new Error('invalid defineclass type: ' + ins[3]);
+            }
             break;
           case 'definemethod':
             mod = sf.pop();
@@ -2215,6 +2227,10 @@ Bully.VM = {
       result = this.runISeq(method, args, { parent: sf, self: recv });
     }
     return result;
+  },
+  defineClass: function(sf, mod, super, name, iseq) {
+    var klass = Bully.define_class_under(mod, name, super);
+    this.runISeq(iseq, [], { parent: sf, self: klass, cbase: klass });
   },
   getConstant: function(klass, name) {
     var modules;

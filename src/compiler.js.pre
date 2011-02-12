@@ -250,27 +250,27 @@ Instruction = function(opcode, operands) {
 };
 
 Instruction.ConstantStackDeltas = {
-  nop:               0,
-  putnil:            1,
-  putstring:         1,
-  putsymbol:         1,
-  putbuiltin:        1,
-  putcurrentmodule:  1,
-  putiseq:           1,
-  putobject:         1,
-  putself:           1,
-  getlocal:          1,
-  setlocal:         -1,
-  getconstant:       0,
-  getdynamic:        1,
-  pop:              -1,
-  dup:               1,
-  defineclass:      -1,
-  definemethod:     -1,
-  branchif:         -1,
-  branchunless:     -1,
-  jump:              0,
-  leave:             0
+  nop:           0,
+  putnil:        1,
+  putstring:     1,
+  putsymbol:     1,
+  putbuiltin:    1,
+  putcbase:      1,
+  putiseq:       1,
+  putobject:     1,
+  putself:       1,
+  getlocal:      1,
+  setlocal:     -1,
+  getconstant:   0,
+  getdynamic:    1,
+  pop:          -1,
+  dup:           1,
+  defineclass:  -1,
+  definemethod: -1,
+  branchif:     -1,
+  branchunless: -1,
+  jump:          0,
+  leave:         0
 };
 
 Instruction.stackDelta = function(insn) {
@@ -361,7 +361,7 @@ Bully.Compiler = {
       iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
-      iseq.addInstruction('putcurrentmodule');
+      iseq.addInstruction('putcbase');
     }
 
     if (node.super_expr) {
@@ -407,7 +407,7 @@ Bully.Compiler = {
       iseq.addInstruction('putbuiltin', 'Object');
     }
     else {
-      iseq.addInstruction('putcurrentmodule');
+      iseq.addInstruction('putcbase');
     }
 
     iseq.addInstruction('putnil'); // dummy super expression
@@ -473,7 +473,7 @@ Bully.Compiler = {
     COMPILE_NODE(node.body, defiseq, true);
     defiseq.addInstruction('leave');
 
-    iseq.addInstruction('putcurrentmodule');
+    iseq.addInstruction('putcbase');
     iseq.addInstruction('definemethod', node.name, defiseq, false);
 
     if (push) { iseq.addInstruction('putnil'); }

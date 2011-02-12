@@ -332,3 +332,34 @@ rescue NoMethodError => e
   ok(e.message.slice(0, 24)  == "undefined method 'stuff'", 'unknown method should raise NoMethodError')
 end
 
+#-------------------------------------------------------------------------------
+# Modules and Classes
+#-------------------------------------------------------------------------------
+
+class Class1
+  def bar
+    'Class1#bar'
+  end
+
+  def baz
+    'Class1#baz'
+  end
+end
+
+ok(Class1.is_a?(Class) == true, 'class definitions should create an instance of Class')
+ok(Class1.superclass == Object, 'class definitions without a superclass should have a superclass of Object')
+ok(Class1.new.bar == 'Class1#bar', 'should be able to define classes with instance methods')
+ok(Class1.instance_methods(false) == [:bar, :baz], 'class should know its instance methods')
+
+ok((class Class2; 8; 9; end) == 9, 'class definitions should yield value of last expression of body')
+
+class Class3 < Class1
+  def baz
+    'Class3#baz'
+  end
+end
+
+ok(Class3.superclass == Class1, 'class definitions with a superclass')
+ok(Class3.new.bar == 'Class1#bar', 'child classes can access methods implemented in the superclass')
+ok(Class3.new.baz == 'Class3#baz', 'child classes can override methods implemented in the superclass')
+

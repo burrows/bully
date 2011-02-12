@@ -110,10 +110,10 @@ TestIt('Compiler: method calls', {
 });
 
 TestIt('Compiler: non-singleton method definitions with no params', {
-  'should use putcurrentmodule': function(t) {
+  'should use putcbase': function(t) {
     var body = compile('def foo; end')[Helper.BodyIdx];
 
-    t.assertEqual(['putcurrentmodule'], body[0]);
+    t.assertEqual(['putcbase'], body[0]);
   },
 
   'should add the definemethod instruction with the method name and false to indicate its not a singleton method': function(t) {

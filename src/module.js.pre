@@ -42,7 +42,7 @@ Bully.init_module = function() {
 
     do {
       for (symbol in klass.m_tbl) {
-        methods.push(Bully.String.make(symbol));
+        methods.push(symbol);
       }
 
       klass = klass._super;

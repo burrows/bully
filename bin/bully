@@ -56,10 +56,11 @@ function printISeq(file) {
 };
 
 function evaluateCode(code) {
-  var exit_code = 0, ast;
+  var exit_code = 0, ast, iseq;
 
   ast = Bully.parser.parse((new Bully.Lexer()).tokenize(code));
-  exit_code = Bully.Evaluator.evaluate(ast);
+  iseq = Bully.Compiler.compile(ast);
+  exit_code = Bully.VM.run(iseq);
 
   Bully.VM.sendMethod(Bully.main, 'exit', exit_code);
 };

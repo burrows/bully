@@ -9,8 +9,8 @@ TestIt('Compiler: class definition with bare constant name and no superclass', {
     this.body = this.iseq[Helper.BodyIdx];
   },
 
-  'should insert a putcurrentmodule instruction for the class base': function(t) {
-    t.assertEqual(['putcurrentmodule'], this.body[0]);
+  'should insert a putcbase instruction for the class base': function(t) {
+    t.assertEqual(['putcbase'], this.body[0]);
   },
   
   'should insert a putnil instruction for the superclass': function(t) {
@@ -43,8 +43,8 @@ TestIt('Compiler: class definition with superclass', {
     this.body = this.iseq[Helper.BodyIdx];
   },
 
-  'should insert a putcurrentmodule instruction for the class base': function(t) {
-    t.assertEqual(['putcurrentmodule'], this.body[0]);
+  'should insert a putcbase instruction for the class base': function(t) {
+    t.assertEqual(['putcbase'], this.body[0]);
   },
   
   'should compile the superclass constant reference': function(t) {
@@ -137,8 +137,8 @@ TestIt('Compiler: module definition with bare constant', {
     this.body = this.iseq[Helper.BodyIdx];
   },
 
-  'should insert a putcurrentmodule instruction for the module base': function(t) {
-    t.assertEqual(['putcurrentmodule'], this.body[0]);
+  'should insert a putcbase instruction for the module base': function(t) {
+    t.assertEqual(['putcbase'], this.body[0]);
   },
   
   'should insert a putnil instruction for the superclass': function(t) {
