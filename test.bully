@@ -436,4 +436,79 @@ ok(o.respond_to?(:foo) == true, "defining a method in an object's singleton clas
 ok(o.foo == 'singleton#foo', 'objects can call methods defined on their singleton class')
 ok(Object.new.respond_to?(:foo) == false, "other objects do not have access to methods defined in another object's singleton class")
 
+#-------------------------------------------------------------------------------
+# Inheritance
+#-------------------------------------------------------------------------------
+class Parent
+  def foo
+    'Parent#foo'
+  end
 
+  def bar
+    'Parent#bar'
+  end
+
+  def with_args1(a, b)
+    [a, b]
+  end
+
+  def with_args2(a, b)
+    [a, b]
+  end
+
+  def with_args2(a, b)
+    [a, b]
+  end
+
+  def splat_arg(*a)
+    a
+  end
+end
+
+class Child < Parent
+  def bar
+    super + ', Child#bar'
+  end
+
+  def with_args1(a, b)
+    super
+  end
+
+  def with_args2(a, b)
+    super(a - 1, b - 1)
+  end
+
+  def splat_arg(a, b)
+    super()
+  end
+end
+
+class GrandChild < Child
+  def foo
+    super + ', GrandChild#foo'
+  end
+
+  def bar
+    super + ', GrandChild#bar'
+  end
+
+  def quux
+    super
+  end
+end
+
+ok(Child.new.bar == 'Parent#bar, Child#bar', 'instance methods can call superclass method')
+ok(GrandChild.new.bar == 'Parent#bar, Child#bar, GrandChild#bar', 'instance methods can call superclass methods spanning multiple levels')
+ok(GrandChild.new.foo == 'Parent#foo, GrandChild#foo', 'instance methods can call superclass methods that skip a class')
+ok(Child.new.with_args1(8, 9) == [8, 9], 'calling super with no parens or args passes method arguments to super method')
+ok(Child.new.with_args2(8, 9) == [7, 8], 'calling super with args passes those args to the super method')
+ok(Child.new.splat_arg(8, 9) == [], 'calling super with parens and no args passes no args to the super method')
+
+begin
+  GrandChild.new.quux
+  fail('calling super when no superclass method exists should raise NoMethodError')
+rescue NoMethodError => e
+  ok(e.message.slice(0, 51) == "super: no superclass method 'quux' for #<GrandChild", 'calling super when no superclass method exists should raise NoMethodError')
+end
+
+# TODO: class method inheritance

@@ -1894,11 +1894,12 @@ Bully.Compiler = {
 }());(function() {
 var StackFrame = function(iseq, opts) {
   this.iseq = iseq;
+  this.args = [];
   this.ip = 0;
   this.sp = 0;
   this.status = 0;
-  this.cbase = opts.cbase || Bully.Object;
   this.stack = opts.stackSize ? new Array(opts.stackSize) : [];
+  this.cbase = opts.cbase || Bully.Object;
   this.self = opts.self || Bully.main;
   this.parent = opts.parent || null;
   this.locals = opts.locals || [];
@@ -1980,7 +1981,7 @@ Bully.VM = {
     var body = iseq[7],
         len = body.length,
         sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, _super,
-        ary, localvar;
+        ary, localvar, hasArgs;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -1990,9 +1991,10 @@ Bully.VM = {
       }
     }
     sf = new StackFrame(iseq, sfOpts);
+    sf.args = args;
     sf.stackSize = iseq[3];
     this.pushFrame(sf);
-    try { this.setupArguments(iseq, args, sf); }
+    try { this.setupArguments(sf); }
     catch (e1) {
       // exceptions raised in argument setup code need to exit the frame
       // immediately so that the calling frame can handle the exception
@@ -2068,9 +2070,15 @@ Bully.VM = {
             break;
           case 'send':
             sendargs = [];
-            for (i = 0; i < ins[2]; i += 1) { sendargs.unshift(sf.pop()); }
+            for (i = 0; i < ins[2]; i++) { sendargs.unshift(sf.pop()); }
             recv = sf.pop();
             this.sendMethod(recv, ins[1], sendargs, null, sf);
+            break;
+          case 'invokesuper':
+            sendargs = [];
+            for (i = 0; i < ins[1]; i++) { sendargs.unshift(sf.pop()); }
+            if (!sf.pop()) { sendargs = null; }
+            this.invokeSuper(sendargs, null, sf);
             break;
           case 'setlocal':
             localSF = sf;
@@ -2177,8 +2185,10 @@ Bully.VM = {
       }
     }
   },
-  setupArguments: function(iseq, args, sf) {
-    var nargs = args.length,
+  setupArguments: function(sf) {
+    var iseq = sf.iseq,
+        args = sf.args,
+        nargs = args.length,
         desc = iseq[5],
         nreq = desc[0],
         nopt = desc[1],
@@ -2241,6 +2251,21 @@ Bully.VM = {
       result = this.runISeq(method, args, { parent: sf, self: recv });
     }
     return result;
+  },
+  invokeSuper: function(args, block, sf) {
+    var klass = sf.iseq.klass,
+        method = Bully.find_method(klass._super, sf.iseq[1]);
+    if (!method) {
+      Bully.raise(Bully.NoMethodError, "super: no superclass method 'quux' for " + Bully.VM.sendMethod(sf.self, 'inspect', []).data);
+    }
+    args = args || sf.args;
+    if (typeof method === 'function') {
+      this.checkArgumentCount(method.min_args, method.max_args, args.length);
+      sf.push(method.call(null, sf.self, args));
+    }
+    else {
+      this.runISeq(method, args, { parent: sf, self: sf.self });
+    }
   },
   getConstant: function(klass, name) {
     var modules;
