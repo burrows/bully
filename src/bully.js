@@ -1541,6 +1541,8 @@ Instruction.stackDelta = function(insn) {
   switch (opcode) {
     case 'send':
       return -insn.operands[1];
+    case 'invokesuper':
+      return -insn.operands[0];
     case 'newarray':
       return 1 - insn.operands[0];
     case 'throw':
@@ -1554,7 +1556,7 @@ Instruction.prototype = {
     var a = [this.opcode], len = this.operands.length, op, i;
     for (i = 0; i < len; i++) {
       op = this.operands[i];
-      a.push(typeof op === 'object' ? op.toRaw() : op);
+      a.push(op && op.toRaw ? op.toRaw() : op);
     }
     return a;
   }
@@ -1666,6 +1668,15 @@ Bully.Compiler = {
       this['compile' + (node.args[i]).type](node.args[i], iseq, true);
     }
     iseq.addInstruction('send', node.name, argLen);
+    if (!push) { iseq.addInstruction('pop'); }
+  },
+  compileSuperCall: function(node, iseq, push) {
+    var hasArgs = !!node.args, argc = hasArgs ? node.args.length : 0, i;
+    iseq.addInstruction('putobject', hasArgs);
+    for (i = 0; i < argc; i++) {
+      this['compile' + (node.args[i]).type](node.args[i], iseq, true);
+    }
+    iseq.addInstruction('invokesuper', argc, null);
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileParamList: function(node, iseq, push) {
