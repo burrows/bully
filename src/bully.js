@@ -2235,13 +2235,24 @@ Bully.VM = {
   //
   // Returns the return value of the method.
   sendMethod: function(recv, name, args, block, sf) {
-    var method = Bully.find_method(Bully.class_of(recv), name),
-        result, status;
+    var method = Bully.find_method(Bully.class_of(recv), name), result;
     args = args || [];
     if (!method) {
       args.unshift(name);
       return this.sendMethod(recv, 'method_missing', args, block, sf);
     }
+    return this.callMethod(recv, method, args, sf);
+  },
+  invokeSuper: function(args, block, sf) {
+    var klass = sf.iseq.klass,
+        method = Bully.find_method(klass._super, sf.iseq[1]);
+    if (!method) {
+      Bully.raise(Bully.NoMethodError, "super: no superclass method 'quux' for " + Bully.VM.sendMethod(sf.self, 'inspect', []).data);
+    }
+    this.callMethod(sf.self, method, args || sf.args, sf);
+  },
+  callMethod: function(recv, method, args, sf) {
+    var result;
     if (typeof method === 'function') {
       this.checkArgumentCount(method.min_args, method.max_args, args.length);
       result = method.call(null, recv, args);
@@ -2251,21 +2262,6 @@ Bully.VM = {
       result = this.runISeq(method, args, { parent: sf, self: recv });
     }
     return result;
-  },
-  invokeSuper: function(args, block, sf) {
-    var klass = sf.iseq.klass,
-        method = Bully.find_method(klass._super, sf.iseq[1]);
-    if (!method) {
-      Bully.raise(Bully.NoMethodError, "super: no superclass method 'quux' for " + Bully.VM.sendMethod(sf.self, 'inspect', []).data);
-    }
-    args = args || sf.args;
-    if (typeof method === 'function') {
-      this.checkArgumentCount(method.min_args, method.max_args, args.length);
-      sf.push(method.call(null, sf.self, args));
-    }
-    else {
-      this.runISeq(method, args, { parent: sf, self: sf.self });
-    }
   },
   getConstant: function(klass, name) {
     var modules;
