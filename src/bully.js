@@ -2037,13 +2037,16 @@ Bully.VM = {
             mod = sf.pop();
             switch (ins[3]) {
               case 0:
-                this.defineClass(sf, mod, _super, ins[1], ins[2]);
+                klass = Bully.define_class_under(mod, ins[1], _super);
+                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
                 break;
               case 1:
-                this.openSingletonClass(sf, mod, ins[2]);
+                klass = Bully.singleton_class(mod);
+                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
                 break;
               case 2:
-                this.defineModule(sf, mod, ins[1], ins[2]);
+                klass = Bully.define_module_under(mod, ins[1]);
+                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }
@@ -2227,18 +2230,6 @@ Bully.VM = {
       result = this.runISeq(method, args, { parent: sf, self: recv });
     }
     return result;
-  },
-  defineClass: function(sf, outer, _super, name, iseq) {
-    var klass = Bully.define_class_under(outer, name, _super);
-    this.runISeq(iseq, [], { parent: sf, self: klass, cbase: klass });
-  },
-  openSingletonClass: function(sf, obj, iseq) {
-    var klass = Bully.singleton_class(obj);
-    this.runISeq(iseq, [], { parent: sf, self: klass, cbase: klass });
-  },
-  defineModule: function(sf, outer, name, iseq) {
-    var mod = Bully.define_module_under(outer, name);
-    this.runISeq(iseq, [], { parent: sf, self: mod, cbase: mod });
   },
   getConstant: function(klass, name) {
     var modules;
