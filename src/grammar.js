@@ -259,8 +259,8 @@ var grammar = {
   SingletonDef: [
     o('DEF Self . MethodName Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
     o('DEF Self . MethodName ( ParamList ) Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};"),
-    o('DEF IDENTIFIER . MethodName Body END',                    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $5, object: $2};"),
-    o('DEF IDENTIFIER . MethodName ( ParamList ) Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};"),
+    o('DEF IDENTIFIER . MethodName Terminator Body END',         "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: {type: 'Call', expression: null, name: $2, args: null, block_arg: null, block: null}};"),
+    o('DEF IDENTIFIER . MethodName ( ParamList ) Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: {type: 'Call', expression: null, name: $2, args: null, block_arg: null, block: null}};"),
     o('DEF BareConstantRef . MethodName Terminator Body END',    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
     o('DEF BareConstantRef . MethodName ( ParamList ) Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};")
   ],

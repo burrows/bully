@@ -204,7 +204,14 @@ Bully.VM = {
             break;
           case 'definemethod':
             mod = sf.pop();
-            Bully.define_method(mod, ins[1], ins[2]);
+            if (ins[3]) {
+              // singleton method
+              Bully.define_singleton_method(mod, ins[1], ins[2]);
+            }
+            else {
+              // instance method
+              Bully.define_method(mod, ins[1], ins[2]);
+            }
             break;
           case 'send':
             sendargs = [];

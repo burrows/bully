@@ -124,7 +124,7 @@ TestIt('Compiler: non-singleton method definitions with no params', {
     t.assertEqual(false, body[1][3]);
   },
 
-  'should compile the method body into a new iseq of type "method" and the name of the method an insert as the second param to definemethod': function(t) {
+  'should compile the method body into a new iseq of type "method" and the name of the method and insert as the second param to definemethod': function(t) {
     var body = compile('def foo; 1; end')[Helper.BodyIdx],
         miseq = body[1][2],
         mbody = miseq[Helper.BodyIdx],
@@ -202,6 +202,48 @@ TestIt('Compiler: non-singleton method definitions with params', {
         ];
 
     t.assertEqual(exp, methodbody);
+  }
+});
+
+TestIt('Compiler: singleton method definitions with no params', {
+  'should use compile the object to define the method on': function(t) {
+    var body = compile('def self.foo; end')[Helper.BodyIdx];
+
+    t.assertEqual(['putself'], body[0]);
+  },
+
+  'should add the definemethod instruction with the method name and true to indicate it is a singleton method': function(t) {
+    var body = compile('def self.foo; end')[Helper.BodyIdx];
+
+    t.assertEqual('definemethod', body[1][0]);
+    t.assertEqual('foo', body[1][1]);
+    t.assertEqual(true, body[1][3]);
+  },
+
+  'should compile the method body into a new iseq of type "method" and the name of the method and insert as the second param to definemethod': function(t) {
+    var body = compile('def self.foo; 1; end')[Helper.BodyIdx],
+        miseq = body[1][2],
+        mbody = miseq[Helper.BodyIdx],
+        exp = [
+          ['putobject', 1],
+          ['leave']
+        ];
+
+    t.assertEqual('BullyInstructionSequence', miseq[0]);
+    t.assertEqual('foo', miseq[Helper.NameIdx]);
+    t.assertEqual('method', miseq[Helper.TypeIdx]);
+    t.assertEqual(exp, mbody);
+  },
+
+  'should add putnil instruction if definition is used in an expression': function(t) {
+    var body = compile('x = def self.foo; end; nil')[Helper.BodyIdx],
+        len = body.length;
+
+    t.assertEqual('definemethod',  body[len - 5][0]);
+    t.assertEqual(['putnil'],      body[len - 4]);
+    t.assertEqual(['setlocal', 0], body[len - 3]);
+    t.assertEqual(['putnil'],      body[len - 2]);
+    t.assertEqual(['leave'],       body[len - 1]);
   }
 });
 

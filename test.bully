@@ -333,6 +333,24 @@ rescue NoMethodError => e
 end
 
 #-------------------------------------------------------------------------------
+# Singleton Methods
+#-------------------------------------------------------------------------------
+o = Object.new
+
+def o.foo
+  'singleton#foo'
+end
+
+def o.bar(a, b)
+  [a, b]
+end
+
+ok(o.respond_to?(:foo) == true, "defining a a singleton method on an object makes the method available to the object")
+ok(o.foo == 'singleton#foo', 'objects can call their singleton methods')
+ok(Object.new.respond_to?(:foo) == false, "objects do not have access to singleton methods defined on another object")
+ok(o.bar(:x, :y) == [:x, :y], 'singleton methods can accept parameters')
+
+#-------------------------------------------------------------------------------
 # Modules and Classes
 #-------------------------------------------------------------------------------
 
@@ -440,6 +458,10 @@ ok(Object.new.respond_to?(:foo) == false, "other objects do not have access to m
 # Inheritance
 #-------------------------------------------------------------------------------
 class Parent
+  def self.class_method
+    'Parent.class_method'
+  end
+
   def foo
     'Parent#foo'
   end
@@ -484,6 +506,10 @@ class Child < Parent
 end
 
 class GrandChild < Child
+  def self.class_method
+    super + ', GrandChild.class_method'
+  end
+
   def foo
     super + ', GrandChild#foo'
   end
@@ -498,6 +524,7 @@ class GrandChild < Child
 end
 
 ok(Child.new.bar == 'Parent#bar, Child#bar', 'instance methods can call superclass method')
+ok(GrandChild.class_method == 'Parent.class_method, GrandChild.class_method', 'class methods can call superclass method')
 ok(GrandChild.new.bar == 'Parent#bar, Child#bar, GrandChild#bar', 'instance methods can call superclass methods spanning multiple levels')
 ok(GrandChild.new.foo == 'Parent#foo, GrandChild#foo', 'instance methods can call superclass methods that skip a class')
 ok(Child.new.with_args1(8, 9) == [8, 9], 'calling super with no parens or args passes method arguments to super method')

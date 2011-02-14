@@ -347,6 +347,10 @@ Bully.Compiler = {
     }
   },
 
+  compileSelf: function(node, iseq, push) {
+    if (push) { iseq.addInstruction('putself'); }
+  },
+
   compileClass: function(node, iseq, push) {
     var constant  = node.constant,
         basenames = constant.names.slice(),
@@ -491,6 +495,20 @@ Bully.Compiler = {
 
     iseq.addInstruction('putcbase');
     iseq.addInstruction('definemethod', node.name, defiseq, false);
+
+    if (push) { iseq.addInstruction('putnil'); }
+  },
+
+  compileSingletonDef: function(node, iseq, push) {
+    var defiseq = new ISeq('method', node.name);
+
+    if (node.params) { COMPILE_NODE(node.params, defiseq, push); }
+
+    COMPILE_NODE(node.body, defiseq, true);
+    defiseq.addInstruction('leave');
+
+    COMPILE_NODE(node.object, iseq, true);
+    iseq.addInstruction('definemethod', node.name, defiseq, true);
 
     if (push) { iseq.addInstruction('putnil'); }
   },
