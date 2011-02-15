@@ -109,6 +109,72 @@ TestIt('Compiler: method calls', {
   }
 });
 
+TestIt('Compiler: assignment method calls', {
+  'when not used in a larger expression should add a pop instruction after the send instruction': function(t) {
+    var body = compile('"hi".foo = 1; nil')[Helper.BodyIdx],
+        exp  = [
+          ['putstring', "hi"],
+          ['putobject', 1],
+          ['send', 'foo=', 1],
+          ['pop'],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+
+  'when used in a larger expression should add a putnil instruction first and a setn instruction before the send instruction and add a pop instruction after': function(t) {
+    var body = compile('"hi".foo = 1')[Helper.BodyIdx],
+        exp  = [
+          ['putnil'],
+          ['putstring', "hi"],
+          ['putobject', 1],
+          ['setn', 2],
+          ['send', 'foo=', 1],
+          ['pop'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+
+TestIt('Compiler: bracket assignment method calls', {
+  'when not used in a larger expression should send the method "[]=" and add a pop instruction': function(t) {
+    var body = compile('"hi"[1,2] = 3; nil')[Helper.BodyIdx],
+        exp  = [
+          ['putstring', "hi"],
+          ['putobject', 1],
+          ['putobject', 2],
+          ['putobject', 3],
+          ['send', '[]=', 3],
+          ['pop'],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  },
+
+  'when used in a larger expression should add a putnil instruction first and a setn instruction before the send instruction and add a pop instruction after': function(t) {
+    var body = compile('"hi"[1,2] = 3')[Helper.BodyIdx],
+        exp  = [
+          ['putnil'],
+          ['putstring', "hi"],
+          ['putobject', 1],
+          ['putobject', 2],
+          ['putobject', 3],
+          ['setn', 4],
+          ['send', '[]=', 3],
+          ['pop'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+
 TestIt('Compiler: non-singleton method definitions with no params', {
   'should use putcbase': function(t) {
     var body = compile('def foo; end')[Helper.BodyIdx];

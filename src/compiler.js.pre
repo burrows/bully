@@ -250,27 +250,30 @@ Instruction = function(opcode, operands) {
 };
 
 Instruction.ConstantStackDeltas = {
-  nop:           0,
-  putnil:        1,
-  putstring:     1,
-  putsymbol:     1,
-  putbuiltin:    1,
-  putcbase:      1,
-  putiseq:       1,
-  putobject:     1,
-  putself:       1,
-  getlocal:      1,
-  setlocal:     -1,
-  getconstant:   0,
-  getdynamic:    1,
-  pop:          -1,
-  dup:           1,
-  defineclass:  -1,
-  definemethod: -1,
-  branchif:     -1,
-  branchunless: -1,
-  jump:          0,
-  leave:         0
+  nop:                  0,
+  putnil:               1,
+  putstring:            1,
+  putsymbol:            1,
+  putbuiltin:           1,
+  putcbase:             1,
+  putiseq:              1,
+  putobject:            1,
+  putself:              1,
+  getlocal:             1,
+  setlocal:            -1,
+  getinstancevariable:  1,
+  setinstancevariable: -1,
+  getconstant:          0,
+  getdynamic:           1,
+  pop:                 -1,
+  dup:                  1,
+  defineclass:         -1,
+  definemethod:        -1,
+  branchif:            -1,
+  branchunless:        -1,
+  jump:                 0,
+  leave:                0,
+  setn:                 0
 };
 
 Instruction.stackDelta = function(insn) {
@@ -425,7 +428,7 @@ Bully.Compiler = {
   },
 
   compileCall: function(node, iseq, push) {
-    var argLen = node.args ? node.args.length : 0, i;
+    var argc = node.args ? node.args.length : 0, i;
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
@@ -442,11 +445,11 @@ Bully.Compiler = {
     }
 
     // add arguments
-    for (i = 0; i < argLen; i += 1) {
+    for (i = 0; i < argc; i += 1) {
       COMPILE_NODE(node.args[i], iseq, true);
     }
 
-    iseq.addInstruction('send', node.name, argLen);
+    iseq.addInstruction('send', node.name, argc);
 
     if (!push) { iseq.addInstruction('pop'); }
   },
@@ -463,6 +466,25 @@ Bully.Compiler = {
     iseq.addInstruction('invokesuper', argc, null);
     
     if (!push) { iseq.addInstruction('pop'); }
+  },
+
+  compileCallAssign: function(node, iseq, push) {
+    var argc = node.args.length;
+
+    if (push) { iseq.addInstruction('putnil'); }
+
+    COMPILE_NODE(node.expression, iseq, true);
+
+    // add arguments
+    for (i = 0; i < argc; i += 1) {
+      COMPILE_NODE(node.args[i], iseq, true);
+    }
+
+    if (push) { iseq.addInstruction('setn', argc + 1); }
+
+    iseq.addInstruction('send', node.name, argc);
+
+    iseq.addInstruction('pop');
   },
 
   compileParamList: function(node, iseq, push) {
@@ -523,6 +545,19 @@ Bully.Compiler = {
     if (push) { iseq.addInstruction('dup'); }
 
     iseq.addInstruction('setlocal', idx);
+  },
+
+  compileInstanceAssign: function(node, iseq, push) {
+    COMPILE_NODE(node.expression, iseq, true);
+
+    // ensure that there is a value left on the stack
+    if (push) { iseq.addInstruction('dup'); }
+
+    iseq.addInstruction('setinstancevariable', node.name);
+  },
+
+  compileInstanceRef: function(node, iseq, push) {
+    iseq.addInstruction('getinstancevariable', node.name);
   },
 
   compileNilLiteral: function(node, iseq, push) {

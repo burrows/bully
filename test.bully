@@ -454,6 +454,61 @@ ok(o.respond_to?(:foo) == true, "defining a method in an object's singleton clas
 ok(o.foo == 'singleton#foo', 'objects can call methods defined on their singleton class')
 ok(Object.new.respond_to?(:foo) == false, "other objects do not have access to methods defined in another object's singleton class")
 
+class IVarClass
+  def set_foo(v)
+    @foo = v
+  end
+
+  def foo
+    @foo
+  end
+end
+
+x = IVarClass.new
+ok(x.foo == nil, 'uninitialized instance variables should yield nil')
+ok((x.set_foo(9)) == 9, 'setting an instance variable should yield the value')
+ok(x.foo == 9, 'instance methods should be able to set instance variables')
+
+class CallAssignClass
+  def initialize(*a)
+    @a = a
+  end
+
+  def foo=(v)
+    @foo = v
+  end
+
+  def weird_foo=(v)
+    @foo = v
+    :garbage
+  end
+
+  def foo
+    @foo
+  end
+
+  def a
+    @a
+  end
+
+  def []=(i, v)
+    @a[i] = v
+  end
+
+  def [](i)
+    @a[i]
+  end
+end
+
+x = CallAssignClass.new(:a, :b, :c, :d)
+x.foo = 23
+ok(x.foo == 23, 'assignment methods should be able to set instance variables')
+ok((x.foo = 24) == 24, 'assignment methods should return the value being assigned')
+ok((x.weird_foo = 25) == 25, 'assignment methods should return the value being assigned even if the method actually returns something else')
+x[2] = :z 
+ok(x.a == [:a, :b, :z, :d], 'bracket call assignment methods should get the index and value as arguments')
+ok((x[1] = :y) == :y, 'bracket call assigment methods should return the value being assigned')
+
 #-------------------------------------------------------------------------------
 # Inheritance
 #-------------------------------------------------------------------------------
@@ -538,4 +593,3 @@ rescue NoMethodError => e
   ok(e.message.slice(0, 51) == "super: no superclass method 'quux' for #<GrandChild", 'calling super when no superclass method exists should raise NoMethodError')
 end
 
-# TODO: class method inheritance

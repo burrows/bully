@@ -154,6 +154,9 @@ Bully.VM = {
           case 'dup':
             sf.push(sf.peek());
             break;
+          case 'setn':
+            sf.stack[sf.sp - 1 - ins[1]] = sf.stack[sf.sp - 1];
+            break;
           case 'putnil':
             sf.push(null);
             break;
@@ -235,6 +238,12 @@ Bully.VM = {
             while (localSF.isDynamic) { localSF = localSF.parent; }
             localvar = localSF.locals[ins[1]];
             sf.push(localvar === undefined ? null : localvar);
+            break;
+          case 'setinstancevariable':
+            Bully.ivar_set(sf.self, ins[1], sf.pop());
+            break;
+          case 'getinstancevariable':
+            sf.push(Bully.ivar_get(sf.self, ins[1]));
             break;
           case 'setdynamic':
             localSF = sf;

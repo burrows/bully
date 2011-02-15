@@ -107,19 +107,23 @@ var grammar = {
 
   Call: [
     o('IDENTIFIER OptBlock',                              "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: null, block: $2};"),
+    o('IDENTIFIER ( ) OptBlock',                          "$$ = {type: 'Call', expression: null, name: $1,     args: [],       block_arg: null, block: $4};"),
     o('IDENTIFIER ( BlockArg )',                          "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: $3,   block: null};"),
     o('IDENTIFIER ( ArgList ) OptBlock',                  "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: null, block: $5};"),
     o('IDENTIFIER ( ArgList , BlockArg )',                "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: $5,   block: null};"),
     o('Expression . IDENTIFIER OptBlock',                 "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: null, block: $4};"),
+    o('Expression . IDENTIFIER ( ) OptBlock',             "$$ = {type: 'Call', expression: $1,   name: $3,     args: [],       block_arg: null, block: $6};"),
     o('Expression . IDENTIFIER ( BlockArg )',             "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: $5,   block: null};"),
     o('Expression . IDENTIFIER ( ArgList ) OptBlock',     "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: null, block: $7};"),
     o('Expression . IDENTIFIER ( ArgList , BlockArg )',   "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: $7,   block: null};"),
-    o('Expression [ Expression ]',                        "$$ = {type: 'Call', expression: $1,   name: '[]',   args: [$3],     block_arg: null, block: null};"),
+    o('Expression [ ArgList ]',                           "$$ = {type: 'Call', expression: $1,   name: '[]',   args: $3,       block_arg: null, block: null};"),
     o('SUPER OptBlock',                                   "$$ = {type: 'SuperCall', args: null, block_arg: null, block: $2};"),
+    o('SUPER ( ) OptBlock',                               "$$ = {type: 'SuperCall', args: [],   block_arg: null, block: $4};"),
     o('SUPER ( BlockArg )',                               "$$ = {type: 'SuperCall', args: null, block_arg: $2,   block: $2};"),
     o('SUPER ( ArgList ) OptBlock',                       "$$ = {type: 'SuperCall', args: $3,   block_arg: null, block: $5};"),
     o('SUPER ( ArgList , BlockArg )',                     "$$ = {type: 'SuperCall', args: $3,   block_arg: $5,   block: null};"),
     o('YIELD',                                            "$$ = {type: 'YieldCall', args: null};"),
+    o('YIELD ( )',                                        "$$ = {type: 'YieldCall', args: []};"),
     o('YIELD ( ArgList )',                                "$$ = {type: 'YieldCall', args: $3};")
   ],
 
@@ -201,22 +205,22 @@ var grammar = {
   ],
 
   ArgList: [
-    o('',                     "$$ = [];"),
     o('Expression',           "$$ = [$1];"),
     o('ArgList , Expression', "$1.push($3);")
   ],
 
   ArrayLiteral: [
+    o('[ ]',         "$$ = {type: 'ArrayLiteral', expressions: []};"),
     o('[ ArgList ]', "$$ = {type: 'ArrayLiteral', expressions: $2};")
   ],
 
   AssocList: [
-    o('',                                     "$$ = {type: 'AssocList', keys: [], values: []};" ),
     o('Expression => Expression',             "$$ = {type: 'AssocList', keys: [$1], values: [$3]};"  ),
     o('AssocList , Expression => Expression', "$1.keys.push($3); $1.values.push($5);" )
   ],
 
   HashLiteral: [
+    o('{ }',           "$$ = {type: 'HashLiteral', keys: [], values: []};"),
     o('{ AssocList }', "$$ = {type: 'HashLiteral', keys: $2.keys, values: $2.values};")
   ],
 
@@ -313,19 +317,19 @@ var grammar = {
   ],
 
   Assignment: [
-    o('IDENTIFIER = Expression',                "$$ = {type: 'LocalAssign',    name: $1,       expression: $3};"),
-    o('@ IDENTIFIER = Expression',              "$$ = {type: 'InstanceAssign', name: '@' + $2, expression: $4};"),
-    o('ConstantRef = Expression',               "$$ = {type: 'ConstantAssign', constant: $1,   expression: $3};"),
-    o('Expression . IDENTIFIER = Expression',   "$$ = {type: 'CallAssign', expression: $1, name: $3+'=', args: [$5]};"),
-    o('Expression [ Expression ] = Expression', "$$ = {type: 'CallAssign', expression: $1, name: '[]=',  args: [$3, $6]};"),
+    o('IDENTIFIER = Expression',              "$$ = {type: 'LocalAssign',    name: $1,       expression: $3};"),
+    o('@ IDENTIFIER = Expression',            "$$ = {type: 'InstanceAssign', name: '@' + $2, expression: $4};"),
+    o('ConstantRef = Expression',             "$$ = {type: 'ConstantAssign', constant: $1,   expression: $3};"),
+    o('Expression . IDENTIFIER = Expression', "$$ = {type: 'CallAssign', expression: $1, name: $3+'=', args: [$5]};"),
+    o('Expression [ ArgList ] = Expression',  "$$ = {type: 'CallAssign', expression: $1, name: '[]=',  args: $3.concat($6)};")
   ],
 
   CompoundAssignment: [
-    o('IDENTIFIER COMPOUND_ASSIGN Expression',                "$$ = {type: 'LocalCompoundAssign', name: $1, operator: $2, expression: $3};"),
-    o('@ IDENTIFIER COMPOUND_ASSIGN Expression',              "$$ = {type: 'InstanceCompoundAssign', name: '@' + $2, operator: $3, expression: $4};"),
-    o('ConstantRef COMPOUND_ASSIGN Expression',               "$$ = {type: 'ConstantCompoundAssign', constant: $1, operator: $2, expression: $3};"),
-    o('Expression [ Expression ] COMPOUND_ASSIGN Expression', "$$ = {type: 'IndexedCallCompoundAssign', object: $1, index: $3, operator: $5, expression: $6};"),
-    o('Expression . IDENTIFIER COMPOUND_ASSIGN Expression',   "$$ = {type: 'CallCompoundAssign', object: $1, name: $3, operator: $4, expression: $5};")
+    o('IDENTIFIER COMPOUND_ASSIGN Expression',              "$$ = {type: 'LocalCompoundAssign', name: $1, operator: $2, expression: $3};"),
+    o('@ IDENTIFIER COMPOUND_ASSIGN Expression',            "$$ = {type: 'InstanceCompoundAssign', name: '@' + $2, operator: $3, expression: $4};"),
+    o('ConstantRef COMPOUND_ASSIGN Expression',             "$$ = {type: 'ConstantCompoundAssign', constant: $1, operator: $2, expression: $3};"),
+    o('Expression [ ArgList ] COMPOUND_ASSIGN Expression',  "$$ = {type: 'IndexedCallCompoundAssign', object: $1, index: $3, operator: $5, expression: $6};"),
+    o('Expression . IDENTIFIER COMPOUND_ASSIGN Expression', "$$ = {type: 'CallCompoundAssign', object: $1, name: $3, operator: $4, expression: $5};")
   ],
 
   VariableRef: [
