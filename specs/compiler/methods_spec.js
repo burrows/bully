@@ -23,7 +23,7 @@ TestIt('Compiler: method calls', {
           ['setlocal', 0],
           ['putself'],
           ['putobject', 2],
-          ['send', 'a', 1],
+          ['send', 'a', 1, null],
           ['leave']
         ];
 
@@ -36,7 +36,7 @@ TestIt('Compiler: method calls', {
           ['putobject', 1],
           ['setlocal', 0],
           ['getlocal', 0],
-          ['send', 'foo', 0],
+          ['send', 'foo', 0, null],
           ['leave']
         ];
 
@@ -48,7 +48,7 @@ TestIt('Compiler: method calls', {
         exp = [
           ['putself'],
           ['putobject', 2],
-          ['send', 'foo', 1],
+          ['send', 'foo', 1, null],
           ['leave']
         ];
 
@@ -64,7 +64,7 @@ TestIt('Compiler: method calls', {
           ['putobject', 3],
           ['putobject', 4],
           ['putobject', 5],
-          ['send', 'foo', 5],
+          ['send', 'foo', 5, null],
           ['leave']
         ];
 
@@ -75,7 +75,7 @@ TestIt('Compiler: method calls', {
     var body = compile('foo(); 1')[Helper.BodyIdx],
         exp = [
           ['putself'],
-          ['send', 'foo', 0],
+          ['send', 'foo', 0, null],
           ['pop'],
           ['putobject', 1],
           ['leave']
@@ -88,7 +88,7 @@ TestIt('Compiler: method calls', {
     var body = compile('x = foo(); 1')[Helper.BodyIdx],
         exp = [
           ['putself'],
-          ['send', 'foo', 0],
+          ['send', 'foo', 0, null],
           ['setlocal', 0],
           ['putobject', 1],
           ['leave']
@@ -101,7 +101,7 @@ TestIt('Compiler: method calls', {
     var body = compile('foo()')[Helper.BodyIdx],
         exp = [
           ['putself'],
-          ['send', 'foo', 0],
+          ['send', 'foo', 0, null],
           ['leave']
         ];
 
@@ -115,7 +115,7 @@ TestIt('Compiler: assignment method calls', {
         exp  = [
           ['putstring', "hi"],
           ['putobject', 1],
-          ['send', 'foo=', 1],
+          ['send', 'foo=', 1, null],
           ['pop'],
           ['putnil'],
           ['leave']
@@ -131,7 +131,7 @@ TestIt('Compiler: assignment method calls', {
           ['putstring', "hi"],
           ['putobject', 1],
           ['setn', 2],
-          ['send', 'foo=', 1],
+          ['send', 'foo=', 1, null],
           ['pop'],
           ['leave']
         ];
@@ -148,7 +148,7 @@ TestIt('Compiler: bracket assignment method calls', {
           ['putobject', 1],
           ['putobject', 2],
           ['putobject', 3],
-          ['send', '[]=', 3],
+          ['send', '[]=', 3, null],
           ['pop'],
           ['putnil'],
           ['leave']
@@ -166,7 +166,7 @@ TestIt('Compiler: bracket assignment method calls', {
           ['putobject', 2],
           ['putobject', 3],
           ['setn', 4],
-          ['send', '[]=', 3],
+          ['send', '[]=', 3, null],
           ['pop'],
           ['leave']
         ];
@@ -263,7 +263,7 @@ TestIt('Compiler: non-singleton method definitions with params', {
           'bodystart-6',
           ['getlocal', 0],
           ['getlocal', 1],
-          ['send', '+', 1],
+          ['send', '+', 1, null],
           ['leave']
         ];
 

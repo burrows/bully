@@ -1441,6 +1441,9 @@ ISeq.prototype = {
   localIndex: function(name) {
     return this.localISeq.locals.indexOf(name);
   },
+  isDynamic: function() {
+    return this.type === 'block';
+  },
   // Converts the ISeq object to a raw instruction sequence executable by the
   // VM.
   //
@@ -1656,13 +1659,30 @@ Bully.Compiler = {
                         2);
     if (!push) { iseq.addInstruction('pop'); }
   },
+  compileBlock: function(node, iseq) {
+    var beginl = new Label('block-begin'),
+        endl = new Label('block-end');
+    if (node.params) { this.compileParamList(node.params, iseq); }
+    iseq.setLabel(beginl);
+    this['compile' + (node.body).type](node.body, iseq, true);
+    iseq.setLabel(endl);
+    iseq.addInstruction('leave');
+    iseq.addCatchEntry('redo', null, beginl, endl, beginl, 0);
+    iseq.addCatchEntry('next', null, beginl, endl, endl, 0);
+  },
   compileCall: function(node, iseq, push) {
-    var argc = node.args ? node.args.length : 0, i;
+    var argc = node.args ? node.args.length : 0,
+        blkiseq = node.block ? iseq.newChildISeq('block', 'block in ' + iseq.name) : null,
+        blkbeforel = new Label('block-before'),
+        blkafterl = new Label('block-after'),
+        sp = iseq.currentStackSize,
+        i;
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
       if (push) { iseq.addInstruction('getlocal', iseq.localIndex(node.name)); }
       return;
     }
+    if (node.block) { iseq.setLabel(blkbeforel); }
     // add receiver
     if (node.expression) {
       this['compile' + (node.expression).type](node.expression, iseq, true);
@@ -1674,7 +1694,15 @@ Bully.Compiler = {
     for (i = 0; i < argc; i += 1) {
       this['compile' + (node.args[i]).type](node.args[i], iseq, true);
     }
-    iseq.addInstruction('send', node.name, argc);
+    // add block
+    if (blkiseq) {
+      this['compile' + (node.block).type](node.block, blkiseq);
+    }
+    iseq.addInstruction('send', node.name, argc, blkiseq);
+    if (node.block) {
+      iseq.setLabel(blkafterl);
+      iseq.addCatchEntry('break', null, blkbeforel, blkafterl, blkafterl, sp);
+    }
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileSuperCall: function(node, iseq, push) {
@@ -1695,12 +1723,12 @@ Bully.Compiler = {
       this['compile' + (node.args[i]).type](node.args[i], iseq, true);
     }
     if (push) { iseq.addInstruction('setn', argc + 1); }
-    iseq.addInstruction('send', node.name, argc);
+    iseq.addInstruction('send', node.name, argc, null);
     iseq.addInstruction('pop');
   },
   compileParamList: function(node, iseq, push) {
     var nreq = node.required.length,
-        nopt = node.optional.length,
+        nopt = node.optional ? node.optional.length : 0,
         labels = [], optArg, i;
     // setup local variables
     iseq.setRequiredArgs(node.required);
@@ -1854,14 +1882,14 @@ Bully.Compiler = {
         for (j = 0; j < typeslen; j++) {
           this['compile' + (types[j]).type](types[j], iseq, true);
           iseq.addInstruction('getdynamic', 0, 0);
-          iseq.addInstruction('send', '===', 1);
+          iseq.addInstruction('send', '===', 1, null);
           iseq.addInstruction('branchif', startl);
         }
       }
       else {
         iseq.addInstruction('putbuiltin', 'StandardError');
         iseq.addInstruction('getdynamic', 0, 0);
-        iseq.addInstruction('send', '===', 1);
+        iseq.addInstruction('send', '===', 1, null);
         iseq.addInstruction('branchif', startl);
       }
       iseq.addInstruction('jump', nextl);

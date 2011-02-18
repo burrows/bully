@@ -19,7 +19,7 @@ TestIt('Compiler: string literals', {
         exp  = [
           ['putself'],
           ['putstring', 'foo'],
-          ['send', 'p', 1],
+          ['send', 'p', 1, null],
           ['leave']
         ];
 
@@ -69,7 +69,7 @@ TestIt('Compiler: number literals', {
         exp  = [
           ['putobject', 1.1],
           ['putobject', 2.78],
-          ['send', '+', 1],
+          ['send', '+', 1, null],
           ['leave']
         ];
 
@@ -118,7 +118,7 @@ TestIt('Compiler: array literals', {
           ['putsymbol', 'two'],
           ['putstring', 'three'],
           ['newarray', 3],
-          ['send', 'p', 1],
+          ['send', 'p', 1, null],
           ['leave']
         ];
 

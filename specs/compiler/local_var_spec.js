@@ -33,7 +33,7 @@ TestIt('Compiler: local variable assignments', {
           ['putobject', 1],
           ['dup'],
           ['setlocal', 0],
-          ['send', 'p', 1],
+          ['send', 'p', 1, null],
           ['leave']
         ];
 

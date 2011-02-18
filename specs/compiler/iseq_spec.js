@@ -37,7 +37,7 @@ TestIt('Compiler: ISeq', {
     var exp = [
       ['putself'],
       ['putobject', 1],
-      ['send', 'foo', 1],
+      ['send', 'foo', 1, null],
       ['leave']
     ];
     t.assertEqual(exp, compile('foo(1)')[Helper.BodyIdx]);
