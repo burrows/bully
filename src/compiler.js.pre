@@ -46,6 +46,24 @@ ISeq.prototype = {
     return iseq;
   },
 
+  newBlockISeq: function() {
+    var level = 1, iseq = this, container = iseq.name, name;
+
+    while (iseq = iseq.parentISeq) {
+      level++;
+      container = iseq.name;
+    }
+
+    if (level > 1) {
+      name = 'block (' + level + ' levels) in ' + container;
+    }
+    else {
+      name = 'block in ' + container;
+    }
+
+    return this.newChildISeq('block', name);
+  },
+
   setRequiredArgs: function(argNames) {
     var len = argNames.length, i;
 
@@ -447,9 +465,21 @@ Bully.Compiler = {
     iseq.addCatchEntry('next', null, beginl, endl, endl, 0);
   },
 
+  compileLocalRef: function(node, iseq, push) {
+    if (!push) { return; }
+
+    if (iseq.type !== 'block') {
+      iseq.addInstruction('getlocal', iseq.localIndex(node.name));
+      return;
+    }
+
+    // FIXME: need to search parent iseq chain to see if local is already defined
+    iseq.addInstruction('getdynamic', iseq.localIndex(node.name), 0);
+  },
+
   compileCall: function(node, iseq, push) {
     var argc       = node.args ? node.args.length : 0,
-        blkiseq    = node.block ? iseq.newChildISeq('block', 'block in ' + iseq.name) : null,
+        blkiseq    = node.block ? iseq.newBlockISeq() : null,
         blkbeforel = new Label('block-before'),
         blkafterl  = new Label('block-after'),
         sp         = iseq.currentStackSize,
@@ -457,7 +487,7 @@ Bully.Compiler = {
 
     // check to see if this is actually a local variable reference
     if (!node.expression && !node.args && iseq.hasLocal(node.name)) {
-      if (push) { iseq.addInstruction('getlocal', iseq.localIndex(node.name)); }
+      this.compileLocalRef(node, iseq, push);
       return;
     }
 

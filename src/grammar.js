@@ -272,6 +272,7 @@ var grammar = {
   BlockParamList: [
     o('',                          "$$ = {type: 'BlockParamList', required: [], splat: null};"),
     o('ReqParamList',              "$$ = {type: 'BlockParamList', required: $1, splat: null};"),
+    o('SplatParam',                "$$ = {type: 'BlockParamList', required: [], splat: $1};"),
     o('ReqParamList , SplatParam', "$$ = {type: 'BlockParamList', required: $1, splat: $3};")
   ],
 
