@@ -593,3 +593,64 @@ rescue NoMethodError => e
   ok(e.message.slice(0, 51) == "super: no superclass method 'quux' for #<GrandChild", 'calling super when no superclass method exists should raise NoMethodError')
 end
 
+#-------------------------------------------------------------------------------
+# Constants
+#-------------------------------------------------------------------------------
+ConstA = '::A'
+ConstB = '::B'
+
+class ConstGetter
+  ConstA = 'ConstGetter::A'
+
+  def self.bare_const_a
+    ConstA
+  end
+
+  def self.global_const_a
+    ::ConstA
+  end
+
+  def self.bare_const_b
+    ConstB
+  end
+
+  def global_const_a
+    ::ConstA
+  end
+
+  def bare_const_a
+    ConstA
+  end
+
+  def global_const_b
+    ::ConstB
+  end
+
+  def bare_const_b
+    ConstB
+  end
+
+  def missing_constant
+    SomeMissingConstant
+  end
+
+  def self.missing_constant
+    SomeMissingConstant
+  end
+
+  def self.const_missing(name)
+    name
+  end
+end
+
+ok(ConstA == '::A', 'should be able to set and get top level constants')
+ok(::ConstA == '::A', 'should be able to set and get top level constants with a global scope')
+ok(ConstGetter.new.global_const_a == '::A', 'globally scoping a constant from an instance method should retrieve it from Object')
+ok(ConstGetter.new.bare_const_a == 'ConstGetter::A', 'a bare constant lookup from an instance method with a constant defined in that class should return the class constant')
+ok(ConstGetter.new.bare_const_b == '::B', 'a bare constant lookup from an instance method without a constant defined in that class should return the global constant')
+ok(ConstGetter.global_const_a == '::A', 'globally scoping a constant from a class method should retrieve it from Object')
+ok(ConstGetter.bare_const_a == 'ConstGetter::A', 'a bare constant lookup from a class method with the constant defined should retrieve it from the class')
+ok(ConstGetter.bare_const_b == '::B', 'a bare constant lookup from a class method without the constant defined should retrieve it from the global scope')
+ok(ConstGetter.new.missing_constant == :SomeMissingConstant, 'a reference for an undefined constant should invoke the const_missing method on the current class')
+ok(ConstGetter.missing_constant == :SomeMissingConstant, 'a reference for an undefined constant from a class method should invoke the const_missing method on the class')
+

@@ -53,3 +53,65 @@ TestIt('Compiler: constant references', {
   }
 });
 
+TestIt('Compiler: bare constant assignment not used in a larger expression', {
+  'should compile assigned value and then insert putcbase and setconstant instructions': function(t) {
+    var body = compile('Foo = :hello; nil')[Helper.BodyIdx],
+        exp  = [
+          ['putsymbol', 'hello'],
+          ['putcbase'],
+          ['setconstant', 'Foo'],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+
+TestIt('Compiler: bare constant assignment used in a larger expression', {
+  'should compile assigned value and then insert dup, putcbase and setconstant instructions': function(t) {
+    var body = compile('Foo = :hello')[Helper.BodyIdx],
+        exp  = [
+          ['putsymbol', 'hello'],
+          ['dup'],
+          ['putcbase'],
+          ['setconstant', 'Foo'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+
+TestIt('Compiler: scoped constant assignment not used in a larger expression', {
+  'should compile the outer constant references and add a setconstant instruction with the last constant name': function(t) {
+    var body = compile('Foo::Bar::Baz = :hello; nil')[Helper.BodyIdx],
+        exp  = [
+          ['putsymbol', 'hello'],
+          ['putnil'],
+          ['getconstant', 'Foo'],
+          ['getconstant', 'Bar'],
+          ['setconstant', 'Baz'],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+
+TestIt('Compiler: global scoped constant assignment not used in a larger expression', {
+  'should set the constant on Object using a putbuiltin instruction': function(t) {
+    var body = compile('::Foo = :hello; nil')[Helper.BodyIdx],
+        exp  = [
+          ['putsymbol', 'hello'],
+          ['putbuiltin', 'Object'],
+          ['setconstant', 'Foo'],
+          ['putnil'],
+          ['leave']
+        ];
+
+    t.assertEqual(exp, body);
+  }
+});
+

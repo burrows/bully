@@ -14,8 +14,8 @@ var StackFrame = function(iseq, opts) {
   this.sp        = 0;
   this.status    = ISEQ_STATUS_NORMAL;
   this.stack     = opts.stackSize ? new Array(opts.stackSize) : [];
-  this.cbase     = opts.cbase || Bully.Object;
   this.self      = opts.self || Bully.main;
+  this.cbase     = opts.cbase || Bully.Object;
   this.parent    = opts.parent || null;
   this.locals    = opts.locals || [];
   this.isDynamic = !!opts.isDynamic;
@@ -256,8 +256,12 @@ Bully.VM = {
             sf.push(localSF.locals[ins[1]]);
             break;
           case 'getconstant':
-            klass = sf.pop();
-            sf.push(this.getConstant(klass, ins[1]));
+            mod = sf.pop();
+            this.getConstant(mod, ins[1], sf);
+            break;
+          case 'setconstant':
+            mod = sf.pop();
+            Bully.const_set(mod, ins[1], sf.pop());
             break;
           case 'branchif':
             if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
@@ -432,22 +436,30 @@ Bully.VM = {
       if (sf) { sf.push(result); }
     }
     else {
-      result = this.runISeq(method, args, { parent: sf, self: recv });
+      result = this.runISeq(method, args, {
+        parent: sf, self: recv, cbase: send(recv, 'is_a?', Bully.Module) ? recv : Bully.class_of(recv)
+      });
     }
 
     return result;
   },
 
-  getConstant: function(klass, name) {
-    var modules;
+  getConstant: function(mod, name, sf) {
+    var tmpsf = sf;
 
-    if (!klass) {
-      // FIXME: perform lexical lookup
-      return Bully.const_get(Bully.Object, name);
-    }
-    else {
-      return Bully.const_get(klass, name);
-    }
+    if (mod) { sf.push(Bully.const_get(mod, name)); return; }
+
+    // need to perform a lexical lookup
+    do {
+      if (Bully.const_defined(tmpsf.cbase, name, false)) {
+        sf.push(Bully.const_get(tmpsf.cbase, name));
+        return;
+      }
+
+      tmpsf = tmpsf.parent;
+    } while (tmpsf);
+
+    this.sendMethod(sf.cbase, 'const_missing', [name], null, sf);
   },
 
   handleException: function() {
@@ -464,7 +476,7 @@ Bully.VM = {
       sf.sp = rescueEntry[CATCH_ENTRY_SP_IDX];
       sf.ip = sf.iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
       this.runISeq(rescueEntry[CATCH_ENTRY_ISEQ_IDX], [],
-        { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
 
       if (sf.status === ISEQ_STATUS_NORMAL) {
         // the exception was rescued, so continue executing the current frame
@@ -491,7 +503,7 @@ Bully.VM = {
       sf.sp = ensureEntry[CATCH_ENTRY_SP_IDX];
       sf.ip = sf.iseq.labels[ensureEntry[CATCH_ENTRY_CONT_LBL_IDX]];
       this.runISeq(ensureEntry[CATCH_ENTRY_ISEQ_IDX], [],
-        { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
     }
   },
 

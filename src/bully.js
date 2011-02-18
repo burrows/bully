@@ -1526,6 +1526,7 @@ Instruction.ConstantStackDeltas = {
   getinstancevariable: 1,
   setinstancevariable: -1,
   getconstant: 0,
+  setconstant: -2,
   getdynamic: 1,
   pop: -1,
   dup: 1,
@@ -1738,6 +1739,22 @@ Bully.Compiler = {
     if (push) { iseq.addInstruction('dup'); }
     iseq.addInstruction('setlocal', idx);
   },
+  compileConstantAssign: function(node, iseq, push) {
+    var namesLen = node.constant.names.length;
+    this['compile' + (node.expression).type](node.expression, iseq, true);
+    if (push) { iseq.addInstruction('dup'); }
+    if (namesLen > 1) {
+      this.compileConstantNames(iseq, node.constant.global,
+                                node.constant.names.slice(0, namesLen - 1));
+    }
+    else if (node.constant.global) {
+      iseq.addInstruction('putbuiltin', 'Object');
+    }
+    else {
+      iseq.addInstruction('putcbase');
+    }
+    iseq.addInstruction('setconstant', node.constant.names[node.constant.names.length - 1]);
+  },
   compileInstanceAssign: function(node, iseq, push) {
     this['compile' + (node.expression).type](node.expression, iseq, true);
     // ensure that there is a value left on the stack
@@ -1935,8 +1952,8 @@ var StackFrame = function(iseq, opts) {
   this.sp = 0;
   this.status = 0;
   this.stack = opts.stackSize ? new Array(opts.stackSize) : [];
-  this.cbase = opts.cbase || Bully.Object;
   this.self = opts.self || Bully.main;
+  this.cbase = opts.cbase || Bully.Object;
   this.parent = opts.parent || null;
   this.locals = opts.locals || [];
   this.isDynamic = !!opts.isDynamic;
@@ -2154,8 +2171,12 @@ Bully.VM = {
             sf.push(localSF.locals[ins[1]]);
             break;
           case 'getconstant':
-            klass = sf.pop();
-            sf.push(this.getConstant(klass, ins[1]));
+            mod = sf.pop();
+            this.getConstant(mod, ins[1], sf);
+            break;
+          case 'setconstant':
+            mod = sf.pop();
+            Bully.const_set(mod, ins[1], sf.pop());
             break;
           case 'branchif':
             if (Bully.test(sf.pop())) { sf.ip = iseq.labels[ins[1]]; }
@@ -2311,19 +2332,24 @@ Bully.VM = {
       if (sf) { sf.push(result); }
     }
     else {
-      result = this.runISeq(method, args, { parent: sf, self: recv });
+      result = this.runISeq(method, args, {
+        parent: sf, self: recv, cbase: Bully.VM.sendMethod(recv, 'is_a?', [Bully.Module]) ? recv : Bully.class_of(recv)
+      });
     }
     return result;
   },
-  getConstant: function(klass, name) {
-    var modules;
-    if (!klass) {
-      // FIXME: perform lexical lookup
-      return Bully.const_get(Bully.Object, name);
-    }
-    else {
-      return Bully.const_get(klass, name);
-    }
+  getConstant: function(mod, name, sf) {
+    var tmpsf = sf;
+    if (mod) { sf.push(Bully.const_get(mod, name)); return; }
+    // need to perform a lexical lookup
+    do {
+      if (Bully.const_defined(tmpsf.cbase, name, false)) {
+        sf.push(Bully.const_get(tmpsf.cbase, name));
+        return;
+      }
+      tmpsf = tmpsf.parent;
+    } while (tmpsf);
+    this.sendMethod(sf.cbase, 'const_missing', [name], null, sf);
   },
   handleException: function() {
     var sf = this.currentFrame(),
@@ -2336,7 +2362,7 @@ Bully.VM = {
       sf.sp = rescueEntry[5];
       sf.ip = sf.iseq.labels[rescueEntry[4]];
       this.runISeq(rescueEntry[1], [],
-        { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
       if (sf.status === 0) {
         // the exception was rescued, so continue executing the current frame
         return;
@@ -2361,7 +2387,7 @@ Bully.VM = {
       sf.sp = ensureEntry[5];
       sf.ip = sf.iseq.labels[ensureEntry[4]];
       this.runISeq(ensureEntry[1], [],
-        { parent: sf, self: sf.self, isDynamic: true, locals: [ex] });
+        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
     }
   },
   _findCatchEntry: function(type, sf) {

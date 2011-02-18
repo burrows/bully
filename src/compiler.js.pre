@@ -264,6 +264,7 @@ Instruction.ConstantStackDeltas = {
   getinstancevariable:  1,
   setinstancevariable: -1,
   getconstant:          0,
+  setconstant:         -2,
   getdynamic:           1,
   pop:                 -1,
   dup:                  1,
@@ -545,6 +546,27 @@ Bully.Compiler = {
     if (push) { iseq.addInstruction('dup'); }
 
     iseq.addInstruction('setlocal', idx);
+  },
+
+  compileConstantAssign: function(node, iseq, push) {
+    var namesLen = node.constant.names.length;
+
+    COMPILE_NODE(node.expression, iseq, true);
+
+    if (push) { iseq.addInstruction('dup'); }
+
+    if (namesLen > 1) {
+      this.compileConstantNames(iseq, node.constant.global,
+                                node.constant.names.slice(0, namesLen - 1)); 
+    }
+    else if (node.constant.global) {
+      iseq.addInstruction('putbuiltin', 'Object');
+    }
+    else {
+      iseq.addInstruction('putcbase');
+    }
+
+    iseq.addInstruction('setconstant', node.constant.names[node.constant.names.length - 1]);
   },
 
   compileInstanceAssign: function(node, iseq, push) {
