@@ -1403,7 +1403,7 @@ ISeq.prototype = {
     // instruction is added on the label object that it jumps to and then
     // restore that value as the current stack size when the label is set (see
     // setLabel below).
-    if (opcode === 'branchif' || opcode == 'branchunless' || opcode === 'jump') {
+    if (opcode === 'branchif' || opcode === 'branchunless' || opcode === 'jump') {
       insn.operands[0].currentStackSize = this.currentStackSize;
     }
     return this;
@@ -2368,7 +2368,7 @@ Bully.VM = {
         return;
       }
       else if (sf.status === 2) {
-        retryEntry = this._findCatchEntry('retry', sf),
+        retryEntry = this._findCatchEntry('retry', sf);
         sf.sp = retryEntry[5];
         sf.ip = sf.iseq.labels[retryEntry[4]];
         sf.status = 0;

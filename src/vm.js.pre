@@ -483,7 +483,7 @@ Bully.VM = {
         return;
       }
       else if (sf.status === ISEQ_STATUS_RETRY) {
-        retryEntry = this._findCatchEntry('retry', sf),
+        retryEntry = this._findCatchEntry('retry', sf);
         sf.sp = retryEntry[CATCH_ENTRY_SP_IDX];
         sf.ip = sf.iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];
         sf.status = ISEQ_STATUS_NORMAL;

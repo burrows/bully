@@ -100,7 +100,7 @@ ISeq.prototype = {
     // instruction is added on the label object that it jumps to and then
     // restore that value as the current stack size when the label is set (see
     // setLabel below).
-    if (opcode === 'branchif' || opcode == 'branchunless' || opcode === 'jump') {
+    if (opcode === 'branchif' || opcode === 'branchunless' || opcode === 'jump') {
       insn.operands[0].currentStackSize = this.currentStackSize;
     }
 
