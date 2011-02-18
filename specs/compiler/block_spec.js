@@ -178,9 +178,80 @@ TestIt('Compiler: nested blocks', {
   }
 });
 
-TestIt('Compiler: local variables in blocks', {
+TestIt('Compiler: local variables assignment in blocks', {
+  'before all': function(t) {
+    this.iseq           = compile("a = 1; Proc.new { a = 2; b = 3; Proc.new { a = 4; b = 5; c = 6; nil } }");
+    this.body           = this.iseq[Helper.BodyIdx];
+    this.blockiseq1     = this.body[5][3];
+    this.blockiseq1Body = this.blockiseq1[Helper.BodyIdx];
+    this.blockiseq2     = this.blockiseq1[Helper.BodyIdx][8][3];
+    this.blockiseq2Body = this.blockiseq2[Helper.BodyIdx];
+  },
+
+  'should use setlocal instruction for locals outside of a block': function(t) {
+    t.assertEqual(['putobject', 1], this.body[0]);
+    t.assertEqual(['setlocal', 0], this.body[1]);
+  },
+
+  'should use setdyanmic instruction with a level greater than 0 for locals set inside the block but defined outside the block': function(t) {
+    t.assertEqual(['putobject', 2], this.blockiseq1Body[1]);
+    t.assertEqual(['setdynamic', 0, 1], this.blockiseq1Body[2]);
+
+    t.assertEqual(['putobject', 4], this.blockiseq2Body[1]);
+    t.assertEqual(['setdynamic', 0, 2], this.blockiseq2Body[2]);
+    t.assertEqual(['putobject', 5], this.blockiseq2Body[3]);
+    t.assertEqual(['setdynamic', 0, 1], this.blockiseq2Body[4]);
+  },
+
+  'should use setdyanmic instruction with the a level of 0 for locals defined inside the block': function(t) {
+    t.assertEqual(['putobject', 3], this.blockiseq1Body[3]);
+    t.assertEqual(['setdynamic', 0, 0], this.blockiseq1Body[4]);
+
+    t.assertEqual(['putobject', 6], this.blockiseq2Body[5]);
+    t.assertEqual(['setdynamic', 0, 0], this.blockiseq2Body[6]);
+  }
 });
 
-TestIt('Compiler: local variables in nested blocks', {
+TestIt('Compiler: local variables reference in blocks', {
+  'before all': function(t) {
+    this.iseq           = compile("a = 1; p a; Proc.new { b = 2; p a; p b; Proc.new { c = 3; p a; p b; p c; nil } }");
+    this.body           = this.iseq[Helper.BodyIdx];
+    this.blockiseq1     = this.body[9][3];
+    this.blockiseq1Body = this.blockiseq1[Helper.BodyIdx];
+    this.blockiseq2     = this.blockiseq1[Helper.BodyIdx][14][3];
+    this.blockiseq2Body = this.blockiseq2[Helper.BodyIdx];
+  },
+
+  'should use getlocal instruction for locals outside of a block': function(t) {
+    t.assertEqual(['putself'], this.body[2]);
+    t.assertEqual(['getlocal', 0], this.body[3]);
+    t.assertEqual(['send', 'p', 1, null], this.body[4]);
+  },
+
+  'should use getdyanmic instruction with a level greater than 0 for locals referenced inside the block but defined outside the block': function(t) {
+    t.assertEqual(['putself'], this.blockiseq1Body[3]);
+    t.assertEqual(['getdynamic', 0, 1], this.blockiseq1Body[4]);
+    t.assertEqual(['send', 'p', 1, null], this.blockiseq1Body[5]);
+
+    t.assertEqual(['putself'], this.blockiseq2Body[3]);
+    t.assertEqual(['getdynamic', 0, 2], this.blockiseq2Body[4]);
+    t.assertEqual(['send', 'p', 1, null], this.blockiseq2Body[5]);
+    t.assertEqual(['pop'], this.blockiseq2Body[6]);
+    t.assertEqual(['putself'], this.blockiseq2Body[7]);
+    t.assertEqual(['getdynamic', 0, 1], this.blockiseq2Body[8]);
+    t.assertEqual(['send', 'p', 1, null], this.blockiseq2Body[9]);
+    t.assertEqual(['pop'], this.blockiseq2Body[10]);
+  },
+
+  'should use getdyanmic instruction with the a level of 0 for locals defined inside the block': function(t) {
+    t.assertEqual(['putself'], this.blockiseq1Body[7]);
+    t.assertEqual(['getdynamic', 0, 0], this.blockiseq1Body[8]);
+    t.assertEqual(['send', 'p', 1, null], this.blockiseq1Body[9]);
+
+    t.assertEqual(['putself'], this.blockiseq2Body[11]);
+    t.assertEqual(['getdynamic', 0, 0], this.blockiseq2Body[12]);
+    t.assertEqual(['send', 'p', 1, null], this.blockiseq2Body[13]);
+  }
 });
+
 

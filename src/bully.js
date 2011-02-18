@@ -1445,7 +1445,14 @@ ISeq.prototype = {
     return this.instructions.length;
   },
   hasLocal: function(name) {
-    return this.localISeq.locals.indexOf(name) !== -1;
+    var iseq = this;
+    if (this.type !== 'block') {
+      return this.localISeq.locals.indexOf(name) !== -1;
+    }
+    do {
+      if (iseq.localISeq.locals.indexOf(name) !== -1) { return true; }
+    } while (iseq = iseq.parentISeq);
+    return false;
   },
   addLocal: function(name) {
     var locals = this.localISeq.locals;
@@ -1453,10 +1460,25 @@ ISeq.prototype = {
     return locals.length - 1;
   },
   localIndex: function(name) {
-    return this.localISeq.locals.indexOf(name);
+    var iseq = this, idx = -1;
+    if (this.type !== 'block') {
+      return this.localISeq.locals.indexOf(name);
+    }
+    do {
+      idx = iseq.localISeq.locals.indexOf(name);
+    } while (idx === -1 && (iseq = iseq.parentISeq));
+    return idx;
   },
-  isDynamic: function() {
-    return this.type === 'block';
+  localLevel: function(name) {
+    var iseq = this, level = 0;
+    if (this.type !== 'block') {
+      return 0;
+    }
+    do {
+      if (iseq.localISeq.locals.indexOf(name) !== -1) { break; }
+      level++;
+    } while (iseq = iseq.parentISeq);
+    return level;
   },
   // Converts the ISeq object to a raw instruction sequence executable by the
   // VM.
@@ -1545,6 +1567,7 @@ Instruction.ConstantStackDeltas = {
   getconstant: 0,
   setconstant: -2,
   getdynamic: 1,
+  setdynamic: -1,
   pop: -1,
   dup: 1,
   defineclass: -1,
@@ -1690,8 +1713,8 @@ Bully.Compiler = {
       iseq.addInstruction('getlocal', iseq.localIndex(node.name));
       return;
     }
-    // FIXME: need to search parent iseq chain to see if local is already defined
-    iseq.addInstruction('getdynamic', iseq.localIndex(node.name), 0);
+    iseq.addInstruction('getdynamic', iseq.localIndex(node.name),
+      iseq.localLevel(node.name));
   },
   compileCall: function(node, iseq, push) {
     var argc = node.args ? node.args.length : 0,
@@ -1783,12 +1806,17 @@ Bully.Compiler = {
     if (push) { iseq.addInstruction('putnil'); }
   },
   compileLocalAssign: function(node, iseq, push) {
-    var idx = iseq.hasLocal(node.name) ?
-      iseq.localIndex(node.name) : iseq.addLocal(node.name);
+    var idx = iseq.hasLocal(node.name) ? iseq.localIndex(node.name) :
+      iseq.addLocal(node.name);
     this['compile' + (node.expression).type](node.expression, iseq, true);
     // ensure that there is a value left on the stack
     if (push) { iseq.addInstruction('dup'); }
-    iseq.addInstruction('setlocal', idx);
+    if (iseq.type === 'block') {
+      iseq.addInstruction('setdynamic', idx, iseq.localLevel(node.name));
+    }
+    else {
+      iseq.addInstruction('setlocal', idx);
+    }
   },
   compileConstantAssign: function(node, iseq, push) {
     var namesLen = node.constant.names.length;
