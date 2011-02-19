@@ -1587,6 +1587,8 @@ Instruction.stackDelta = function(insn) {
       return -insn.operands[1];
     case 'invokesuper':
       return -insn.operands[0];
+    case 'invokeblock':
+      return 1 - insn.operands[0];
     case 'newarray':
       return 1 - insn.operands[0];
     case 'throw':
@@ -1758,6 +1760,14 @@ Bully.Compiler = {
       this['compile' + (node.args[i]).type](node.args[i], iseq, true);
     }
     iseq.addInstruction('invokesuper', argc, null);
+    if (!push) { iseq.addInstruction('pop'); }
+  },
+  compileYieldCall: function(node, iseq, push) {
+    var argc = node.args ? node.args.length : 0, i;
+    for (i = 0; i < argc; i++) {
+      this['compile' + (node.args[i]).type](node.args[i], iseq, true);
+    }
+    iseq.addInstruction('invokeblock', argc);
     if (!push) { iseq.addInstruction('pop'); }
   },
   compileCallAssign: function(node, iseq, push) {
