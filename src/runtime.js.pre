@@ -58,28 +58,6 @@ Bully.is_immediate = function(obj) {
                 obj === false;
 };
 
-// Looks up and invokes the given method name starting from the given object's
-// superclass.
-//
-// obj  - The object whose superclass should be searched (this should be the
-//        current value of self).
-// name - The name of the method to invoke (this should be the name of the
-//        method currently being invoked).
-// args - The arguments to pass to the super method (optional).
-//
-// Returns the return value of the invoked super method.
-// Raises NoMethodError if super method can't be found.
-Bully.call_super = function(obj, name, args) {
-  var fn = Bully.find_method(Bully.class_of(obj)._super, name);
-
-  if (!fn) {
-    Bully.raise(Bully.NoMethodError,
-      "super: no superclass method '" + name + "' for " + send(obj, 'inspect').data);
-  }
-  
-  return fn.call(null, obj, args);
-};
-
 // Checks to see if the given object responds to the given method name.
 //
 // obj  - The object to check.
