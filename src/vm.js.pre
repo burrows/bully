@@ -53,7 +53,9 @@ StackFrame.prototype = {
 };
 
 Bully.VM = {
-  frames: [],
+  init: function() {
+    this.frames = [];
+  },
 
   currentFrame: function() {
     return this.frames[this.frames.length - 1];

@@ -603,7 +603,11 @@ Bully.init = function() {
   Bully.init_hash();
   Bully.init_proc();
   Bully.init_bully_module();
+  Bully.VM.init();
 };Bully.init_object = function() {
+  Bully.Object.make = function() {
+    return Bully.make_object({}, Bully.Object);
+  };
   Bully.Kernel = Bully.define_module('Kernel');
   Bully.Kernel.to_s = function(self) {
     var klass = Bully.real_class_of(self),
@@ -871,7 +875,7 @@ Bully.init = function() {
   }, 0, 0);
 };Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
-    return Bully.class_boot();
+    return Bully.make_object({}, self);
   });
   Bully.define_method(Bully.Class, 'initialize', function(self, args) {
     var _super = args[0] || Bully.Object;
@@ -883,7 +887,6 @@ Bully.init = function() {
   }, 0, 1);
   Bully.define_method(Bully.Class, 'new', function(self, args) {
     var o = Bully.VM.sendMethod(self, 'allocate', []);
-    o.klass = self;
     if (Bully.respond_to(o, 'initialize')) {
       Bully.VM.sendMethod(o, 'initialize', args);
     }
@@ -898,7 +901,7 @@ Bully.init = function() {
   });
 };Bully.init_main = function() {
   // main (top level self)
-  Bully.main = Bully.VM.sendMethod(Bully.Object, 'new', []);
+  Bully.main = Bully.Object.make();
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.String.make('main');
   });
@@ -978,7 +981,7 @@ Bully.init = function() {
 Bully.init_string = function() {
   Bully.String = Bully.define_class('String');
   Bully.String.make = function(js_str) {
-    var s = Bully.VM.sendMethod(Bully.String, 'new', []);
+    var s = Bully.make_object({}, Bully.String);
     s.data = js_str;
     return s;
   };
@@ -1005,11 +1008,10 @@ Bully.init_string = function() {
   Bully.String.equals = function(str, args) {
     return str.data === args[0].data;
   };
-  Bully.define_singleton_method(Bully.String, 'allocate', function(self, args) {
-    var o = Bully.call_super(self, 'allocate', args);
-    o.data = "";
-    return o;
-  });
+  Bully.define_method(Bully.String, 'initialize', function(self, args) {
+    self.data = args.length > 0 ? Bully.VM.sendMethod(args[0], 'to_s', []).data : "";
+    return self;
+  }, 0, 1);
   Bully.define_method(Bully.String, 'to_s', function(self, args) {
     return self;
   }, 0, 0);
@@ -2073,7 +2075,9 @@ StackFrame.prototype = {
   }
 };
 Bully.VM = {
-  frames: [],
+  init: function() {
+    this.frames = [];
+  },
   currentFrame: function() {
     return this.frames[this.frames.length - 1];
   },

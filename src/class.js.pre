@@ -1,6 +1,6 @@
 Bully.init_class = function() {
   Bully.define_method(Bully.Class, 'allocate', function(self, args) {
-    return Bully.class_boot();
+    return Bully.make_object({}, self);
   });
 
   Bully.define_method(Bully.Class, 'initialize', function(self, args) {
@@ -16,7 +16,6 @@ Bully.init_class = function() {
 
   Bully.define_method(Bully.Class, 'new', function(self, args) {
     var o = send(self, 'allocate');
-    o.klass = self;
 
     if (Bully.respond_to(o, 'initialize')) {
       Bully.VM.sendMethod(o, 'initialize', args);

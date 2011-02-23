@@ -1,6 +1,7 @@
 Bully.init_main = function() {
   // main (top level self)
-  Bully.main = send(Bully.Object, 'new');
+  Bully.main = Bully.Object.make();
+
   Bully.define_singleton_method(Bully.main, 'to_s', function() {
     return Bully.String.make('main');
   });

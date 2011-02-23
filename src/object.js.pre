@@ -1,4 +1,8 @@
 Bully.init_object = function() {
+  Bully.Object.make = function() {
+    return Bully.make_object({}, Bully.Object);
+  };
+
   Bully.Kernel = Bully.define_module('Kernel');
 
   Bully.Kernel.to_s = function(self) {
