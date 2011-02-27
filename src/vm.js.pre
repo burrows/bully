@@ -1,117 +1,224 @@
 (function() {
 
-#define ISEQ_STATUS_NORMAL 0
-#define ISEQ_STATUS_RAISE  1
-#define ISEQ_STATUS_RETRY  2
-#define ISEQ_STATUS_RETURN 3
+#define SF_STATUS_NORMAL 0
+#define SF_STATUS_RAISE  1
+#define SF_STATUS_RETRY  2
+#define SF_STATUS_RETURN 3
 
 #define VM_DEBUG(sf, msg) Bully.platform.puts(sf.toString() +  ': ' + msg)
 
-var StackFrame = function(iseq, opts) {
-  this.iseq      = iseq;
-  this.args      = [];
-  this.ip        = 0;
+var extend, StackFrame, BullyStackFrame, JSStackFrame;
+
+extend = function(child, parent) {
+  var prop, childProto = child.prototype, parentProto = parent.prototype;
+  for (prop in parentProto) {
+    if (!parentProto.hasOwnProperty(prop)) { continue; }
+    childProto[prop] = parentProto[prop];
+  }
+};
+
+StackFrame = function(type, name, opts) {
+  this.type      = type;
+  this.name      = name;
+  this.stack     = new Array(opts.stackSize || 1);
   this.sp        = 0;
-  this.status    = ISEQ_STATUS_NORMAL;
-  this.stack     = opts.stackSize ? new Array(opts.stackSize) : [];
-  this.self      = opts.self || Bully.main;
-  this.cbase     = opts.cbase || Bully.Object;
+  this.status    = SF_STATUS_NORMAL;
   this.parent    = opts.parent || null;
-  this.locals    = opts.locals || [];
-  this.isDynamic = !!opts.isDynamic;
+  this.args      = opts.args || [];
+  this.proc      = opts.proc || null; 
+  this.self      = 'self' in opts ? opts.self : Bully.main;
+  this.cbase     = opts.cbase || Bully.real_class_of(this.self);
+  this.isDynamic = type === 'block' || type === 'rescue' || type === 'ensure';
+};
+
+StackFrame.prototype.dumpStack = function() {
+  var sp = this.sp, items = [], stackitem, i;
+
+  for (i = 0; i < sp; i++) {
+    stackitem = this.stack[i];
+    items.push(stackitem === null ? 'null' : stackitem.toString());
+  }
+
+  return '[' + items.join(', ') + ']';
+};
+
+StackFrame.prototype.toString = function() {
+  return 'StackFrame(type: ' + this.type + ', name: ' + this.name + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.dumpStack() + ')';
+};
+
+StackFrame.prototype.push = function(obj) {
+  this.stack[this.sp++] = obj;
+  return this;
+};
+
+StackFrame.prototype.pop = function() {
+  if (this.sp === 0) { throw new Error('stack is too small for pop!'); }
+  return this.stack[--this.sp];
+};
+
+StackFrame.prototype.peek = function() {
+  return this.stack[this.sp - 1];
+};
+
+BullyStackFrame = function(iseq, opts) {
+  opts.stackSize = iseq[ISEQ_MAX_STACK_IDX];
+
+  StackFrame.call(this, iseq[ISEQ_TYPE_IDX], iseq[ISEQ_NAME_IDX], opts);
+
+  this.code       = iseq;
+  this.ip         = 0;
+  this.locals     = opts.locals || [];
+  this.catchTable = iseq[ISEQ_CATCH_TBL_IDX];
 
   return this;
 };
 
-StackFrame.prototype = {
-  toString: function() {
-    var name  = this.iseq[ISEQ_NAME_IDX],
-        type  = this.iseq[ISEQ_TYPE_IDX],
-        body  = this.iseq[ISEQ_BODY_IDX],
-        stack = [], stackitem, i;
+extend(BullyStackFrame, StackFrame);
 
-    for (i = 0; i < this.sp; i++) {
-      stackitem = this.stack[i];
-      stack.push(stackitem === null ? 'null' : stackitem.toString());
-    }
-    return 'StackFrame(name: ' + name + ', type: ' + type + ', ip: ' + this.ip + ', numinsns: ' + body.length + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: [' + stack.join(', ') + '])';
-  },
+JSStackFrame = function(fn, opts) {
+  StackFrame.call(this, 'method', fn.method_name, opts);
 
-  push: function(obj) {
-    this.stack[this.sp++] = obj;
-    return this;
-  },
+  this.code = fn;
 
-  pop: function() {
-    if (this.sp === 0) { throw new Error('stack is too small for pop!'); }
-    return this.stack[--this.sp];
-  },
-
-  peek: function() {
-    return this.stack[this.sp - 1];
-  }
+  return this;
 };
+
+extend(JSStackFrame, StackFrame);
 
 Bully.VM = {
   init: function() {
     this.frames = [];
-  },
-
-  currentFrame: function() {
-    return this.frames[this.frames.length - 1];
-  },
-
-  pushFrame: function(frame) {
-    this.frames.push(frame);
-    return this;
-  },
-
-  popFrame: function() {
-    var sf = this.frames.pop(), ret = null;
-
-    // check for uncaught exception
-    if (!sf.parent && sf.status === ISEQ_STATUS_RAISE) {
-      send(Bully.main, 'p', sf.pop());
-      Bully.platform.exit(1);
-    }
-
-    // DEBUG
-    switch (sf.status) {
-      case ISEQ_STATUS_NORMAL:
-      case ISEQ_STATUS_RAISE:
-        if (sf.sp !== 1) {
-          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 1)');
-        }
-        break;
-      case ISEQ_STATUS_RETRY:
-        if (sf.sp !== 0) {
-          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 0)');
-        }
-        break;
-      default:
-        throw new Error('invalid ISeq status: ' + sf.status);
-    }
-
-    // copy the current status and stack to the parent stack
-    if (sf.parent) {
-      sf.parent.status = sf.status;
-      if (sf.sp > 0) {
-        ret = sf.pop();
-        sf.parent.push(ret);
-      }
-    }
-
-    return ret;
+    this.exitStatus = 0;
+    this.uncaughtException = null;
+    this.currentFrame = null;
   },
 
   // Runs a compiled Bully program.
   run: function(iseq) {
     this.frames = [];
 
-    this.runISeq(iseq, [], { self: Bully.main });
+    this.runISeq(iseq, { self: Bully.main });
+
+    if (this.uncaughtException) {
+      send(Bully.main, 'p', this.uncaughtException);
+    }
+
+    Bully.platform.exit(this.exitStatus);
   },
 
-  runISeq: function(iseq, args, sfOpts) {
+  currentMethodFrame: function() {
+    var sf = this.currentFrame;
+    
+    while (sf && sf.type !== 'method') { sf = sf.parentFrame; }
+    
+    return sf;
+  },
+
+  pushFrame: function(frame) {
+    this.frames.push(frame);
+    this.currentFrame = frame;
+    return this;
+  },
+
+  popFrame: function() {
+    var sf = this.frames.pop(), ret = null, parentType, type;
+
+    this.currentFrame = this.frames[this.frames.length - 1];
+
+    // check for uncaught exception
+    if (!sf.parent && sf.status === SF_STATUS_RAISE) {
+      //send(Bully.main, 'p', sf.pop());
+      //Bully.platform.exit(1);
+      this.uncaughtException = sf.pop();
+      this.exitStatus = 1;
+      return;
+    }
+
+    // DEBUG
+    switch (sf.status) {
+      case SF_STATUS_NORMAL:
+        if (sf.sp !== 1) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 1)');
+        }
+        break;
+      case SF_STATUS_RETRY:
+        if (sf.sp !== 0) {
+          throw new Error('popping frame with status ' + sf.status + ' with stack size of: ' + sf.sp + ' (should be 0)');
+        }
+        break;
+      case SF_STATUS_RAISE:
+        break;
+      default:
+        throw new Error('invalid ISeq status: ' + sf.status);
+    }
+
+    if (!sf.parent) { return sf.pop(); }
+
+    sf.parent.status = sf.status;
+
+    parentType = sf.parent instanceof BullyStackFrame ? 'bully' : 'js';
+    type       = sf        instanceof BullyStackFrame ? 'bully' : 'js';
+
+    switch (parentType + '-' + type) {
+      case 'bully-bully':
+        if (sf.status === SF_STATUS_NORMAL) {
+          ret = sf.pop();
+          sf.parent.push(ret);
+        }
+        else if (sf.status === SF_STATUS_RAISE) {
+          sf.parent.push(sf.pop());
+        }
+        break;
+      case 'bully-js':
+        if (sf.status === SF_STATUS_NORMAL) {
+          ret = sf.pop();
+          sf.parent.push(ret);
+        }
+        else if (sf.status === SF_STATUS_RAISE) {
+          sf.parent.push(sf.pop());
+        }
+        break;
+      case 'js-bully':
+        if (sf.status === SF_STATUS_NORMAL) {
+          ret = sf.pop();
+        }
+        else if (sf.status === SF_STATUS_RAISE) {
+          throw sf.pop();
+        }
+        break;
+      case 'js-js':
+        if (sf.status === SF_STATUS_NORMAL) {
+          ret = sf.pop();
+        }
+        else if (sf.status === SF_STATUS_RAISE) {
+          throw sf.pop();
+        }
+        break;
+    }
+
+    return ret;
+  },
+
+  runJSFunc: function(fn, sfOpts) {
+    var sf = new JSStackFrame(fn, sfOpts), e;
+
+    this.pushFrame(sf);
+
+    try {
+      this.checkArgumentCount(fn.min_args, fn.max_args, sf.args.length);
+      sf.push(fn.call(null, sf.self, sf.args, sf.proc));
+    }
+    catch (e) {
+      if (!(e instanceof Bully.RaiseException)) { throw e; }
+
+      sf.status = SF_STATUS_RAISE;
+      sf.push(e.exception);
+    }
+
+    return this.popFrame();
+  },
+
+  runISeq: function(iseq, sfOpts) {
     var body  = iseq[ISEQ_BODY_IDX],
         len   = body.length,
         sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, _super,
@@ -126,17 +233,15 @@ Bully.VM = {
       }
     }
 
-    sf = new StackFrame(iseq, sfOpts);
-    sf.args = args;
-    sf.stackSize = iseq[ISEQ_MAX_STACK_IDX];
+    sf = new BullyStackFrame(iseq, sfOpts);
     this.pushFrame(sf);
 
-    try { this.setupArguments(sf); }
+    try { this.setupISeqArgs(sf); }
     catch (e1) {
       // exceptions raised in argument setup code need to exit the frame
       // immediately so that the calling frame can handle the exception
       if (e1 instanceof Bully.RaiseException) {
-        sf.status = ISEQ_STATUS_RAISE;
+        sf.status = SF_STATUS_RAISE;
         sf.push(e1.exception);
         return this.popFrame();
       } else { throw e1; }
@@ -194,15 +299,15 @@ Bully.VM = {
             switch (ins[3]) {
               case VM_DEFINECLASS_TYPE_CLASS:
                 klass = Bully.define_class_under(mod, ins[1], _super);
-                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
+                this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass });
                 break;
               case VM_DEFINECLASS_TYPE_SINGLETON_CLASS:
                 klass = Bully.singleton_class(mod);
-                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
+                this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass });
                 break;
               case VM_DEFINECLASS_TYPE_MODULE:
                 klass = Bully.define_module_under(mod, ins[1]);
-                this.runISeq(ins[2], [], { parent: sf, self: klass, cbase: klass });
+                this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass });
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }
@@ -222,13 +327,13 @@ Bully.VM = {
             sendargs = [];
             for (i = 0; i < ins[2]; i++) { sendargs.unshift(sf.pop()); }
             recv = sf.pop();
-            this.sendMethod(recv, ins[1], sendargs, null, sf);
+            this.sendMethod(recv, ins[1], sendargs, null);
             break;
           case 'invokesuper':
             sendargs = [];
             for (i = 0; i < ins[1]; i++) { sendargs.unshift(sf.pop()); }
             if (!sf.pop()) { sendargs = null; }
-            this.invokeSuper(sendargs, null, sf);
+            this.invokeSuper(sendargs, null);
             break;
           case 'setlocal':
             localSF = sf;
@@ -284,21 +389,21 @@ Bully.VM = {
         }
       }
       catch (e2) {
-        if (e2 instanceof Bully.RaiseException) {
-          sf.status = ISEQ_STATUS_RAISE;
-          sf.push(e2.exception);
-        } else { throw e2; }
+        if (!(e2 instanceof Bully.RaiseException)) { throw e2; }
+
+        sf.status = SF_STATUS_RAISE;
+        sf.push(e2.exception);
       }
 
       // check to see if an exception was raised or bubbled up
-      if (sf.status === ISEQ_STATUS_RAISE) {
+      if (sf.status === SF_STATUS_RAISE) {
         this.handleException();
 
-        if (sf.status === ISEQ_STATUS_RAISE) {
+        if (sf.status === SF_STATUS_RAISE) {
           break main_loop;
         }
       }
-      else if (sf.status === ISEQ_STATUS_RETRY) {
+      else if (sf.status === SF_STATUS_RETRY) {
         break main_loop;
       }
     }
@@ -351,8 +456,8 @@ Bully.VM = {
     }
   },
 
-  setupArguments: function(sf) {
-    var iseq   = sf.iseq,
+  setupISeqArgs: function(sf) {
+    var iseq   = sf.code,
         args   = sf.args,
         nargs  = args.length,
         desc   = iseq[ISEQ_ARGS_IDX],
@@ -367,9 +472,7 @@ Bully.VM = {
     this.checkArgumentCount(min, max, nargs);
 
     // copy arguments to local variables
-    for (i = 0; i < nargs; i++) {
-      sf.locals[i] = args[i];
-    }
+    for (i = 0; i < nargs; i++) { sf.locals[i] = args[i]; }
 
     if (splat >= 0) {
       sf.locals[splat] = Bully.Array.make(args.slice(nreq + nopt));
@@ -377,8 +480,8 @@ Bully.VM = {
 
     if (nopt > 0) {
       sf.ip = nargs >= nreq + nopt ?
-        sf.iseq.labels[labels[labels.length - 1]] :
-        sf.iseq.labels[labels[nargs - nreq]];
+        iseq.labels[labels[labels.length - 1]] :
+        iseq.labels[labels[nargs - nreq]];
     }
   },
 
@@ -402,48 +505,41 @@ Bully.VM = {
   // name  - The name of the method to invoke.
   // args  - A javascript array containing the arguments to send (optional).
   // block - FIXME (optional).
-  // sf    - The current StackFrame object (optional).
   //
   // Returns the return value of the method.
-  sendMethod: function(recv, name, args, block, sf) {
-    var method = Bully.find_method(Bully.class_of(recv), name), result;
+  sendMethod: function(recv, name, args, block) {
+    var method = Bully.find_method(Bully.class_of(recv), name), sfOpts;
 
     args = args || [];
 
     if (!method) {
       args.unshift(name);
-      return this.sendMethod(recv, 'method_missing', args, block, sf);
+      return this.sendMethod(recv, 'method_missing', args, block);
     }
 
-    return this.callMethod(recv, method, args, sf);
+    sfOpts = {
+      parent: this.currentFrame,
+      self: recv,
+      cbase: Bully.is_a(recv, Bully.Module) ? recv : Bully.class_of(recv),
+      args: args
+    };
+
+    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, sfOpts);
   },
 
-  invokeSuper: function(args, block, sf) {
-    var klass  = sf.iseq.klass,
-        method = Bully.find_method(klass._super, sf.iseq[ISEQ_NAME_IDX]);
+  invokeSuper: function(args, block) {
+    var sf          = this.currentFrame,
+        methodFrame = this.currentMethodFrame(),
+        klass       = methodFrame.code.klass,
+        method      = Bully.find_method(klass._super, methodFrame.name),
+        sfOpts;
 
     if (!method) {
-      Bully.raise(Bully.NoMethodError, "super: no superclass method 'quux' for " + send(sf.self, 'inspect').data);
+      Bully.raise(Bully.NoMethodError, "super: no superclass method '" + methodFrame.name + "' for " + send(sf.self, 'inspect').data);
     }
 
-    this.callMethod(sf.self, method, args || sf.args, sf);
-  },
-
-  callMethod: function(recv, method, args, sf) {
-    var result;
-
-    if (typeof method === 'function') {
-      this.checkArgumentCount(method.min_args, method.max_args, args.length);
-      result = method.call(null, recv, args);
-      if (sf) { sf.push(result); }
-    }
-    else {
-      result = this.runISeq(method, args, {
-        parent: sf, self: recv, cbase: send(recv, 'is_a?', Bully.Module) ? recv : Bully.class_of(recv)
-      });
-    }
-
-    return result;
+    sfOpts = { parent: sf, self: sf.self, cbase: sf.cbase, args: args || sf.args };
+    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, sfOpts);
   },
 
   getConstant: function(mod, name, sf) {
@@ -461,11 +557,12 @@ Bully.VM = {
       tmpsf = tmpsf.parent;
     } while (tmpsf);
 
-    this.sendMethod(sf.cbase, 'const_missing', [name], null, sf);
+    this.sendMethod(sf.cbase, 'const_missing', [name], null);
   },
 
   handleException: function() {
-    var sf          = this.currentFrame(),
+    var sf          = this.currentFrame,
+        iseq        = sf.code,
         rescueEntry = this._findCatchEntry('rescue', sf),
         ensureEntry = this._findCatchEntry('ensure', sf),
         retryEntry, ex;
@@ -476,19 +573,19 @@ Bully.VM = {
 
     if (rescueEntry) {
       sf.sp = rescueEntry[CATCH_ENTRY_SP_IDX];
-      sf.ip = sf.iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
-      this.runISeq(rescueEntry[CATCH_ENTRY_ISEQ_IDX], [],
-        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
+      sf.ip = iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+      this.runISeq(rescueEntry[CATCH_ENTRY_ISEQ_IDX],
+        { parent: sf, self: sf.self, cbase: sf.cbase, locals: [ex] });
 
-      if (sf.status === ISEQ_STATUS_NORMAL) {
+      if (sf.status === SF_STATUS_NORMAL) {
         // the exception was rescued, so continue executing the current frame
         return;
       }
-      else if (sf.status === ISEQ_STATUS_RETRY) {
+      else if (sf.status === SF_STATUS_RETRY) {
         retryEntry = this._findCatchEntry('retry', sf);
         sf.sp = retryEntry[CATCH_ENTRY_SP_IDX];
-        sf.ip = sf.iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];
-        sf.status = ISEQ_STATUS_NORMAL;
+        sf.ip = iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+        sf.status = SF_STATUS_NORMAL;
         return;
       }
       else if (ensureEntry) {
@@ -503,21 +600,23 @@ Bully.VM = {
     // if it exists and let the exception bubble up
     if (ensureEntry) {
       sf.sp = ensureEntry[CATCH_ENTRY_SP_IDX];
-      sf.ip = sf.iseq.labels[ensureEntry[CATCH_ENTRY_CONT_LBL_IDX]];
-      this.runISeq(ensureEntry[CATCH_ENTRY_ISEQ_IDX], [],
-        { parent: sf, self: sf.self, cbase: sf.cbase, isDynamic: true, locals: [ex] });
+      sf.ip = iseq.labels[ensureEntry[CATCH_ENTRY_CONT_LBL_IDX]];
+      this.runISeq(ensureEntry[CATCH_ENTRY_ISEQ_IDX],
+        { parent: sf, self: sf.self, cbase: sf.cbase, locals: [ex] });
     }
   },
 
   _findCatchEntry: function(type, sf) {
-    var catchTbl = sf.iseq[ISEQ_CATCH_TBL_IDX], len = catchTbl.length,
+    var catchTable = sf.catchTable,
+        len        = catchTable.length,
+        labels     = sf.code.labels,
         entry, entryType, start, stop, i;
 
     for (i = 0; i < len; i++) {
-      entry     = catchTbl[i];
+      entry     = catchTable[i];
       entryType = entry[CATCH_ENTRY_TYPE_IDX];
-      start     = sf.iseq.labels[entry[CATCH_ENTRY_START_LBL_IDX]];
-      stop      = sf.iseq.labels[entry[CATCH_ENTRY_STOP_LBL_IDX]];
+      start     = labels[entry[CATCH_ENTRY_START_LBL_IDX]];
+      stop      = labels[entry[CATCH_ENTRY_STOP_LBL_IDX]];
 
       if (entryType === type && start <= sf.ip && sf.ip <= stop) {
         return entry;
@@ -528,15 +627,15 @@ Bully.VM = {
   },
 
   _throw: function(obj, throwType) {
-    var sf = this.currentFrame();
+    var sf = this.currentFrame;
 
     switch (throwType) {
       case VM_THROW_TYPE_RAISE:
-        sf.status = ISEQ_STATUS_RAISE;
+        sf.status = SF_STATUS_RAISE;
         sf.push(obj);
         return;
       case VM_THROW_TYPE_RETRY:
-        sf.status = ISEQ_STATUS_RETRY;
+        sf.status = SF_STATUS_RETRY;
         return;
       default:
         throw new Error('invalid throw type: ' + throwType);

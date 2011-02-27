@@ -1,6 +1,5 @@
 (function() {
-var next_object_id = 1,
-    toString = function() { return send(this, 'inspect').data; };
+var next_object_id = 1;
 
 // Returns a native javascript object with the properties necessary to be a
 // Bully object.
@@ -15,10 +14,9 @@ Bully.make_object = function(obj, klass) {
   obj   = obj   || {};
   klass = klass || null;
 
-  obj.klass    = klass;
-  obj.iv_tbl   = {};
-  obj.id       = next_object_id;
-  obj.toString = toString;
+  obj.klass  = klass;
+  obj.iv_tbl = {};
+  obj.id     = next_object_id;
 
   next_object_id += 1;
 
@@ -392,23 +390,27 @@ Bully.define_module_under = function(outer, name) {
   return mod;
 };
 
-// Defines a method with the given name in the given class.  A method is simply
-// a reference to a javascript function that accepts a reference to the current
-// self as its first argument and an array contain the arguments passed to the
-// method.  The minimum and maximum number of arguments that the method should
-// take can optionally be specified.
+// Defines a method with the given name in the given class. A method can either
+// be a javascript function object or a compiled instruction sequence (ISeq).
+// If a javascript function is given, it should accept a reference to the
+// current value of self as the first argument, an array of method arguments as
+// the second argument, and a reference to a Proc object as the third argument.
+// The minimum and maximum number of arguments that th method takes can
+// optionally be specified.
 //
 // klass    - The class to define the method in.
 // name     - A js string containing the name of the method.
-// fn       - A js function reference.
+// code     - Either a javascript function object or compiled instruction
+//            sequence.
 // min_args - The minimum number of arguments the method takes. (optional)
-// max_args - The maximum number of arguments the method takes. (-1 means
-//            indicates that there is no maximum) (optional)
+// max_args - The maximum number of arguments the method takes. (-1 indicates
+//            that there is no maximum) (optional)
 //
 // Returns nothing.
-Bully.define_method = function(klass, name, fn, min_args, max_args) {
-  klass.m_tbl[name] = fn;
+Bully.define_method = function(klass, name, code, min_args, max_args) {
+  klass.m_tbl[name] = code;
   klass.m_tbl[name].klass = klass;
+  klass.m_tbl[name].method_name = name;
   klass.m_tbl[name].min_args = min_args === undefined ? 0  : min_args;
   klass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
@@ -433,16 +435,17 @@ Bully.define_module_method = function(klass, name, fn) {
 //
 // obj      - A reference to a Bully object to define the singleton method on.
 // name     - A js string containing the name of the method.
-// fn       - A js function reference.
+// code     - Either a js function object or compiled instruction sequence.
 // min_args - The minimum number of arguments the method takes.
 // max_args - The maximum number of arguments the method takes.
 //
 // Returns nothing.
-Bully.define_singleton_method = function(obj, name, fn, min_args, max_args) {
+Bully.define_singleton_method = function(obj, name, code, min_args, max_args) {
   var sklass = Bully.singleton_class(obj);
 
-  sklass.m_tbl[name] = fn;
+  sklass.m_tbl[name] = code;
   sklass.m_tbl[name].klass = sklass;
+  sklass.m_tbl[name].method_name = name;
   sklass.m_tbl[name].min_args = min_args === undefined ? 0  : min_args;
   sklass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
@@ -476,6 +479,23 @@ Bully.class_of = function(obj) {
   else if (obj === false)           { return Bully.FalseClass; }
 
   return obj.klass;
+};
+
+Bully.is_a = function(obj, test_klass) {
+  var klass = Bully.class_of(obj);
+
+  while (klass) {
+    if (test_klass === klass) {
+      return true;
+    }
+    else if (klass.is_include_class && klass.klass === test_klass) {
+      return true;
+    }
+
+    klass = klass._super;
+  }
+
+  return false;
 };
 
 // Returns the "real" class of the given object.  If an object has a singleton
