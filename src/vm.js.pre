@@ -88,16 +88,15 @@ JSStackFrame.prototype.toString = function() {
 };
 
 Bully.VM = {
-  init: function() {
-    this.frames = [];
-    this.currentException = null;
-    this.currentFrame = null;
-  },
+  frames: [],
+  currentException: null,
+  currentFrame: null,
+  lexicalModules: [],
+
+  init: function() {},
 
   // Runs a compiled Bully program.
   run: function(iseq) {
-    this.frames = [];
-
     this.runISeq(iseq, { self: Bully.main });
 
     if (this.currentException) {
@@ -230,15 +229,21 @@ Bully.VM = {
             switch (ins[3]) {
               case VM_DEFINECLASS_TYPE_CLASS:
                 klass = Bully.define_class_under(mod, ins[1], _super);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               case VM_DEFINECLASS_TYPE_SINGLETON_CLASS:
                 klass = Bully.singleton_class(mod);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               case VM_DEFINECLASS_TYPE_MODULE:
                 klass = Bully.define_module_under(mod, ins[1]);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }

@@ -357,6 +357,7 @@ Bully.define_method = function(klass, name, code, min_args, max_args) {
   klass.m_tbl[name] = code;
   klass.m_tbl[name].klass = klass;
   klass.m_tbl[name].method_name = name;
+  klass.m_tbl[name].lexicalModules = Bully.VM.lexicalModules.slice();
   klass.m_tbl[name].min_args = min_args === undefined ? 0 : min_args;
   klass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
@@ -389,6 +390,7 @@ Bully.define_singleton_method = function(obj, name, code, min_args, max_args) {
   sklass.m_tbl[name] = code;
   sklass.m_tbl[name].klass = sklass;
   sklass.m_tbl[name].method_name = name;
+  sklass.m_tbl[name].lexicalModules = Bully.VM.lexicalModules.slice();
   sklass.m_tbl[name].min_args = min_args === undefined ? 0 : min_args;
   sklass.m_tbl[name].max_args = max_args === undefined ? -1 : max_args;
 };
@@ -805,7 +807,10 @@ Bully.init = function() {
   }, 1, 1);
   // Returns the list of modules nested at the point of call.
   Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
-    return Bully.Array.make(Bully.Evaluator.current_ctx.modules.slice().reverse());
+    var sf = Bully.VM.currentFrame.parent;
+    while (sf.isDynamic) { sf = sf.parent; }
+    return sf.type === 'method' ? Bully.Array.make(sf.code.lexicalModules.slice().reverse()) :
+      Bully.Array.make(Bully.VM.lexicalModules.slice().reverse());
   }, 0, 0);
   Bully.Module.attr_reader = function(self, args) {
     var len = args.length, i;
@@ -2085,14 +2090,13 @@ JSStackFrame.prototype.toString = function() {
   return 'JSStackFrame(type: ' + this.type + ', name: ' + this.name + ', status: ' + this.status + ')';
 };
 Bully.VM = {
-  init: function() {
-    this.frames = [];
-    this.currentException = null;
-    this.currentFrame = null;
-  },
+  frames: [],
+  currentException: null,
+  currentFrame: null,
+  lexicalModules: [],
+  init: function() {},
   // Runs a compiled Bully program.
   run: function(iseq) {
-    this.frames = [];
     this.runISeq(iseq, { self: Bully.main });
     if (this.currentException) {
       Bully.VM.sendMethod(Bully.main, 'p', [this.currentException]);
@@ -2204,15 +2208,21 @@ Bully.VM = {
             switch (ins[3]) {
               case 0:
                 klass = Bully.define_class_under(mod, ins[1], _super);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               case 1:
                 klass = Bully.singleton_class(mod);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               case 2:
                 klass = Bully.define_module_under(mod, ins[1]);
+                this.lexicalModules.push(klass);
                 sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
+                this.lexicalModules.pop();
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }

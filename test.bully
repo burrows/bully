@@ -594,6 +594,37 @@ rescue NoMethodError => e
 end
 
 #-------------------------------------------------------------------------------
+# Module.nesting
+#-------------------------------------------------------------------------------
+
+ok(Module.nesting == [], 'Module.nesting at the top-level should return an empty array')
+
+class NestingTest1
+  ok(Module.nesting == [NestingTest1], 'Module.nesting called from within a module definition should return the module')
+
+  class NestingTest2
+    ok(Module.nesting == [NestingTest1::NestingTest2, NestingTest1], 'Module.nesting called from within nested modules should return each module')
+
+    class << self
+      def metaclass
+        class << self; self; end
+      end
+
+      def nesting
+        Module.nesting
+      end
+    end
+
+    def nesting
+      Module.nesting
+    end
+  end
+end
+
+ok(NestingTest1::NestingTest2.nesting == [NestingTest1::NestingTest2.metaclass, NestingTest1::NestingTest2, NestingTest1], 'Module.nesting called from within a class method should return the singleton class')
+ok(NestingTest1::NestingTest2.new.nesting == [NestingTest1::NestingTest2, NestingTest1], 'Module.nesting called from within an instance method should return the class')
+
+#-------------------------------------------------------------------------------
 # Constants
 #-------------------------------------------------------------------------------
 ConstA = '::A'
