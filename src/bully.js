@@ -806,11 +806,8 @@ Bully.init = function() {
     return self;
   }, 1, 1);
   // Returns the list of modules nested at the point of call.
-  Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
-    var sf = Bully.VM.currentFrame.parent;
-    while (sf.isDynamic) { sf = sf.parent; }
-    return sf.type === 'method' ? Bully.Array.make(sf.code.lexicalModules.slice().reverse()) :
-      Bully.Array.make(Bully.VM.lexicalModules.slice().reverse());
+  Bully.define_singleton_method(Bully.Module, 'nesting', function() {
+    return Bully.Array.make(Bully.VM.currentNesting());
   }, 0, 0);
   Bully.Module.attr_reader = function(self, args) {
     var len = args.length, i;
@@ -1085,6 +1082,9 @@ Bully.init_string = function() {
     self[args[0]] = args[1];
     return self;
   });
+  Bully.define_method(Bully.Array, '+', function(self, args) {
+    return Bully.Array.make(self.concat(args[0]));
+  }, 1, 1);
   Bully.define_method(Bully.Array, '[]=', function(self, args) {
     self[args[0]] = args[1];
     return args[1];
@@ -2044,7 +2044,6 @@ StackFrame = function(type, name, opts) {
   this.args = opts.args || [];
   this.proc = opts.proc || null;
   this.self = 'self' in opts ? opts.self : Bully.main;
-  this.cbase = opts.cbase || Bully.real_class_of(this.self);
   this.isDynamic = type === 'block' || type === 'rescue' || type === 'ensure';
 };
 BullyStackFrame = function(iseq, opts) {
@@ -2108,6 +2107,17 @@ Bully.VM = {
     var sf = this.currentFrame;
     while (sf && sf.type !== 'method') { sf = sf.parent; }
     return sf;
+  },
+  pushModule: function(mod) {
+    this.lexicalModules.push(mod);
+    return mod;
+  },
+  popModule: function() {
+    return this.lexicalModules.pop();
+  },
+  cbase: function() {
+    var mods = this.lexicalModules, len = mods.length;
+    return len > 0 ? mods[len - 1] : Bully.Object;
   },
   pushFrame: function(frame) {
     this.frames.push(frame);
@@ -2183,7 +2193,7 @@ Bully.VM = {
             sf.push(Bully[ins[1]]);
             break;
           case 'putcbase':
-            sf.push(sf.cbase);
+            sf.push(this.cbase());
             break;
           case 'putiseq':
             sf.push(ins[1]);
@@ -2208,21 +2218,21 @@ Bully.VM = {
             switch (ins[3]) {
               case 0:
                 klass = Bully.define_class_under(mod, ins[1], _super);
-                this.lexicalModules.push(klass);
-                sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
-                this.lexicalModules.pop();
+                this.pushModule(klass);
+                sf.push(this.runISeq(ins[2], { parent: sf, self: klass }));
+                this.popModule();
                 break;
               case 1:
                 klass = Bully.singleton_class(mod);
-                this.lexicalModules.push(klass);
-                sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
-                this.lexicalModules.pop();
+                this.pushModule(klass);
+                sf.push(this.runISeq(ins[2], { parent: sf, self: klass }));
+                this.popModule();
                 break;
               case 2:
                 klass = Bully.define_module_under(mod, ins[1]);
-                this.lexicalModules.push(klass);
-                sf.push(this.runISeq(ins[2], { parent: sf, self: klass, cbase: klass }));
-                this.lexicalModules.pop();
+                this.pushModule(klass);
+                sf.push(this.runISeq(ins[2], { parent: sf, self: klass }));
+                this.popModule();
                 break;
               default: throw new Error('invalid defineclass type: ' + ins[3]);
             }
@@ -2279,7 +2289,7 @@ Bully.VM = {
             break;
           case 'getconstant':
             mod = sf.pop();
-            this.getConstant(mod, ins[1]);
+            sf.push(this.getConstant(mod, ins[1]));
             break;
           case 'setconstant':
             mod = sf.pop();
@@ -2413,44 +2423,49 @@ Bully.VM = {
   //
   // Returns the return value of the method.
   sendMethod: function(recv, name, args, block) {
-    var method = Bully.find_method(Bully.class_of(recv), name), sfOpts;
+    var method = Bully.find_method(Bully.class_of(recv), name);
     args = args || [];
     if (!method) {
       args.unshift(name);
       return this.sendMethod(recv, 'method_missing', args, block);
     }
-    sfOpts = {
-      parent: this.currentFrame,
-      self: recv,
-      cbase: Bully.is_a(recv, Bully.Module) ? recv : Bully.class_of(recv),
-      args: args
-    };
-    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, sfOpts);
+    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
+      parent: this.currentFrame, self: recv, args: args
+    });
   },
   invokeSuper: function(args, block) {
     var sf = this.currentFrame,
         methodFrame = this.currentMethodFrame(),
         klass = methodFrame.code.klass,
-        method = Bully.find_method(klass._super, methodFrame.name),
-        sfOpts;
+        method = Bully.find_method(klass._super, methodFrame.name);
     if (!method) {
       Bully.raise(Bully.NoMethodError, "super: no superclass method '" + methodFrame.name + "' for " + Bully.VM.sendMethod(sf.self, 'inspect', []).data);
     }
-    sfOpts = { parent: sf, self: sf.self, cbase: sf.cbase, args: args || sf.args };
-    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, sfOpts);
+    return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
+      parent: sf, self: sf.self, args: args || sf.args
+    });
+  },
+  currentNesting: function() {
+    var sf = this.currentFrame;
+    while ((sf instanceof JSStackFrame) || sf.isDynamic) { sf = sf.parent; }
+    return sf.type === 'method' ? sf.code.lexicalModules.slice().reverse() :
+      Bully.VM.lexicalModules.slice().reverse();
   },
   getConstant: function(mod, name) {
-    var sf = this.currentFrame, tmpsf = sf;
-    if (mod) { sf.push(Bully.const_get(mod, name)); return; }
+    var sf = this.currentFrame, cbase, modules, i;
+    if (mod) { return Bully.const_get(mod, name); }
     // need to perform a lexical lookup
-    do {
-      if (Bully.const_defined(tmpsf.cbase, name, false)) {
-        sf.push(Bully.const_get(tmpsf.cbase, name));
-        return;
+    cbase = this.cbase();
+    modules = this.currentNesting().concat(Bully.Module.ancestors(cbase));
+    if (cbase !== Bully.Object) {
+      modules = modules.concat(Bully.Module.ancestors(Bully.Object));
+    }
+    for (i = 0; i < modules.length; i++) {
+      if (Bully.const_defined(modules[i], name, false)) {
+        return Bully.const_get(modules[i], name);
       }
-      tmpsf = tmpsf.parent;
-    } while (tmpsf);
-    sf.push(this.sendMethod(sf.cbase, 'const_missing', [name], null));
+    }
+    return this.sendMethod(modules[0], 'const_missing', [name], null);
   },
   handleException: function() {
     var sf = this.currentFrame,
@@ -2463,7 +2478,7 @@ Bully.VM = {
       sf.sp = rescueEntry[5];
       sf.ip = iseq.labels[rescueEntry[4]];
       sf.push(this.runISeq(rescueEntry[1],
-        { parent: sf, self: sf.self, cbase: sf.cbase, locals: [this.currentException] }));
+        { parent: sf, self: sf.self, locals: [this.currentException] }));
       if (sf.status === 0) {
         // the exception was rescued, so continue executing the current frame
         this.currentException = null;
@@ -2484,7 +2499,7 @@ Bully.VM = {
       sf.sp = ensureEntry[5];
       sf.ip = iseq.labels[ensureEntry[4]];
       this.runISeq(ensureEntry[1],
-        { parent: sf, self: sf.self, cbase: sf.cbase, locals: [this.currentException] });
+        { parent: sf, self: sf.self, locals: [this.currentException] });
     }
   },
   _findCatchEntry: function(type, sf) {

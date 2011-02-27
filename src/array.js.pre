@@ -40,6 +40,10 @@ Bully.init_array = function() {
     return self;
   });
 
+  Bully.define_method(Bully.Array, '+', function(self, args) {
+    return Bully.Array.make(self.concat(args[0]));
+  }, 1, 1);
+
   Bully.define_method(Bully.Array, '[]=', function(self, args) {
     self[args[0]] = args[1];
     return args[1];

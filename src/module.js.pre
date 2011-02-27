@@ -65,13 +65,8 @@ Bully.init_module = function() {
   }, 1, 1);
 
   // Returns the list of modules nested at the point of call.
-  Bully.define_singleton_method(Bully.Module, 'nesting', function(self, args) {
-    var sf = Bully.VM.currentFrame.parent;
-
-    while (sf.isDynamic) { sf = sf.parent; }
-
-    return sf.type === 'method' ? Bully.Array.make(sf.code.lexicalModules.slice().reverse()) :
-      Bully.Array.make(Bully.VM.lexicalModules.slice().reverse());
+  Bully.define_singleton_method(Bully.Module, 'nesting', function() {
+    return Bully.Array.make(Bully.VM.currentNesting());
   }, 0, 0);
 
   Bully.Module.attr_reader = function(self, args) {
