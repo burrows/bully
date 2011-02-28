@@ -899,27 +899,12 @@ Bully.init = function() {
   }, 1, 1);
 };Bully.init_proc = function() {
   Bully.Proc = Bully.define_class('Proc');
-  Bully.Proc.make = function(fn) {
-    var proc = Bully.make_object(fn, Bully.Proc);
-    proc.is_lambda = false
-    return proc;
-  };
   Bully.define_singleton_method(Bully.Proc, 'new', function(self, args, proc) {
     if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
     return proc;
   });
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
-    var rv;
-    try {
-      rv = self.call(null, args);
-    }
-    catch (e) {
-      if (e === Bully.Evaluator.ProcReturnException && self.is_lambda) {
-        rv = e.value;
-      }
-      else { throw e; }
-    }
-    return rv;
+    return Bully.VM.callProc(self, args);
   });
 };Bully.init_nil = function() {
   Bully.NilClass = Bully.define_class('NilClass');
@@ -1097,9 +1082,10 @@ Bully.init_string = function() {
     return Bully.String.make('[' + elems.join(', ') + ']');
   });
   Bully.define_method(Bully.Array, 'each', function(self, args, proc) {
-    var i;
+    var i, x;
     for (i = 0; i < self.length; i += 1) {
-      Bully.VM.sendMethod(proc, 'call', [self[i]]);
+      x = self[i];
+      Bully.VM.callProc(proc, [x]);
     }
     return self;
   });
@@ -1248,21 +1234,21 @@ Bully.init_string = function() {
   });
   Bully.define_method(Bully.Number, 'times', function(self, args, proc) {
     var i;
-    for (i = 0; i < self; i += 1) {
-      Bully.VM.sendMethod(proc, 'call', [i]);
-    }
+    for (i = 0; i < self; i += 1) { Bully.VM.callProc(proc, [i]); }
     return self;
   }, 0, 0);
 };
 Bully.init_enumerable = function() {
   Bully.Enumerable = Bully.define_module('Enumerable');
   Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
-    var results = [], each_proc;
-    each_proc = Bully.Proc.make(function(args) {
-      var x = args[0];
-      if (Bully.VM.sendMethod(proc, 'call', [x])) { results.push(x); }
+    var results = [], eachProc;
+    eachProc = Bully.VM.makeProc(function(procArgs) {
+      var x = procArgs[0];
+      if (Bully.test(Bully.VM.callProc(proc, [x]))) {
+        results.push(x);
+      }
     });
-    Bully.VM.sendMethod(self, 'each', [], each_proc);
+    Bully.VM.sendMethod(self, 'each', [], eachProc);
     return Bully.Array.make(results);
   }, 0, 0);
   Bully.define_method(Bully.Enumerable, 'all?', function(self, args, proc) {
@@ -2080,7 +2066,8 @@ BullyStackFrame.prototype.toString = function() {
   return 'BullyStackFrame(type: ' + this.type + ', name: ' + this.name + ', status: ' + this.status + ', sp: ' + this.sp + ', stack: ' + this.dumpStack() + ')';
 };
 JSStackFrame = function(fn, opts) {
-  StackFrame.call(this, 'method', fn.method_name, opts);
+  var type = fn.method_name ? 'method' : 'block';
+  StackFrame.call(this, type, fn.method_name || 'block', opts);
   this.code = fn;
   return this;
 };
@@ -2134,7 +2121,12 @@ Bully.VM = {
     this.pushFrame(sf);
     try {
       this.checkArgumentCount(fn.min_args, fn.max_args, sf.args.length);
-      ret = fn.call(null, sf.self, sf.args, sf.proc);
+      if (sf.type === 'block') {
+        ret = fn.call(null, sf.args);
+      }
+      else {
+        ret = fn.call(null, sf.self, sf.args, sf.proc);
+      }
     }
     catch (e) {
       if (!(e instanceof Bully.RaiseException)) { throw e; }
@@ -2146,8 +2138,8 @@ Bully.VM = {
   },
   runISeq: function(iseq, sfOpts) {
     var body = iseq[7], len = body.length,
-        sf, startLabel, ins, recv, sendargs, mod, klass, i, localSF, _super,
-        ary, localvar, hasArgs;
+        sf, tmpsf, startLabel, ins, recv, sendargs, mod, klass, i, _super,
+        ary, localvar, proc;
     // process labels
     if (!iseq.labels) {
       iseq.labels = {};
@@ -2252,7 +2244,8 @@ Bully.VM = {
             sendargs = [];
             for (i = 0; i < ins[2]; i++) { sendargs.unshift(sf.pop()); }
             recv = sf.pop();
-            sf.push(this.sendMethod(recv, ins[1], sendargs, null));
+            proc = ins[3] ? this.makeProc(ins[3]) : null;
+            sf.push(this.sendMethod(recv, ins[1], sendargs, proc));
             break;
           case 'invokesuper':
             sendargs = [];
@@ -2260,15 +2253,22 @@ Bully.VM = {
             if (!sf.pop()) { sendargs = null; }
             sf.push(this.invokeSuper(sendargs, null));
             break;
+          case 'invokeblock':
+            tmpsf = sf;
+            while (tmpsf.isDynamic) { tmpsf = otherSF.parentSF; }
+            sendargs = [];
+            for (i = 0; i < ins[1]; i++) { sendargs.unshift(sf.pop()); }
+            sf.push(this.callProc(tmpsf.proc, sendargs));
+            break;
           case 'setlocal':
-            localSF = sf;
-            while (localSF.isDynamic) { localSF = localSF.parent; }
-            localSF.locals[ins[1]] = sf.pop();
+            tmpsf = sf;
+            while (tmpsf.isDynamic) { tmpsf = tmpsf.parent; }
+            tmpsf.locals[ins[1]] = sf.pop();
             break;
           case 'getlocal':
-            localSF = sf;
-            while (localSF.isDynamic) { localSF = localSF.parent; }
-            localvar = localSF.locals[ins[1]];
+            tmpsf = sf;
+            while (tmpsf.isDynamic) { tmpsf = tmpsf.parent; }
+            localvar = tmpsf.locals[ins[1]];
             sf.push(localvar === undefined ? null : localvar);
             break;
           case 'setinstancevariable':
@@ -2278,14 +2278,14 @@ Bully.VM = {
             sf.push(Bully.ivar_get(sf.self, ins[1]));
             break;
           case 'setdynamic':
-            localSF = sf;
-            for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
-            localSF.locals[ins[1]] = sf.pop();
+            tmpsf = sf;
+            for (i = 0; i < ins[2]; i++) { tmpsf = tmpsf.parent; }
+            tmpsf.locals[ins[1]] = sf.pop();
             break;
           case 'getdynamic':
-            localSF = sf;
-            for (i = 0; i < ins[2]; i++) { localSF = localSF.parent; }
-            sf.push(localSF.locals[ins[1]]);
+            tmpsf = sf;
+            for (i = 0; i < ins[2]; i++) { tmpsf = tmpsf.parent; }
+            sf.push(tmpsf.locals[ins[1]]);
             break;
           case 'getconstant':
             mod = sf.pop();
@@ -2422,7 +2422,7 @@ Bully.VM = {
   // block - FIXME (optional).
   //
   // Returns the return value of the method.
-  sendMethod: function(recv, name, args, block) {
+  sendMethod: function(recv, name, args, proc) {
     var method = Bully.find_method(Bully.class_of(recv), name);
     args = args || [];
     if (!method) {
@@ -2430,7 +2430,7 @@ Bully.VM = {
       return this.sendMethod(recv, 'method_missing', args, block);
     }
     return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
-      parent: this.currentFrame, self: recv, args: args
+      parent: this.currentFrame, self: recv, args: args, proc: proc
     });
   },
   invokeSuper: function(args, block) {
@@ -2443,6 +2443,19 @@ Bully.VM = {
     }
     return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
       parent: sf, self: sf.self, args: args || sf.args
+    });
+  },
+  makeProc: function(block) {
+    var proc = Bully.make_object(block, Bully.Proc);
+    // FIXME
+    proc.min_args = 0;
+    proc.max_args = -1;
+    return proc;
+  },
+  callProc: function(proc, args) {
+    var sf = this.currentFrame;
+    return this[typeof proc === 'function' ? 'runJSFunc' : 'runISeq'](proc, {
+      parent: sf, self: sf.self, args: args
     });
   },
   currentNesting: function() {

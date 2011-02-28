@@ -60,10 +60,11 @@ Bully.init_array = function() {
   });
 
   Bully.define_method(Bully.Array, 'each', function(self, args, proc) {
-    var i;
+    var i, x;
 
     for (i = 0; i < self.length; i += 1) {
-      send(proc, 'call', self[i]);
+      x = self[i];
+      Bully.VM.callProc(proc, [x]);
     }
 
     return self;

@@ -3,14 +3,17 @@ Bully.init_enumerable = function() {
   Bully.Enumerable = Bully.define_module('Enumerable');
 
   Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
-    var results = [], each_proc;
+    var results = [], eachProc;
 
-    each_proc = Bully.Proc.make(function(args) {
-      var x = args[0];
-      if (send(proc, 'call', x)) { results.push(x); }
+    eachProc = Bully.VM.makeProc(function(procArgs) {
+      var x = procArgs[0];
+
+      if (Bully.test(Bully.VM.callProc(proc, [x]))) {
+        results.push(x);
+      }
     });
 
-    Bully.VM.sendMethod(self, 'each', [], each_proc);
+    Bully.VM.sendMethod(self, 'each', [], eachProc);
 
     return Bully.Array.make(results);
   }, 0, 0);

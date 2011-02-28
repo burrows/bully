@@ -86,11 +86,7 @@ Bully.init_number = function() {
 
   Bully.define_method(Bully.Number, 'times', function(self, args, proc) {
     var i;
-
-    for (i = 0; i < self; i += 1) {
-      send(proc, 'call', i);
-    }
-
+    for (i = 0; i < self; i += 1) { Bully.VM.callProc(proc, [i]); }
     return self;
   }, 0, 0);
 };
