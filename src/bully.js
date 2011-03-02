@@ -2427,7 +2427,7 @@ Bully.VM = {
     args = args || [];
     if (!method) {
       args.unshift(name);
-      return this.sendMethod(recv, 'method_missing', args, block);
+      return this.sendMethod(recv, 'method_missing', args, proc);
     }
     return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
       parent: this.currentFrame, self: recv, args: args, proc: proc
