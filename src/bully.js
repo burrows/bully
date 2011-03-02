@@ -1384,6 +1384,11 @@ ISeq.prototype = {
   addInstruction: function(opcode) {
     var insn = new Instruction(opcode,
       Array.prototype.slice.call(arguments, 1));
+    // reset the current stack size if the last instruction was 'leave'
+    if (this.instructions.length > 0 &&
+        this.instructions[this.instructions.length - 1].opcode === 'leave') {
+      this.currentStackSize = 0;
+    }
     this.instructions.push(insn);
     this.currentStackSize += Instruction.stackDelta(insn);
     if (this.currentStackSize > this.maxStackSize) {
