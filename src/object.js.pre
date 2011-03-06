@@ -159,7 +159,7 @@ Bully.init_object = function() {
 
   Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, proc) {
     if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
-    proc.is_lambda = true;
+    proc.isLambda = true;
 
     // FIXME: procs produced by lambda need to check number of parameters
     // received.

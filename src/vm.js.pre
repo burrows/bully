@@ -18,14 +18,15 @@ extend = function(child, parent) {
 };
 
 StackFrame = function(type, name, opts) {
-  this.type      = type;
-  this.name      = name;
-  this.status    = SF_STATUS_NORMAL;
-  this.parent    = opts.parent || null;
-  this.args      = opts.args || [];
-  this.proc      = opts.proc || null; 
-  this.self      = 'self' in opts ? opts.self : Bully.main;
-  this.isDynamic = type === 'block' || type === 'rescue' || type === 'ensure';
+  this.type       = type;
+  this.name       = name;
+  this.status     = SF_STATUS_NORMAL;
+  this.parent     = opts.parent || null;
+  this.args       = opts.args || [];
+  this.proc       = opts.proc || null; 
+  this.self       = 'self' in opts ? opts.self : Bully.main;
+  this.isDynamic  = type === 'block' || type === 'rescue' || type === 'ensure';
+  this.returnFrom = null;
 };
 
 BullyStackFrame = function(iseq, opts) {
@@ -161,6 +162,11 @@ Bully.VM = {
       this.currentException = e.exception;
     }
 
+    if (sf.status === SF_STATUS_RETURN) {
+      sf.parent.status = sf.status;
+      sf.parent.returnFrom = sf.returnFrom;
+    }
+
     this.popFrame();
 
     return ret;
@@ -293,11 +299,13 @@ Bully.VM = {
             sf.push(this.invokeSuper(sendargs, null));
             break;
           case 'invokeblock':
-            tmpsf = sf;
-            while (tmpsf.isDynamic) { tmpsf = otherSF.parentSF; }
+            proc = sf.isDynamic ? sf.code.defFrame.proc : sf.proc;
+            if (!proc) {
+              Bully.raise(Bully.LocalJumpError, 'no block given (yield)');
+            }
             sendargs = [];
             for (i = 0; i < ins[1]; i++) { sendargs.unshift(sf.pop()); }
-            sf.push(this.callProc(tmpsf.proc, sendargs));
+            sf.push(this.callProc(proc, sendargs));
             break;
           case 'setlocal':
             tmpsf = sf;
@@ -344,7 +352,21 @@ Bully.VM = {
             sf.ip = iseq.labels[ins[1]];
             break;
           case 'throw':
-            this._throw(sf.pop(), ins[1]);
+            switch (ins[1]) {
+              case VM_THROW_TYPE_RAISE:
+                sf.status = SF_STATUS_RAISE;
+                break;
+              case VM_THROW_TYPE_RETURN:
+                sf.status = SF_STATUS_RETURN;
+                sf.returnFrom = sf.code.isLambda ? sf : sf.code.defFrame;
+                break;
+              case VM_THROW_TYPE_RETRY:
+                sf.status = SF_STATUS_RETRY;
+                sf.pop();
+                break;
+              default:
+                throw new Error('invalid throw type: ' + throwType);
+            }
             break;
           case 'leave':
             break main_loop;
@@ -367,6 +389,12 @@ Bully.VM = {
           break main_loop;
         }
       }
+      else if (sf.status === SF_STATUS_RETURN) {
+        if (sf.returnFrom === sf) {
+          sf.status = SF_STATUS_NORMAL;
+        }
+        break main_loop;
+      }
       else if (sf.status === SF_STATUS_RETRY) {
         break main_loop;
       }
@@ -374,9 +402,12 @@ Bully.VM = {
 
     this.popFrame();
 
-    if (sf.parent) { sf.parent.status = sf.status; }
+    if (sf.parent) {
+      sf.parent.status = sf.status;
+      sf.parent.returnFrom = sf.returnFrom;
+    }
 
-    return sf.status === SF_STATUS_NORMAL ? sf.peek() : void 0;
+    return (sf.status === SF_STATUS_NORMAL || sf.status === SF_STATUS_RETURN) ? sf.peek() : void 0;
   },
 
   // Private: Checks that the number of arguments passed to a method are acceptable.
@@ -486,7 +517,7 @@ Bully.VM = {
     }
 
     return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
-      parent: this.currentFrame, self: recv, args: args, proc: proc
+      parent: this.currentFrame, self: recv, args: args, proc: proc || null
     });
   },
 
@@ -507,6 +538,9 @@ Bully.VM = {
 
   makeProc: function(block) {
     var proc = Bully.make_object(block, Bully.Proc);
+
+    proc.defFrame = this.currentFrame;
+    proc.isLambda = false;
 
     // FIXME
     proc.min_args = 0;
@@ -612,22 +646,6 @@ Bully.VM = {
     }
 
     return null;
-  },
-
-  _throw: function(obj, throwType) {
-    var sf = this.currentFrame;
-
-    switch (throwType) {
-      case VM_THROW_TYPE_RAISE:
-        sf.status = SF_STATUS_RAISE;
-        sf.push(obj);
-        return;
-      case VM_THROW_TYPE_RETRY:
-        sf.status = SF_STATUS_RETRY;
-        return;
-      default:
-        throw new Error('invalid throw type: ' + throwType);
-    }
   }
 };
 

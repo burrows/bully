@@ -1,12 +1,13 @@
 
 #define COMPILE_NODE(node, ...) this['compile' + (node).type](node, ##__VA_ARGS__)
 
-#define VM_THROW_TYPE_RAISE 0
-#define VM_THROW_TYPE_RETRY 4
+#define VM_THROW_TYPE_RAISE  0
+#define VM_THROW_TYPE_RETURN 1
+#define VM_THROW_TYPE_RETRY  4
 
-#define VM_DEFINECLASS_TYPE_CLASS 0
+#define VM_DEFINECLASS_TYPE_CLASS           0
 #define VM_DEFINECLASS_TYPE_SINGLETON_CLASS 1
-#define VM_DEFINECLASS_TYPE_MODULE 2
+#define VM_DEFINECLASS_TYPE_MODULE          2
 
 (function() {
 
@@ -100,17 +101,22 @@ ISeq.prototype = {
   },
 
   addInstruction: function(opcode) {
-    var insn = new Instruction(opcode,
-      Array.prototype.slice.call(arguments, 1));
+    var last = this.lastInstruction(),
+        insn = new Instruction(opcode, Array.prototype.slice.call(arguments, 1));
 
-    // reset the current stack size if the last instruction was 'leave'
-    if (this.instructions.length > 0 &&
-        this.instructions[this.instructions.length - 1].opcode === 'leave') {
-      this.currentStackSize = 0;
-    }
+    // guard against adding two leave instructions in a row - this will happen
+    // when a return node is the last node in a body
+    if (last && last.opcode === 'leave' && opcode === 'leave') { return; }
 
     this.instructions.push(insn);
-    this.currentStackSize += Instruction.stackDelta(insn);
+
+    if (opcode === 'leave' || opcode === 'throw') {
+      // DEBUG
+      //if (this.currentStackSize !== 1) { throw new Error('ISeq#addInstruction(' + this.name + '): error, adding instruction ' + opcode + ' with a current stack size of ' + this.currentStackSize); }
+    }
+    else {
+      this.currentStackSize += Instruction.stackDelta(insn);
+    }
 
     if (this.currentStackSize > this.maxStackSize) {
       this.maxStackSize = this.currentStackSize;
@@ -140,6 +146,11 @@ ISeq.prototype = {
     }
 
     return this;
+  },
+
+  lastInstruction: function() {
+    return this.instructions.length > 0 ?
+      this.instructions[this.instructions.length - 1] : null;
   },
 
   addCatchEntry: function(type, iseq, start, stop, cont, sp) {
@@ -249,11 +260,12 @@ ISeq.prototype = {
         catchTable = new Array(catchLen),
         nopt       = this.optionalArgLabels.length,
         ic         = this.instructions.length,
+        last       = this.lastInstruction(),
         result, catchEntry, i;
 
     // DEBUG
-    if (this.currentStackSize !== 1) {
-      throw new Error('ISeq#toRaw(' + this.name + '): error, stack size is: ' + this.currentStackSize);
+    if (last.opcode !== 'leave' && last.opcode !== 'throw') {
+      throw new Error('ISeq#toRaw(' + this.name + '): error, last instruction is not "leave" or "throw"');
     }
 
     args[ISEQ_ARGS_NUM_REQ_IDX] = this.numRequiredArgs;
@@ -334,6 +346,7 @@ Instruction.ConstantStackDeltas = {
   branchunless:        -1,
   jump:                 0,
   leave:                0,
+  throw:                0,
   setn:                 0
 };
 
@@ -352,8 +365,6 @@ Instruction.stackDelta = function(insn) {
       return 1 - insn.operands[0];
     case 'newarray':
       return 1 - insn.operands[0];
-    case 'throw':
-      return insn.operands[0] === VM_THROW_TYPE_RETRY ? -1 : 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -400,7 +411,7 @@ Bully.Compiler = {
     return iseq.toRaw();
   },
 
-  compileBody: function(node, iseq, push) {
+  compileBody: function(node, iseq, push, block) {
     var lines = node.lines, len = lines.length, i;
 
     if (len === 0) {
@@ -409,7 +420,7 @@ Bully.Compiler = {
     }
 
     for (i = 0; i < len; i++) {
-      COMPILE_NODE(lines[i], iseq, push && (i === len - 1));
+      COMPILE_NODE(lines[i], iseq, push && (i === len - 1), block);
     }
   },
 
@@ -423,7 +434,7 @@ Bully.Compiler = {
         name      = basenames.pop(),
         classiseq = new ISeq('class', '<class:' + name + '>');
 
-    COMPILE_NODE(node.body, classiseq, true);
+    COMPILE_NODE(node.body, classiseq, true, false);
     classiseq.addInstruction('leave');
 
     if (basenames.length > 0) {
@@ -452,7 +463,7 @@ Bully.Compiler = {
   compileSingletonClass: function(node, iseq, push) {
     var classiseq = new ISeq('singletonclass', 'singletonclass');
 
-    COMPILE_NODE(node.body, classiseq, true);
+    COMPILE_NODE(node.body, classiseq, true, false);
     classiseq.addInstruction('leave');
 
     COMPILE_NODE(node.object, iseq, true);
@@ -469,7 +480,7 @@ Bully.Compiler = {
         name      = basenames.pop(),
         modiseq   = new ISeq('class', '<module:' + name + '>');
 
-    COMPILE_NODE(node.body, modiseq, true);
+    COMPILE_NODE(node.body, modiseq, true, false);
     modiseq.addInstruction('leave');
 
     if (basenames.length > 0) {
@@ -492,12 +503,13 @@ Bully.Compiler = {
 
   compileBlock: function(node, iseq) {
     var beginl = new Label('block-begin'),
-        endl   = new Label('block-end');
+        endl   = new Label('block-end'),
+        lastInsn;
 
     if (node.params) { this.compileParamList(node.params, iseq); }
 
     iseq.setLabel(beginl);
-    COMPILE_NODE(node.body, iseq, true);
+    COMPILE_NODE(node.body, iseq, true, true);
     iseq.setLabel(endl);
     iseq.addInstruction('leave');
 
@@ -631,7 +643,7 @@ Bully.Compiler = {
 
     if (node.params) { COMPILE_NODE(node.params, defiseq, push); }
 
-    COMPILE_NODE(node.body, defiseq, true);
+    COMPILE_NODE(node.body, defiseq, true, false);
     defiseq.addInstruction('leave');
 
     iseq.addInstruction('putcbase');
@@ -645,7 +657,7 @@ Bully.Compiler = {
 
     if (node.params) { COMPILE_NODE(node.params, defiseq, push); }
 
-    COMPILE_NODE(node.body, defiseq, true);
+    COMPILE_NODE(node.body, defiseq, true, false);
     defiseq.addInstruction('leave');
 
     COMPILE_NODE(node.object, iseq, true);
@@ -748,7 +760,7 @@ Bully.Compiler = {
     iseq.addInstruction('newarray', len);
   },
 
-  compileIf: function(node, iseq, push) {
+  compileIf: function(node, iseq, push, block) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
 
     for (i = 0; i < len; i++) { labels.push(new Label()); }
@@ -758,7 +770,7 @@ Bully.Compiler = {
     for (i = 0; i < len; i++) {
       COMPILE_NODE(node.conditions[i], iseq, true);
       iseq.addInstruction('branchunless', labels[i]);
-      COMPILE_NODE(node.bodies[i], iseq, push); 
+      COMPILE_NODE(node.bodies[i], iseq, push, block); 
 
       if (i !== len - 1 || node.else_body || push) {
         iseq.addInstruction('jump', endLabel);
@@ -768,7 +780,7 @@ Bully.Compiler = {
     }
 
     if (node.else_body) {
-      COMPILE_NODE(node.else_body, iseq, push); 
+      COMPILE_NODE(node.else_body, iseq, push, block); 
       iseq.setLabel(endLabel);
     }
     else if (push) {
@@ -800,7 +812,7 @@ Bully.Compiler = {
     if (!push) { iseq.addInstruction('pop'); }
   },
 
-  compileRescueBlocks: function(rescues, iseq) {
+  compileRescueBlocks: function(rescues, iseq, block) {
     var len = rescues.length, startl, nextl, node, types, typeslen, idx, i, j;
 
     // Rescue blocks always have a 'private' local varable (not available from
@@ -844,7 +856,7 @@ Bully.Compiler = {
         iseq.addInstruction('setlocal', idx);
       }
 
-      COMPILE_NODE(node.body, iseq, true);
+      COMPILE_NODE(node.body, iseq, true, block);
       iseq.addInstruction('leave');
       iseq.setLabel(nextl);
     }
@@ -853,14 +865,14 @@ Bully.Compiler = {
     iseq.addInstruction('throw', VM_THROW_TYPE_RAISE);
   },
 
-  compileEnsureBlock: function(node, iseq) {
+  compileEnsureBlock: function(node, iseq, block) {
     iseq.locals[0] = '#$!';
-    COMPILE_NODE(node, iseq, false);
+    COMPILE_NODE(node, iseq, false, block);
     iseq.addInstruction('getdynamic', 0, 0);
     iseq.addInstruction('throw', VM_THROW_TYPE_RAISE);
   },
 
-  compileBeginBlock: function(node, iseq, push) {
+  compileBeginBlock: function(node, iseq, push, block) {
     var rescuesLen = node.rescues.length,
         hasRescue  = rescuesLen > 0,
         hasElse    = !!node.else_body,
@@ -870,7 +882,7 @@ Bully.Compiler = {
         riseq, eiseq;
 
     if (!hasRescue && !hasEnsure && !hasElse) {
-      COMPILE_NODE(node.body, iseq, push);
+      COMPILE_NODE(node.body, iseq, push, block);
       return;
     }
 
@@ -889,34 +901,34 @@ Bully.Compiler = {
     if (hasRescue)               { iseq.setLabel(labels.rstart); }
     if (hasEnsure && !hasRescue) { iseq.setLabel(labels.estart); }
 
-    COMPILE_NODE(node.body, iseq, true);
+    COMPILE_NODE(node.body, iseq, true, block);
 
     if (hasRescue)             { iseq.setLabel(labels.rstop); }
     if (hasRescue && !hasElse) { iseq.setLabel(labels.rcont); }
     if (hasElse || !push)      { iseq.addInstruction('pop'); }
 
     if (hasElse) {
-      COMPILE_NODE(node.else_body, iseq, true);
+      COMPILE_NODE(node.else_body, iseq, true, block);
       if (hasRescue) { iseq.setLabel(labels.rcont); }
       if (!push)     { iseq.addInstruction('pop') }
     }
 
     if (hasEnsure) {
       if (labels.estop !== labels.rcont) { iseq.setLabel(labels.estop); }
-      COMPILE_NODE(node.ensure, iseq, false); // ensure result is always discarded
+      COMPILE_NODE(node.ensure, iseq, false, block); // ensure result is always discarded
       iseq.setLabel(labels.econt);
     }
 
     if (hasRescue) {
       riseq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
-      this.compileRescueBlocks(node.rescues, riseq);
+      this.compileRescueBlocks(node.rescues, riseq, block);
       iseq.addCatchEntry('rescue', riseq, labels.rstart, labels.rstop, labels.rcont, sp);
       iseq.addCatchEntry('retry', null, labels.rstop, labels.rcont, labels.rstart, sp);
     }
 
     if (hasEnsure) {
       eiseq = iseq.newChildISeq('ensure', 'ensure in ' + iseq.name);
-      this.compileEnsureBlock(node.ensure, eiseq);
+      this.compileEnsureBlock(node.ensure, eiseq, block);
       iseq.addCatchEntry('ensure', eiseq, labels.estart, labels.estop, labels.econt, sp);
     }
   },
@@ -926,9 +938,20 @@ Bully.Compiler = {
     iseq.addInstruction('throw', VM_THROW_TYPE_RETRY);
   },
 
-  compileReturn: function(node, iseq) {
-    COMPILE_NODE(node.expression, iseq, true);
-    iseq.addInstruction('leave');
+  compileReturn: function(node, iseq, push, block) {
+    if (node.expression) {
+      COMPILE_NODE(node.expression, iseq, true);
+    }
+    else {
+      iseq.addInstruction('putnil');
+    }
+
+    if (block) {
+      iseq.addInstruction('throw', VM_THROW_TYPE_RETURN);
+    }
+    else {
+      iseq.addInstruction('leave');
+    }
   }
 };
 

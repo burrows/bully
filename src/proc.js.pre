@@ -9,4 +9,8 @@ Bully.init_proc = function() {
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
     return Bully.VM.callProc(self, args);
   });
+
+  Bully.define_method(Bully.Proc, 'lambda?', function(self, args) {
+    return self.isLambda;
+  }, 0, 0);
 };

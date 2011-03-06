@@ -730,7 +730,7 @@ Bully.init = function() {
   });
   Bully.define_module_method(Bully.Kernel, 'lambda', function(self, args, proc) {
     if (!proc) { Bully.raise(Bully.ArgumentError, 'tried to create a Proc object without a block'); }
-    proc.is_lambda = true;
+    proc.isLambda = true;
     // FIXME: procs produced by lambda need to check number of parameters
     // received.
     return proc;
@@ -906,6 +906,9 @@ Bully.init = function() {
   Bully.define_method(Bully.Proc, 'call', function(self, args) {
     return Bully.VM.callProc(self, args);
   });
+  Bully.define_method(Bully.Proc, 'lambda?', function(self, args) {
+    return self.isLambda;
+  }, 0, 0);
 };Bully.init_nil = function() {
   Bully.NilClass = Bully.define_class('NilClass');
   Bully.define_method(Bully.NilClass, 'to_i', function() {
@@ -1382,15 +1385,19 @@ ISeq.prototype = {
     return this.bodyStartLabel;
   },
   addInstruction: function(opcode) {
-    var insn = new Instruction(opcode,
-      Array.prototype.slice.call(arguments, 1));
-    // reset the current stack size if the last instruction was 'leave'
-    if (this.instructions.length > 0 &&
-        this.instructions[this.instructions.length - 1].opcode === 'leave') {
-      this.currentStackSize = 0;
-    }
+    var last = this.lastInstruction(),
+        insn = new Instruction(opcode, Array.prototype.slice.call(arguments, 1));
+    // guard against adding two leave instructions in a row - this will happen
+    // when a return node is the last node in a body
+    if (last && last.opcode === 'leave' && opcode === 'leave') { return; }
     this.instructions.push(insn);
-    this.currentStackSize += Instruction.stackDelta(insn);
+    if (opcode === 'leave' || opcode === 'throw') {
+      // DEBUG
+      //if (this.currentStackSize !== 1) { throw new Error('ISeq#addInstruction(' + this.name + '): error, adding instruction ' + opcode + ' with a current stack size of ' + this.currentStackSize); }
+    }
+    else {
+      this.currentStackSize += Instruction.stackDelta(insn);
+    }
     if (this.currentStackSize > this.maxStackSize) {
       this.maxStackSize = this.currentStackSize;
     }
@@ -1414,6 +1421,10 @@ ISeq.prototype = {
       this.currentStackSize = label.currentStackSize;
     }
     return this;
+  },
+  lastInstruction: function() {
+    return this.instructions.length > 0 ?
+      this.instructions[this.instructions.length - 1] : null;
   },
   addCatchEntry: function(type, iseq, start, stop, cont, sp) {
     this.catchEntries.push({
@@ -1486,10 +1497,11 @@ ISeq.prototype = {
         catchTable = new Array(catchLen),
         nopt = this.optionalArgLabels.length,
         ic = this.instructions.length,
+        last = this.lastInstruction(),
         result, catchEntry, i;
     // DEBUG
-    if (this.currentStackSize !== 1) {
-      throw new Error('ISeq#toRaw(' + this.name + '): error, stack size is: ' + this.currentStackSize);
+    if (last.opcode !== 'leave' && last.opcode !== 'throw') {
+      throw new Error('ISeq#toRaw(' + this.name + '): error, last instruction is not "leave" or "throw"');
     }
     args[0] = this.numRequiredArgs;
     args[1] = nopt;
@@ -1561,6 +1573,7 @@ Instruction.ConstantStackDeltas = {
   branchunless: -1,
   jump: 0,
   leave: 0,
+  throw: 0,
   setn: 0
 };
 Instruction.stackDelta = function(insn) {
@@ -1576,8 +1589,6 @@ Instruction.stackDelta = function(insn) {
       return 1 - insn.operands[0];
     case 'newarray':
       return 1 - insn.operands[0];
-    case 'throw':
-      return insn.operands[0] === 4 ? -1 : 0;
     default:
       throw new Error('invalid opcode: ' + insn.opcode);
   }
@@ -1613,14 +1624,14 @@ Bully.Compiler = {
     iseq.addInstruction('leave');
     return iseq.toRaw();
   },
-  compileBody: function(node, iseq, push) {
+  compileBody: function(node, iseq, push, block) {
     var lines = node.lines, len = lines.length, i;
     if (len === 0) {
       iseq.addInstruction('putnil');
       return;
     }
     for (i = 0; i < len; i++) {
-      this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1));
+      this['compile' + (lines[i]).type](lines[i], iseq, push && (i === len - 1), block);
     }
   },
   compileSelf: function(node, iseq, push) {
@@ -1631,7 +1642,7 @@ Bully.Compiler = {
         basenames = constant.names.slice(),
         name = basenames.pop(),
         classiseq = new ISeq('class', '<class:' + name + '>');
-    this['compile' + (node.body).type](node.body, classiseq, true);
+    this['compile' + (node.body).type](node.body, classiseq, true, false);
     classiseq.addInstruction('leave');
     if (basenames.length > 0) {
       this.compileConstantNames(iseq, constant.global, basenames);
@@ -1654,7 +1665,7 @@ Bully.Compiler = {
   },
   compileSingletonClass: function(node, iseq, push) {
     var classiseq = new ISeq('singletonclass', 'singletonclass');
-    this['compile' + (node.body).type](node.body, classiseq, true);
+    this['compile' + (node.body).type](node.body, classiseq, true, false);
     classiseq.addInstruction('leave');
     this['compile' + (node.object).type](node.object, iseq, true);
     iseq.addInstruction('putnil');
@@ -1667,7 +1678,7 @@ Bully.Compiler = {
         basenames = constant.names.slice(),
         name = basenames.pop(),
         modiseq = new ISeq('class', '<module:' + name + '>');
-    this['compile' + (node.body).type](node.body, modiseq, true);
+    this['compile' + (node.body).type](node.body, modiseq, true, false);
     modiseq.addInstruction('leave');
     if (basenames.length > 0) {
       this.compileConstantNames(iseq, constant.global, basenames);
@@ -1685,10 +1696,11 @@ Bully.Compiler = {
   },
   compileBlock: function(node, iseq) {
     var beginl = new Label('block-begin'),
-        endl = new Label('block-end');
+        endl = new Label('block-end'),
+        lastInsn;
     if (node.params) { this.compileParamList(node.params, iseq); }
     iseq.setLabel(beginl);
-    this['compile' + (node.body).type](node.body, iseq, true);
+    this['compile' + (node.body).type](node.body, iseq, true, true);
     iseq.setLabel(endl);
     iseq.addInstruction('leave');
     iseq.addCatchEntry('redo', null, beginl, endl, beginl, 0);
@@ -1785,7 +1797,7 @@ Bully.Compiler = {
   compileDef: function(node, iseq, push) {
     var defiseq = new ISeq('method', node.name);
     if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
-    this['compile' + (node.body).type](node.body, defiseq, true);
+    this['compile' + (node.body).type](node.body, defiseq, true, false);
     defiseq.addInstruction('leave');
     iseq.addInstruction('putcbase');
     iseq.addInstruction('definemethod', node.name, defiseq, false);
@@ -1794,7 +1806,7 @@ Bully.Compiler = {
   compileSingletonDef: function(node, iseq, push) {
     var defiseq = new ISeq('method', node.name);
     if (node.params) { this['compile' + (node.params).type](node.params, defiseq, push); }
-    this['compile' + (node.body).type](node.body, defiseq, true);
+    this['compile' + (node.body).type](node.body, defiseq, true, false);
     defiseq.addInstruction('leave');
     this['compile' + (node.object).type](node.object, iseq, true);
     iseq.addInstruction('definemethod', node.name, defiseq, true);
@@ -1871,21 +1883,21 @@ Bully.Compiler = {
     }
     iseq.addInstruction('newarray', len);
   },
-  compileIf: function(node, iseq, push) {
+  compileIf: function(node, iseq, push, block) {
     var labels = [], len = node.conditions.length, endLabel, lines, i, j;
     for (i = 0; i < len; i++) { labels.push(new Label()); }
     endLabel = node.else_body || push ? new Label() : labels[len - 1];
     for (i = 0; i < len; i++) {
       this['compile' + (node.conditions[i]).type](node.conditions[i], iseq, true);
       iseq.addInstruction('branchunless', labels[i]);
-      this['compile' + (node.bodies[i]).type](node.bodies[i], iseq, push);
+      this['compile' + (node.bodies[i]).type](node.bodies[i], iseq, push, block);
       if (i !== len - 1 || node.else_body || push) {
         iseq.addInstruction('jump', endLabel);
       }
       iseq.setLabel(labels[i]);
     }
     if (node.else_body) {
-      this['compile' + (node.else_body).type](node.else_body, iseq, push);
+      this['compile' + (node.else_body).type](node.else_body, iseq, push, block);
       iseq.setLabel(endLabel);
     }
     else if (push) {
@@ -1910,7 +1922,7 @@ Bully.Compiler = {
     this.compileConstantNames(iseq, node.global, node.names);
     if (!push) { iseq.addInstruction('pop'); }
   },
-  compileRescueBlocks: function(rescues, iseq) {
+  compileRescueBlocks: function(rescues, iseq, block) {
     var len = rescues.length, startl, nextl, node, types, typeslen, idx, i, j;
     // Rescue blocks always have a 'private' local varable (not available from
     // Bully code) that contains a reference to the exception object. We can't
@@ -1946,20 +1958,20 @@ Bully.Compiler = {
         iseq.addInstruction('getdynamic', 0, 0);
         iseq.addInstruction('setlocal', idx);
       }
-      this['compile' + (node.body).type](node.body, iseq, true);
+      this['compile' + (node.body).type](node.body, iseq, true, block);
       iseq.addInstruction('leave');
       iseq.setLabel(nextl);
     }
     iseq.addInstruction('getdynamic', 0, 0);
     iseq.addInstruction('throw', 0);
   },
-  compileEnsureBlock: function(node, iseq) {
+  compileEnsureBlock: function(node, iseq, block) {
     iseq.locals[0] = '#$!';
-    this['compile' + (node).type](node, iseq, false);
+    this['compile' + (node).type](node, iseq, false, block);
     iseq.addInstruction('getdynamic', 0, 0);
     iseq.addInstruction('throw', 0);
   },
-  compileBeginBlock: function(node, iseq, push) {
+  compileBeginBlock: function(node, iseq, push, block) {
     var rescuesLen = node.rescues.length,
         hasRescue = rescuesLen > 0,
         hasElse = !!node.else_body,
@@ -1968,7 +1980,7 @@ Bully.Compiler = {
         sp = iseq.currentStackSize,
         riseq, eiseq;
     if (!hasRescue && !hasEnsure && !hasElse) {
-      this['compile' + (node.body).type](node.body, iseq, push);
+      this['compile' + (node.body).type](node.body, iseq, push, block);
       return;
     }
     if (hasRescue) {
@@ -1983,29 +1995,29 @@ Bully.Compiler = {
     }
     if (hasRescue) { iseq.setLabel(labels.rstart); }
     if (hasEnsure && !hasRescue) { iseq.setLabel(labels.estart); }
-    this['compile' + (node.body).type](node.body, iseq, true);
+    this['compile' + (node.body).type](node.body, iseq, true, block);
     if (hasRescue) { iseq.setLabel(labels.rstop); }
     if (hasRescue && !hasElse) { iseq.setLabel(labels.rcont); }
     if (hasElse || !push) { iseq.addInstruction('pop'); }
     if (hasElse) {
-      this['compile' + (node.else_body).type](node.else_body, iseq, true);
+      this['compile' + (node.else_body).type](node.else_body, iseq, true, block);
       if (hasRescue) { iseq.setLabel(labels.rcont); }
       if (!push) { iseq.addInstruction('pop') }
     }
     if (hasEnsure) {
       if (labels.estop !== labels.rcont) { iseq.setLabel(labels.estop); }
-      this['compile' + (node.ensure).type](node.ensure, iseq, false); // ensure result is always discarded
+      this['compile' + (node.ensure).type](node.ensure, iseq, false, block); // ensure result is always discarded
       iseq.setLabel(labels.econt);
     }
     if (hasRescue) {
       riseq = iseq.newChildISeq('rescue', 'rescue in ' + iseq.name);
-      this.compileRescueBlocks(node.rescues, riseq);
+      this.compileRescueBlocks(node.rescues, riseq, block);
       iseq.addCatchEntry('rescue', riseq, labels.rstart, labels.rstop, labels.rcont, sp);
       iseq.addCatchEntry('retry', null, labels.rstop, labels.rcont, labels.rstart, sp);
     }
     if (hasEnsure) {
       eiseq = iseq.newChildISeq('ensure', 'ensure in ' + iseq.name);
-      this.compileEnsureBlock(node.ensure, eiseq);
+      this.compileEnsureBlock(node.ensure, eiseq, block);
       iseq.addCatchEntry('ensure', eiseq, labels.estart, labels.estop, labels.econt, sp);
     }
   },
@@ -2013,9 +2025,19 @@ Bully.Compiler = {
     iseq.addInstruction('putnil');
     iseq.addInstruction('throw', 4);
   },
-  compileReturn: function(node, iseq) {
-    this['compile' + (node.expression).type](node.expression, iseq, true);
-    iseq.addInstruction('leave');
+  compileReturn: function(node, iseq, push, block) {
+    if (node.expression) {
+      this['compile' + (node.expression).type](node.expression, iseq, true);
+    }
+    else {
+      iseq.addInstruction('putnil');
+    }
+    if (block) {
+      iseq.addInstruction('throw', 1);
+    }
+    else {
+      iseq.addInstruction('leave');
+    }
   }
 };
 }());(function() {
@@ -2036,6 +2058,7 @@ StackFrame = function(type, name, opts) {
   this.proc = opts.proc || null;
   this.self = 'self' in opts ? opts.self : Bully.main;
   this.isDynamic = type === 'block' || type === 'rescue' || type === 'ensure';
+  this.returnFrom = null;
 };
 BullyStackFrame = function(iseq, opts) {
   StackFrame.call(this, iseq[2], iseq[1], opts);
@@ -2137,6 +2160,10 @@ Bully.VM = {
       if (!(e instanceof Bully.RaiseException)) { throw e; }
       sf.parent.status = 1;
       this.currentException = e.exception;
+    }
+    if (sf.status === 3) {
+      sf.parent.status = sf.status;
+      sf.parent.returnFrom = sf.returnFrom;
     }
     this.popFrame();
     return ret;
@@ -2259,11 +2286,13 @@ Bully.VM = {
             sf.push(this.invokeSuper(sendargs, null));
             break;
           case 'invokeblock':
-            tmpsf = sf;
-            while (tmpsf.isDynamic) { tmpsf = otherSF.parentSF; }
+            proc = sf.isDynamic ? sf.code.defFrame.proc : sf.proc;
+            if (!proc) {
+              Bully.raise(Bully.LocalJumpError, 'no block given (yield)');
+            }
             sendargs = [];
             for (i = 0; i < ins[1]; i++) { sendargs.unshift(sf.pop()); }
-            sf.push(this.callProc(tmpsf.proc, sendargs));
+            sf.push(this.callProc(proc, sendargs));
             break;
           case 'setlocal':
             tmpsf = sf;
@@ -2310,7 +2339,21 @@ Bully.VM = {
             sf.ip = iseq.labels[ins[1]];
             break;
           case 'throw':
-            this._throw(sf.pop(), ins[1]);
+            switch (ins[1]) {
+              case 0:
+                sf.status = 1;
+                break;
+              case 1:
+                sf.status = 3;
+                sf.returnFrom = sf.code.isLambda ? sf : sf.code.defFrame;
+                break;
+              case 4:
+                sf.status = 2;
+                sf.pop();
+                break;
+              default:
+                throw new Error('invalid throw type: ' + throwType);
+            }
             break;
           case 'leave':
             break main_loop;
@@ -2330,13 +2373,22 @@ Bully.VM = {
           break main_loop;
         }
       }
+      else if (sf.status === 3) {
+        if (sf.returnFrom === sf) {
+          sf.status = 0;
+        }
+        break main_loop;
+      }
       else if (sf.status === 2) {
         break main_loop;
       }
     }
     this.popFrame();
-    if (sf.parent) { sf.parent.status = sf.status; }
-    return sf.status === 0 ? sf.peek() : void 0;
+    if (sf.parent) {
+      sf.parent.status = sf.status;
+      sf.parent.returnFrom = sf.returnFrom;
+    }
+    return (sf.status === 0 || sf.status === 3) ? sf.peek() : void 0;
   },
   // Private: Checks that the number of arguments passed to a method are acceptable.
   //
@@ -2435,7 +2487,7 @@ Bully.VM = {
       return this.sendMethod(recv, 'method_missing', args, proc);
     }
     return this[typeof method === 'function' ? 'runJSFunc' : 'runISeq'](method, {
-      parent: this.currentFrame, self: recv, args: args, proc: proc
+      parent: this.currentFrame, self: recv, args: args, proc: proc || null
     });
   },
   invokeSuper: function(args, block) {
@@ -2452,6 +2504,8 @@ Bully.VM = {
   },
   makeProc: function(block) {
     var proc = Bully.make_object(block, Bully.Proc);
+    proc.defFrame = this.currentFrame;
+    proc.isLambda = false;
     // FIXME
     proc.min_args = 0;
     proc.max_args = -1;
@@ -2535,20 +2589,6 @@ Bully.VM = {
       }
     }
     return null;
-  },
-  _throw: function(obj, throwType) {
-    var sf = this.currentFrame;
-    switch (throwType) {
-      case 0:
-        sf.status = 1;
-        sf.push(obj);
-        return;
-      case 4:
-        sf.status = 2;
-        return;
-      default:
-        throw new Error('invalid throw type: ' + throwType);
-    }
   }
 };
 }());
