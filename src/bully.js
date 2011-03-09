@@ -1779,7 +1779,7 @@ Bully.Compiler = {
     iseq.addInstruction('send', node.name, argc, null);
     iseq.addInstruction('pop');
   },
-  compileParamList: function(node, iseq, push) {
+  compileParamList: function(node, iseq) {
     var nreq = node.required.length,
         nopt = node.optional ? node.optional.length : 0,
         labels = [], optArg, i;
@@ -2537,30 +2537,6 @@ Bully.VM = {
         msg += nargs + ' for ' + max + ')';
         Bully.raise(Bully.ArgumentError, msg);
       }
-    }
-  },
-  setupISeqArgs: function(sf) {
-    var iseq = sf.code,
-        args = sf.args,
-        nargs = args.length,
-        desc = iseq[5],
-        nreq = desc[0],
-        nopt = desc[1],
-        splat = desc[2],
-        labels = desc[3],
-        min = nreq,
-        max = splat >= 0 ? -1 : nreq + nopt,
-        i;
-    this._checkArgumentCount(min, max, nargs);
-    // copy arguments to local variables
-    for (i = 0; i < nargs; i++) { sf.locals[i] = args[i]; }
-    if (splat >= 0) {
-      sf.locals[splat] = Bully.Array.make(args.slice(nreq + nopt));
-    }
-    if (nopt > 0) {
-      sf.ip = nargs >= nreq + nopt ?
-        iseq.labels[labels[labels.length - 1]] :
-        iseq.labels[labels[nargs - nreq]];
     }
   },
   // Looks up and invokes a method on the given receiver object.  If the method

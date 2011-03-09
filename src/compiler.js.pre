@@ -223,14 +223,14 @@ ISeq.prototype = {
   #define ISEQ_TYPE_IDX      2
   #define ISEQ_MAX_STACK_IDX 3
   #define ISEQ_LOCALS_IDX    4
-  #define ISEQ_ARGS_IDX      5
+  #define ISEQ_PARAMS_IDX    5
   #define ISEQ_CATCH_TBL_IDX 6
   #define ISEQ_BODY_IDX      7
 
-  #define ISEQ_ARGS_NUM_REQ_IDX 0
-  #define ISEQ_ARGS_NUM_OPT_IDX 1
-  #define ISEQ_ARGS_SPLAT_IDX   2
-  #define ISEQ_ARGS_LABELS_IDX  3
+  #define ISEQ_PARAMS_NUM_REQ_IDX 0
+  #define ISEQ_PARAMS_NUM_OPT_IDX 1
+  #define ISEQ_PARAMS_SPLAT_IDX   2
+  #define ISEQ_PARAMS_LABELS_IDX  3
 
   #define CATCH_ENTRY_TYPE_IDX      0
   #define CATCH_ENTRY_ISEQ_IDX      1
@@ -268,17 +268,17 @@ ISeq.prototype = {
       throw new Error('ISeq#toRaw(' + this.name + '): error, last instruction is not "leave" or "throw"');
     }
 
-    args[ISEQ_ARGS_NUM_REQ_IDX] = this.numRequiredArgs;
-    args[ISEQ_ARGS_NUM_OPT_IDX] = nopt;
-    args[ISEQ_ARGS_SPLAT_IDX]   = this.splatIndex;
-    args[ISEQ_ARGS_LABELS_IDX]  = new Array(nopt + 1);
+    args[ISEQ_PARAMS_NUM_REQ_IDX] = this.numRequiredArgs;
+    args[ISEQ_PARAMS_NUM_OPT_IDX] = nopt;
+    args[ISEQ_PARAMS_SPLAT_IDX]   = this.splatIndex;
+    args[ISEQ_PARAMS_LABELS_IDX]  = new Array(nopt + 1);
 
     // setup args
     if (nopt > 0) {
       for (i = 0; i < nopt; i++) {
-        args[ISEQ_ARGS_LABELS_IDX][i] = this.optionalArgLabels[i].toRaw();
+        args[ISEQ_PARAMS_LABELS_IDX][i] = this.optionalArgLabels[i].toRaw();
       }
-      args[ISEQ_ARGS_LABELS_IDX][nopt] = this.bodyStartLabel.toRaw();
+      args[ISEQ_PARAMS_LABELS_IDX][nopt] = this.bodyStartLabel.toRaw();
     }
 
     // catch table
@@ -618,7 +618,7 @@ Bully.Compiler = {
     iseq.addInstruction('pop');
   },
 
-  compileParamList: function(node, iseq, push) {
+  compileParamList: function(node, iseq) {
     var nreq = node.required.length,
         nopt = node.optional ? node.optional.length : 0,
         labels = [], optArg, i;

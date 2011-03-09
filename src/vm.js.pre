@@ -190,11 +190,11 @@ Bully.VM = {
       iseq   = frame.code;
       args   = frame.args;
       nargs  = args.length;
-      desc   = iseq[ISEQ_ARGS_IDX];
-      nreq   = desc[ISEQ_ARGS_NUM_REQ_IDX];
-      nopt   = desc[ISEQ_ARGS_NUM_OPT_IDX];
-      splat  = desc[ISEQ_ARGS_SPLAT_IDX];
-      labels = desc[ISEQ_ARGS_LABELS_IDX];
+      desc   = iseq[ISEQ_PARAMS_IDX];
+      nreq   = desc[ISEQ_PARAMS_NUM_REQ_IDX];
+      nopt   = desc[ISEQ_PARAMS_NUM_OPT_IDX];
+      splat  = desc[ISEQ_PARAMS_SPLAT_IDX];
+      labels = desc[ISEQ_PARAMS_LABELS_IDX];
       min    = nreq;
       max    = splat >= 0 ? -1 : nreq + nopt;
 
@@ -580,35 +580,6 @@ Bully.VM = {
         msg += nargs + ' for ' + max + ')';
         Bully.raise(Bully.ArgumentError, msg);
       }
-    }
-  },
-
-  setupISeqArgs: function(sf) {
-    var iseq   = sf.code,
-        args   = sf.args,
-        nargs  = args.length,
-        desc   = iseq[ISEQ_ARGS_IDX],
-        nreq   = desc[ISEQ_ARGS_NUM_REQ_IDX],
-        nopt   = desc[ISEQ_ARGS_NUM_OPT_IDX],
-        splat  = desc[ISEQ_ARGS_SPLAT_IDX],
-        labels = desc[ISEQ_ARGS_LABELS_IDX],
-        min    = nreq,
-        max    = splat >= 0 ? -1 : nreq + nopt,
-        i;
-
-    this._checkArgumentCount(min, max, nargs);
-
-    // copy arguments to local variables
-    for (i = 0; i < nargs; i++) { sf.locals[i] = args[i]; }
-
-    if (splat >= 0) {
-      sf.locals[splat] = Bully.Array.make(args.slice(nreq + nopt));
-    }
-
-    if (nopt > 0) {
-      sf.ip = nargs >= nreq + nopt ?
-        iseq.labels[labels[labels.length - 1]] :
-        iseq.labels[labels[nargs - nreq]];
     }
   },
 
