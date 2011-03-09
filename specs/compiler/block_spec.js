@@ -72,7 +72,7 @@ TestIt('Compiler: blocks with required params', {
   },
 
   'should set 2 required args in args descriptor': function(t) {
-    t.assertEqual([2, 0, -1, []], this.blockiseq[Helper.ArgsIdx]);
+    t.assertEqual([2, 0, -1, -1, []], this.blockiseq[Helper.ArgsIdx]);
   },
 
   'should access arguments with getdynamic instructions': function(t) {
@@ -102,7 +102,7 @@ TestIt('Compiler: blocks with splat param', {
   },
 
   'should set 0 required args and index of splat arg in args descriptor': function(t) {
-    t.assertEqual([0, 0, 0, []], this.blockiseq[Helper.ArgsIdx]);
+    t.assertEqual([0, 0, 0, -1, []], this.blockiseq[Helper.ArgsIdx]);
   },
 
   'should access argument with getdynamic instructions': function(t) {
@@ -130,7 +130,7 @@ TestIt('Compiler: blocks with required params and splat param', {
   },
 
   'should set 2 required args and index of splat arg in args descriptor': function(t) {
-    t.assertEqual([2, 0, 2, []], this.blockiseq[Helper.ArgsIdx]);
+    t.assertEqual([2, 0, 2, -1, []], this.blockiseq[Helper.ArgsIdx]);
   },
 
   'should access argument with getdynamic instructions': function(t) {

@@ -25,8 +25,8 @@ TestIt('Compiler: ISeq', {
     t.assertEqual(['a', 'b', 'c'], compile('a = 1; b = 2; c = 3')[Helper.LocalsIdx]);
   },
 
-  'should include the arguments descriptor array at index 5': function(t) {
-    t.assertEqual([0,0,-1,[]], compile('1')[Helper.ArgsIdx]);
+  'should include the parameters descriptor array at index 5': function(t) {
+    t.assertEqual([0,0,-1,-1,[]], compile('1')[Helper.ArgsIdx]);
   },
 
   'should include the catch table at index 6': function(t) {

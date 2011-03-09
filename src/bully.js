@@ -1329,6 +1329,7 @@ ISeq = function(type, name) {
   this.optionalArgLabels = [];
   this.bodyStartLabel = null;
   this.splatIndex = -1;
+  this.blockIndex = -1;
   this.locals = [];
   this.catchEntries = [];
   this.currentStackSize = 0;
@@ -1377,6 +1378,10 @@ ISeq.prototype = {
   },
   setSplatArg: function(name) {
     this.splatIndex = this.addLocal(name);
+    return this;
+  },
+  setBlockArg: function(name) {
+    this.blockIndex = this.addLocal(name);
     return this;
   },
   labelBodyStart: function() {
@@ -1506,13 +1511,14 @@ ISeq.prototype = {
     args[0] = this.numRequiredArgs;
     args[1] = nopt;
     args[2] = this.splatIndex;
-    args[3] = new Array(nopt + 1);
+    args[3] = this.blockIndex;
+    args[4] = new Array(nopt + 1);
     // setup args
     if (nopt > 0) {
       for (i = 0; i < nopt; i++) {
-        args[3][i] = this.optionalArgLabels[i].toRaw();
+        args[4][i] = this.optionalArgLabels[i].toRaw();
       }
-      args[3][nopt] = this.bodyStartLabel.toRaw();
+      args[4][nopt] = this.bodyStartLabel.toRaw();
     }
     // catch table
     for (i = 0; i < catchLen; i++) {
@@ -1793,6 +1799,7 @@ Bully.Compiler = {
     }
     if (nopt > 0) { iseq.labelBodyStart(); }
     if (node.splat) { iseq.setSplatArg(node.splat); }
+    if (node.block) { iseq.setBlockArg(node.block); }
   },
   compileDef: function(node, iseq, push) {
     var defiseq = new ISeq('method', node.name);
@@ -2189,7 +2196,7 @@ Bully.VM = {
       nreq = desc[0];
       nopt = desc[1];
       splat = desc[2];
-      labels = desc[3];
+      labels = desc[4];
       min = nreq;
       max = splat >= 0 ? -1 : nreq + nopt;
       this._checkArgumentCount(min, max, nargs);

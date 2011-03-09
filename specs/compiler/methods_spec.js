@@ -219,10 +219,10 @@ TestIt('Compiler: non-singleton method definitions with no params', {
 
 TestIt('Compiler: non-singleton method definitions with params', {
   'should add param names to locals': function(t) {
-    var body = compile('def foo(a, b, c = 1, *d); end')[Helper.BodyIdx],
+    var body = compile('def foo(a, b, c = 1, *d, &e); end')[Helper.BodyIdx],
         iseq = body[1][2];
 
-    t.assertEqual(['a', 'b', 'c', 'd'], iseq[Helper.LocalsIdx]);
+    t.assertEqual(['a', 'b', 'c', 'd', 'e'], iseq[Helper.LocalsIdx]);
   },
 
   'should set number of required args at index 0 of arguments descriptor': function(t) {
@@ -245,10 +245,18 @@ TestIt('Compiler: non-singleton method definitions with params', {
     t.assertEqual(-1, args2[2]);
   },
 
+  'should set index of block param at index 3 of arguments descriptor': function(t) {
+    var args1 = compile('def foo(a, b, c, d = 1, e = 2, &f); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx],
+        args2 = compile('def foo(a,b,c=1); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
+
+    t.assertEqual(5, args1[3]);
+    t.assertEqual(-1, args2[3]);
+  },
+
   'should add optional argument labels and body start label at index 3 of arguments descriptor': function(t) {
     var args = compile('def foo(a=1,b=2); end')[Helper.BodyIdx][1][2][Helper.ArgsIdx];
 
-    t.assertEqual(['optarg-a-0', 'optarg-b-3', 'bodystart-6'], args[3]);
+    t.assertEqual(['optarg-a-0', 'optarg-b-3', 'bodystart-6'], args[4]);
   },
 
   'should compile default values for optional arugments at beginning of body with appropriate labels': function(t) {
