@@ -410,7 +410,7 @@ Bully.define_module_under = function(outer, name) {
 Bully.define_method = function(klass, name, code, min_args, max_args) {
   klass.m_tbl[name] = code;
   klass.m_tbl[name].klass          = klass;
-  klass.m_tbl[name].method_name    = name;
+  klass.m_tbl[name].methodName     = name;
   klass.m_tbl[name].lexicalModules = Bully.VM.lexicalModules.slice();
   klass.m_tbl[name].min_args       = min_args === undefined ? 0  : min_args;
   klass.m_tbl[name].max_args       = max_args === undefined ? -1 : max_args;
@@ -446,7 +446,7 @@ Bully.define_singleton_method = function(obj, name, code, min_args, max_args) {
 
   sklass.m_tbl[name] = code;
   sklass.m_tbl[name].klass          = sklass;
-  sklass.m_tbl[name].method_name    = name;
+  sklass.m_tbl[name].methodName     = name;
   sklass.m_tbl[name].lexicalModules = Bully.VM.lexicalModules.slice();
   sklass.m_tbl[name].min_args       = min_args === undefined ? 0  : min_args;
   sklass.m_tbl[name].max_args       = max_args === undefined ? -1 : max_args;
