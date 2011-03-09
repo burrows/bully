@@ -685,26 +685,58 @@ ok(ConstGetter.bare_const_b == '::B', 'a bare constant lookup from a class metho
 ok(ConstGetter.new.missing_constant == :SomeMissingConstant, 'a reference for an undefined constant should invoke the const_missing method on the current class')
 ok(ConstGetter.missing_constant == :SomeMissingConstant, 'a reference for an undefined constant from a class method should invoke the const_missing method on the class')
 
-# #-------------------------------------------------------------------------------
-# # Blocks
-# #-------------------------------------------------------------------------------
-# 
-# proc1 = Proc.new { :proc }
-# lambda1 = lambda { :lambda }
-# 
-# ok(proc1.class == Proc, "Proc.new should create an instance of Proc")
-# ok(lambda1.class == Proc, "lambda should create an instance of Proc")
-# ok(proc1.lambda? == false, "lambda? should return false for procs created with Proc.new")
-# ok(lambda1.lambda? == true, "lambda? should return true for procs created with lambda")
-# ok(proc1.call == :proc, 'Procs should be callable')
-# ok(lambda1.call == :lambda, 'lambdas should be callable')
-# 
-# def thrice
-#   yield; yield; yield
-# end
-# 
-# #x = 0
-# #thrice { x = x + 1 }
-# #ok(x == 3, 'blocks passed to a method can be yielded to')
-# 
-# 
+#-------------------------------------------------------------------------------
+# Blocks
+#-------------------------------------------------------------------------------
+
+proc1 = Proc.new { :proc }
+lambda1 = lambda { :lambda }
+
+ok(proc1.class == Proc, "Proc.new should create an instance of Proc")
+ok(lambda1.class == Proc, "lambda should create an instance of Proc")
+ok(proc1.lambda? == false, "lambda? should return false for procs created with Proc.new")
+ok(lambda1.lambda? == true, "lambda? should return true for procs created with lambda")
+ok(proc1.call == :proc, 'Procs should be callable')
+ok(lambda1.call == :lambda, 'lambdas should be callable')
+
+def thrice
+  yield; yield; yield
+end
+
+x = 0
+thrice { x = x + 1 }
+ok(x == 3, 'blocks passed to a method can be yielded to')
+
+begin
+  thrice
+  fail('yielding when no block is given should raise a LocalJumpError')
+rescue LocalJumpError => e
+  ok(e.message == 'no block given (yield)', 'yielding when no block is given should raise a LocalJumpError')
+end
+
+def lambda_return
+  lambda { return :lambda }.call
+  :method
+end
+
+def proc_return
+  Proc.new { return :proc }.call
+  :method
+end
+
+ok(lambda_return == :method, 'returning from a lambda should return to where the lambda was called')
+ok(proc_return == :proc, 'returning from a Proc should return to from the lexically enclosing method')
+
+def proc_maker
+  Proc.new { return 12 }
+end
+
+begin
+  proc_maker.call
+  fail('returning from a Proc called outside of where it was defined should raise a LocalJumpError')
+rescue LocalJumpError => e
+  ok(e.message == 'unexpected return', 'returning from a Proc called outside of where it was defined should raise a LocalJumpError')
+end
+
+def proc_maker2(x)
+end

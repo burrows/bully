@@ -118,6 +118,7 @@ BlockFrame = function BlockFrame(code, prevFrame, localFrame, self, args, locals
   StackFrame.call(this, type, name, code, prevFrame, self, args, locals, stackSize);
 
   this.localFrame = localFrame;
+  this.isLambda   = code.isLambda;
 
   return this;
 };
@@ -244,20 +245,21 @@ Bully.VM = {
     // execute the method body
     if (frame.isISeq) {
       this.runISeqBody(frame);
-      if (frame.status === SF_STATUS_NORMAL) {
+      if (frame.status === SF_STATUS_NORMAL || frame.status === SF_STATUS_RETURN) {
         ret = frame.peek();
-      }
-      else if (frame.status === SF_STATUS_RAISE && frame.prevFrame) {
-        frame.prevFrame.status = SF_STATUS_RAISE;
       }
     }
     else {
       try { ret = frame.code.call(null, frame.self, frame.args, frame.proc); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.prevFrame.status = SF_STATUS_RAISE;
+        frame.status = SF_STATUS_RAISE;
         this.currentException = e.exception;
       }
+    }
+
+    if (frame.status === SF_STATUS_RAISE && frame.prevFrame) {
+      frame.prevFrame.status = SF_STATUS_RAISE;
     }
 
     this.popFrame();
@@ -305,11 +307,8 @@ Bully.VM = {
     // execute the block body
     if (frame.isISeq) {
       this.runISeqBody(frame);
-      if (frame.status === SF_STATUS_NORMAL) {
+      if (frame.status === SF_STATUS_NORMAL || frame.status === SF_STATUS_RETURN) {
         ret = frame.peek();
-      }
-      else if (frame.status === SF_STATUS_RAISE) {
-        frame.prevFrame.status = SF_STATUS_RAISE;
       }
     }
     else {
@@ -321,6 +320,10 @@ Bully.VM = {
       }
     }
 
+    if (frame.status === SF_STATUS_RAISE) {
+      frame.prevFrame.status = SF_STATUS_RAISE;
+    }
+
     this.popFrame();
 
     return ret;
@@ -328,7 +331,8 @@ Bully.VM = {
 
   runISeqBody: function(frame) {
     var iseq = frame.code, body = iseq[ISEQ_BODY_IDX], len = body.length,
-        tmpframe, e, ary, _super, mod, klass, sendargs, recv, proc, localvar;
+        tmpframe, retframe, e, ary, _super, mod, klass, sendargs, recv, proc,
+        localvar;
 
     for (; frame.ip < len; frame.ip++) {
       ins = body[frame.ip];
@@ -446,12 +450,18 @@ Bully.VM = {
             break;
           case 'setdynamic':
             tmpframe = frame;
-            for (i = 0; i < ins[2]; i++) { tmpframe = tmpframe.parent; }
+            for (i = 0; i < ins[2]; i++) {
+              tmpframe = (tmpframe instanceof BlockFrame) ?
+                tmpframe.localFrame : tmpframe.prevFrame;
+            }
             tmpframe.locals[ins[1]] = frame.pop();
             break;
           case 'getdynamic':
             tmpframe = frame;
-            for (i = 0; i < ins[2]; i++) { tmpframe = tmpframe.parent; }
+            for (i = 0; i < ins[2]; i++) {
+              tmpframe = (tmpframe instanceof BlockFrame) ?
+                tmpframe.localFrame : tmpframe.prevFrame;
+            }
             frame.push(tmpframe.locals[ins[1]]);
             break;
           case 'getconstant':
@@ -477,8 +487,21 @@ Bully.VM = {
                 frame.status = frame_STATUS_RAISE;
                 break;
               case VM_THROW_TYPE_RETURN:
-                frame.status = SF_STATUS_RETURN;
-                frame.returnFrom = frame.code.isLambda ? frame : frame.localFrame;
+                tmpframe = frame;
+                retframe = frame.isLambda ? frame : frame.localFrame;
+
+                tmpframe.status = SF_STATUS_RETURN;
+                // FIXME: clean this up
+                while (tmpframe && tmpframe !== retframe) {
+                  tmpframe = tmpframe.prevFrame;
+                  if (tmpframe) {
+                    tmpframe.status = SF_STATUS_RETURN;
+                  }
+                }
+
+                if (!tmpframe) {
+                  Bully.raise(Bully.LocalJumpError, 'unexpected return');
+                }
                 break;
               case VM_THROW_TYPE_RETRY:
                 frame.status = SF_STATUS_RETRY;

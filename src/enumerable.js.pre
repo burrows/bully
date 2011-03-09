@@ -5,7 +5,7 @@ Bully.init_enumerable = function() {
   Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
     var results = [], eachProc;
 
-    eachProc = Bully.VM.makeProc(function(procArgs) {
+    eachProc = Bully.VM.makeProc(function(self, procArgs) {
       var x = procArgs[0];
 
       if (Bully.test(Bully.VM.callProc(proc, [x]))) {

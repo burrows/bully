@@ -1245,7 +1245,7 @@ Bully.init_enumerable = function() {
   Bully.Enumerable = Bully.define_module('Enumerable');
   Bully.define_method(Bully.Enumerable, 'select', function(self, args, proc) {
     var results = [], eachProc;
-    eachProc = Bully.VM.makeProc(function(procArgs) {
+    eachProc = Bully.VM.makeProc(function(self, procArgs) {
       var x = procArgs[0];
       if (Bully.test(Bully.VM.callProc(proc, [x]))) {
         results.push(x);
@@ -2128,6 +2128,7 @@ BlockFrame = function BlockFrame(code, prevFrame, localFrame, self, args, locals
   }
   StackFrame.call(this, type, name, code, prevFrame, self, args, locals, stackSize);
   this.localFrame = localFrame;
+  this.isLambda = code.isLambda;
   return this;
 };
 extend(BlockFrame, StackFrame);
@@ -2227,20 +2228,20 @@ Bully.VM = {
     // execute the method body
     if (frame.isISeq) {
       this.runISeqBody(frame);
-      if (frame.status === 0) {
+      if (frame.status === 0 || frame.status === 3) {
         ret = frame.peek();
-      }
-      else if (frame.status === 1 && frame.prevFrame) {
-        frame.prevFrame.status = 1;
       }
     }
     else {
       try { ret = frame.code.call(null, frame.self, frame.args, frame.proc); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.prevFrame.status = 1;
+        frame.status = 1;
         this.currentException = e.exception;
       }
+    }
+    if (frame.status === 1 && frame.prevFrame) {
+      frame.prevFrame.status = 1;
     }
     this.popFrame();
     return ret;
@@ -2275,11 +2276,8 @@ Bully.VM = {
     // execute the block body
     if (frame.isISeq) {
       this.runISeqBody(frame);
-      if (frame.status === 0) {
+      if (frame.status === 0 || frame.status === 3) {
         ret = frame.peek();
-      }
-      else if (frame.status === 1) {
-        frame.prevFrame.status = 1;
       }
     }
     else {
@@ -2290,12 +2288,16 @@ Bully.VM = {
         this.currentException = e.exception;
       }
     }
+    if (frame.status === 1) {
+      frame.prevFrame.status = 1;
+    }
     this.popFrame();
     return ret;
   },
   runISeqBody: function(frame) {
     var iseq = frame.code, body = iseq[7], len = body.length,
-        tmpframe, e, ary, _super, mod, klass, sendargs, recv, proc, localvar;
+        tmpframe, retframe, e, ary, _super, mod, klass, sendargs, recv, proc,
+        localvar;
     for (; frame.ip < len; frame.ip++) {
       ins = body[frame.ip];
       if (typeof ins !== 'object') { continue; }
@@ -2410,12 +2412,18 @@ Bully.VM = {
             break;
           case 'setdynamic':
             tmpframe = frame;
-            for (i = 0; i < ins[2]; i++) { tmpframe = tmpframe.parent; }
+            for (i = 0; i < ins[2]; i++) {
+              tmpframe = (tmpframe instanceof BlockFrame) ?
+                tmpframe.localFrame : tmpframe.prevFrame;
+            }
             tmpframe.locals[ins[1]] = frame.pop();
             break;
           case 'getdynamic':
             tmpframe = frame;
-            for (i = 0; i < ins[2]; i++) { tmpframe = tmpframe.parent; }
+            for (i = 0; i < ins[2]; i++) {
+              tmpframe = (tmpframe instanceof BlockFrame) ?
+                tmpframe.localFrame : tmpframe.prevFrame;
+            }
             frame.push(tmpframe.locals[ins[1]]);
             break;
           case 'getconstant':
@@ -2441,8 +2449,19 @@ Bully.VM = {
                 frame.status = frame_STATUS_RAISE;
                 break;
               case 1:
-                frame.status = 3;
-                frame.returnFrom = frame.code.isLambda ? frame : frame.localFrame;
+                tmpframe = frame;
+                retframe = frame.isLambda ? frame : frame.localFrame;
+                tmpframe.status = 3;
+                // FIXME: clean this up
+                while (tmpframe && tmpframe !== retframe) {
+                  tmpframe = tmpframe.prevFrame;
+                  if (tmpframe) {
+                    tmpframe.status = 3;
+                  }
+                }
+                if (!tmpframe) {
+                  Bully.raise(Bully.LocalJumpError, 'unexpected return');
+                }
                 break;
               case 4:
                 frame.status = 2;
