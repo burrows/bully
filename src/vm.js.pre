@@ -54,7 +54,9 @@ StackFrame.prototype.dumpStack = function() {
 
   for (i = 0; i < sp; i++) {
     item = this.stack[i];
-    items.push(item === null ? 'null' : item.toString());
+    if (typeof item === 'undefined') { items.push('undefined'); }
+    else if (item === null) { items.push('null'); }
+    else { items.push(item.toString()); }
   }
 
   return '[' + items.join(', ') + ']';
@@ -245,17 +247,18 @@ Bully.VM = {
       if (frame.status === SF_STATUS_NORMAL) {
         ret = frame.peek();
       }
+      else if (frame.status === SF_STATUS_RAISE && frame.prevFrame) {
+        frame.prevFrame.status = SF_STATUS_RAISE;
+      }
     }
     else {
       try { ret = frame.code.call(null, frame.self, frame.args, frame.proc); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.status = SF_STATUS_RAISE;
+        frame.prevFrame.status = SF_STATUS_RAISE;
         this.currentException = e.exception;
       }
     }
-
-    if (frame.prevFrame) { frame.prevFrame.status = frame.status; }
 
     this.popFrame();
 
@@ -273,8 +276,9 @@ Bully.VM = {
     if (frame.status === SF_STATUS_NORMAL) {
       ret = frame.peek();
     }
-
-    frame.prevFrame.status = frame.status;
+    else if (frame.status === SF_STATUS_RAISE) {
+      frame.prevFrame.status = SF_STATUS_RAISE;
+    }
 
     this.popFrame();
 
@@ -304,17 +308,18 @@ Bully.VM = {
       if (frame.status === SF_STATUS_NORMAL) {
         ret = frame.peek();
       }
+      else if (frame.status === SF_STATUS_RAISE) {
+        frame.prevFrame.status = SF_STATUS_RAISE;
+      }
     }
     else {
       try { ret = frame.code.call(null, frame.self, frame.args); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.status = SF_STATUS_RAISE;
+        frame.prevFrame.status = SF_STATUS_RAISE;
         this.currentException = e.exception;
       }
     }
-
-    if (frame.prevFrame) { frame.prevFrame.status = frame.status; }
 
     this.popFrame();
 
@@ -620,7 +625,7 @@ Bully.VM = {
       new MethodFrame(method, this.currentFrame, recv, args, proc));
   },
 
-  invokeSuper: function(args, block) {
+  invokeSuper: function(args, proc) {
     var frame       = this.currentFrame,
         methodFrame = this.currentMethodFrame(),
         klass       = methodFrame.code.klass,
@@ -693,23 +698,25 @@ Bully.VM = {
     var iseq        = frame.code,
         rescueEntry = this._findCatchEntry('rescue', frame),
         ensureEntry = this._findCatchEntry('ensure', frame),
-        retryEntry;
+        retryEntry, rescueFrame;
 
     if (!rescueEntry && !ensureEntry) { return; }
 
     if (rescueEntry) {
       frame.sp = rescueEntry[CATCH_ENTRY_SP_IDX];
       frame.ip = iseq.labels[rescueEntry[CATCH_ENTRY_CONT_LBL_IDX]];
-      frame.push(this.runBlockFrame(new BlockFrame(
+      rescueFrame = new BlockFrame(
         rescueEntry[CATCH_ENTRY_ISEQ_IDX], frame, frame, frame.self, [],
-        [this.currentException])));
+        [this.currentException]);
+      frame.push(this.runBlockFrame(rescueFrame));
 
-      if (frame.status === SF_STATUS_NORMAL) {
+      if (rescueFrame.status === SF_STATUS_NORMAL) {
         // the exception was rescued, so continue executing the current frame
+        frame.status = SF_STATUS_NORMAL;
         this.currentException = null;
         return;
       }
-      else if (frame.status === SF_STATUS_RETRY) {
+      else if (rescueFrame.status === SF_STATUS_RETRY) {
         retryEntry = this._findCatchEntry('retry', frame);
         frame.sp = retryEntry[CATCH_ENTRY_SP_IDX];
         frame.ip = iseq.labels[retryEntry[CATCH_ENTRY_CONT_LBL_IDX]];

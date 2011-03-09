@@ -507,7 +507,7 @@ ok((x.foo = 24) == 24, 'assignment methods should return the value being assigne
 ok((x.weird_foo = 25) == 25, 'assignment methods should return the value being assigned even if the method actually returns something else')
 x[2] = :z 
 ok(x.a == [:a, :b, :z, :d], 'bracket call assignment methods should get the index and value as arguments')
-ok((x[1] = :y) == :y, 'bracket call assigment methods should return the value being assigned')
+ok((x[1] = :y) == :y, 'bracket call assignment methods should return the value being assigned')
 
 #-------------------------------------------------------------------------------
 # Inheritance

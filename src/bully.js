@@ -2080,7 +2080,9 @@ StackFrame.prototype.dumpStack = function() {
   var sp = this.sp, items = [], item, i;
   for (i = 0; i < sp; i++) {
     item = this.stack[i];
-    items.push(item === null ? 'null' : item.toString());
+    if (typeof item === 'undefined') { items.push('undefined'); }
+    else if (item === null) { items.push('null'); }
+    else { items.push(item.toString()); }
   }
   return '[' + items.join(', ') + ']';
 };
@@ -2228,16 +2230,18 @@ Bully.VM = {
       if (frame.status === 0) {
         ret = frame.peek();
       }
+      else if (frame.status === 1 && frame.prevFrame) {
+        frame.prevFrame.status = 1;
+      }
     }
     else {
       try { ret = frame.code.call(null, frame.self, frame.args, frame.proc); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.status = 1;
+        frame.prevFrame.status = 1;
         this.currentException = e.exception;
       }
     }
-    if (frame.prevFrame) { frame.prevFrame.status = frame.status; }
     this.popFrame();
     return ret;
   },
@@ -2249,7 +2253,9 @@ Bully.VM = {
     if (frame.status === 0) {
       ret = frame.peek();
     }
-    frame.prevFrame.status = frame.status;
+    else if (frame.status === 1) {
+      frame.prevFrame.status = 1;
+    }
     this.popFrame();
     return ret;
   },
@@ -2272,21 +2278,24 @@ Bully.VM = {
       if (frame.status === 0) {
         ret = frame.peek();
       }
+      else if (frame.status === 1) {
+        frame.prevFrame.status = 1;
+      }
     }
     else {
-      try { ret = frame.code.call(null, frame.self, frame.args, frame.proc); }
+      try { ret = frame.code.call(null, frame.self, frame.args); }
       catch (e) {
         if (!(e instanceof Bully.RaiseException)) { throw e; }
-        frame.status = 1;
+        frame.prevFrame.status = 1;
         this.currentException = e.exception;
       }
     }
-    if (frame.prevFrame) { frame.prevFrame.status = frame.status; }
     this.popFrame();
     return ret;
   },
   runISeqBody: function(frame) {
-    var iseq = frame.code, body = iseq[7], len = body.length, e;
+    var iseq = frame.code, body = iseq[7], len = body.length,
+        tmpframe, e, ary, _super, mod, klass, sendargs, recv, proc, localvar;
     for (; frame.ip < len; frame.ip++) {
       ins = body[frame.ip];
       if (typeof ins !== 'object') { continue; }
@@ -2433,7 +2442,7 @@ Bully.VM = {
                 break;
               case 1:
                 frame.status = 3;
-                frame.returnFrom = frame.code.isLambda ? frame : frame.code.defFrame;
+                frame.returnFrom = frame.code.isLambda ? frame : frame.localFrame;
                 break;
               case 4:
                 frame.status = 2;
@@ -2567,7 +2576,7 @@ Bully.VM = {
     return this.runMethodFrame(
       new MethodFrame(method, this.currentFrame, recv, args, proc));
   },
-  invokeSuper: function(args, block) {
+  invokeSuper: function(args, proc) {
     var frame = this.currentFrame,
         methodFrame = this.currentMethodFrame(),
         klass = methodFrame.code.klass,
@@ -2622,20 +2631,22 @@ Bully.VM = {
     var iseq = frame.code,
         rescueEntry = this._findCatchEntry('rescue', frame),
         ensureEntry = this._findCatchEntry('ensure', frame),
-        retryEntry;
+        retryEntry, rescueFrame;
     if (!rescueEntry && !ensureEntry) { return; }
     if (rescueEntry) {
       frame.sp = rescueEntry[5];
       frame.ip = iseq.labels[rescueEntry[4]];
-      frame.push(this.runBlockFrame(new BlockFrame(
+      rescueFrame = new BlockFrame(
         rescueEntry[1], frame, frame, frame.self, [],
-        [this.currentException])));
-      if (frame.status === 0) {
+        [this.currentException]);
+      frame.push(this.runBlockFrame(rescueFrame));
+      if (rescueFrame.status === 0) {
         // the exception was rescued, so continue executing the current frame
+        frame.status = 0;
         this.currentException = null;
         return;
       }
-      else if (frame.status === 2) {
+      else if (rescueFrame.status === 2) {
         retryEntry = this._findCatchEntry('retry', frame);
         frame.sp = retryEntry[5];
         frame.ip = iseq.labels[retryEntry[4]];
