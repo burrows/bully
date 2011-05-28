@@ -44,6 +44,7 @@ var grammar = {
 
   primary: [
     o('literal'),
+    o('xstring'),
     o('method_call'),
     o('kDEF fname f_arglist bodystmt kEND', "$$ = {type: 'Def', name: $2, params: $3, body: $4};")
   ],
@@ -217,6 +218,19 @@ var grammar = {
     o('tAREF'),
     o('tASET'),
     o('`')
+  ],
+
+  xstring: [
+    o('tXSTRING_BEG xstring_contents tSTRING_END', "$$ = {type: 'XString', value: $2};")
+  ],
+
+  xstring_contents: [
+    o('none', "$$ = '';"),
+    o('xstring_contents string_content', "$$ += $2;")
+  ],
+
+  string_content: [
+    o('tSTRING_CONTENT')
   ],
 
   term: [

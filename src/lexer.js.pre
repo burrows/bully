@@ -125,17 +125,19 @@ Bully.Lexer.prototype = {
         tokens.push(['tNUMBER', match, line]);
         pos += match.length;
       }
-      // double quoted strings
-      else if ((match = chunk.match(/^"[^"\\]*(\\.[^"\\]*)*"/))) {
-        match = match[0];
-        // FIXME: don't use eval here
-        tokens.push(['STRING', eval(match), line]);
-        pos += match.length;
-      }
+      //// double quoted strings
+      //else if ((match = chunk.match(/^"[^"\\]*(\\.[^"\\]*)*"/))) {
+      //  match = match[0];
+      //  // FIXME: don't use eval here
+      //  tokens.push(['STRING', eval(match), line]);
+      //  pos += match.length;
+      //}
       // single quoted strings
       else if ((match = chunk.match(/^'([^'\\]*(\\.[^'\\]*)*)'/))) {
         match = match[1];
-        tokens.push(['STRING', match, line]);
+        tokens.push(['tXSTRING_BEG', "'", line]);
+        tokens.push(['tSTRING_CONTENT', match, line]);
+        tokens.push(['tSTRING_END', "'", line]);
         pos += match.length + 2;
       }
       // handle new lines

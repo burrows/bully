@@ -10,7 +10,7 @@ Bully.Rewriter.prototype = {
   rewrite: function() {
     this.rewrite_keyword_method_calls();
     this.remove_extra_newlines();
-    //this.add_implicit_parentheses();
+    this.add_implicit_parentheses();
     this.remove_spaces();
     return this.tokens;
   },
@@ -108,7 +108,7 @@ Bully.Rewriter.prototype = {
         next   = this.peek(),
         next2  = this.peek(2),
         before = ['tIDENTIFIER', 'kSUPER', 'kYIELD'],
-        after  = ['tIDENTIFIER', 'kSELF', 'tNUMBER', 'tSTRING', 'tSYMBOL', 'tCONSTANT', 'kTRUE', 'kFALSE', 'kNIL', '@', '[', '::'];
+        after  = ['tIDENTIFIER', 'kSELF', 'tNUMBER', 'tXSTRING_BEG', 'tSYMBOL', 'tCONSTANT', 'kTRUE', 'kFALSE', 'kNIL', '@', '[', '::'];
 
     if (!prev || !cur || !next) { return false; }
 
