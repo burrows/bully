@@ -94,7 +94,7 @@ Bully.Lexer.prototype = {
       if ((match = chunk.match(/^([a-z_]\w*[?!]?)/))) {
         match = match[1];
         if (Bully.Lexer.KEYWORDS.indexOf(match) !== -1) {
-          tokens.push([match.toUpperCase(), match, line]);
+          tokens.push(['k' + match.toUpperCase(), match, line]);
         }
         else {
           tokens.push(['tIDENTIFIER', match, line]);

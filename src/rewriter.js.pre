@@ -10,7 +10,7 @@ Bully.Rewriter.prototype = {
   rewrite: function() {
     this.rewrite_keyword_method_calls();
     this.remove_extra_newlines();
-    this.add_implicit_parentheses();
+    //this.add_implicit_parentheses();
     this.remove_spaces();
     return this.tokens;
   },

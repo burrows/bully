@@ -42,17 +42,57 @@ var grammar = {
     o('primary'),
   ],
 
-  arg_value: [
-    o('arg')
-  ],
-
   primary: [
     o('literal'),
-    o('method_call')
+    o('method_call'),
+    o('kDEF fname f_arglist bodystmt kEND', "$$ = {type: 'Def', name: $2, params: $3, body: $4};")
   ],
 
-  primary_value: [
-    o('primary')
+  fname: [
+    o('tIDENTIFIER'),
+    o('tCONSTANT'),
+    o('tFID'),
+    o('op'),
+    o('reswords')
+  ],
+
+  reswords: [
+    o('kAND'),
+    o('kBEGIN'),
+    o('kBREAK'),
+    o('kCASE'),
+    o('kCLASS'),
+    o('kDEF'),
+    o('kDEFINED'),
+    o('kDO'),
+    o('kELSE'),
+    o('kELSIF'),
+    o('kEND'),
+    o('kENSURE'),
+    o('kFALSE'),
+    o('kFOR'),
+    o('kIN'),
+    o('kMODULE'),
+    o('kNEXT'),
+    o('kNIL'),
+    o('kNOT'),
+    o('kOR'),
+    o('kREDO'),
+    o('kRESCUE'),
+    o('kRETRY'),
+    o('kRETURN'),
+    o('kSELF'),
+    o('kSUPER'),
+    o('kTHEN'),
+    o('kTRUE'),
+    o('kUNDEF'),
+    o('kWHEN'),
+    o('kYIELD'),
+    o('kIF_MOD'),
+    o('kUNLESS_MOD'),
+    o('kWHILE_MOD'),
+    o('kUNTIL_MOD'),
+    o('kRESCUE_MOD')
   ],
 
   literal: [
@@ -79,7 +119,7 @@ var grammar = {
   ],
 
   block_arg: [
-    o('tAMPER arg_value')
+    o('tAMPER arg')
   ],
 
   opt_block_arg: [
@@ -88,8 +128,53 @@ var grammar = {
   ],
 
   args: [
-    o('arg_value',        "$$ = [$1];"),
-    o('args , arg_value', "$1.push($3);" )
+    o('arg',        "$$ = [$1];"),
+    o('args , arg', "$1.push($3);" )
+  ],
+
+  f_arglist: [
+    o('( f_args opt_nl )', "$$ = $2;"),
+    o('f_args term',       "$$ = $1;")
+  ],
+
+  f_args: [
+    o('f_arg , f_optarg , f_rest_arg opt_f_block_arg', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5,   block: $6};"),
+    o('f_arg , f_optarg opt_f_block_arg',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null, block: $4};"),
+    o('f_arg , f_rest_arg opt_f_block_arg',            "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3,   block: $4};"),
+    o('f_arg opt_f_block_arg',                         "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: $2};"),
+    o('f_optarg , f_rest_arg opt_f_block_arg',         "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3,   block: $4};"),
+    o('f_optarg opt_f_block_arg',                      "$$ = {type: 'ParamList', required: [], optional: $1, splat: null, block: $2};"),
+    o('f_rest_arg opt_f_block_arg',                    "$$ = {type: 'ParamList', required: [], optional: [], splat: $1,   block: $2};"),
+    o('f_block_arg',                                   "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: $1};"),
+    o('none',                                          "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: null};")
+  ],
+
+  f_arg: [
+    o('tIDENTIFIER',         "$$ = [$1];"),
+    o('f_arg , tIDENTIFIER', "$1.push($3);")
+  ],
+
+  f_rest_arg: [
+    o('* tIDENTIFIER', "$$ = $2"),
+    o('*')
+  ],
+
+  f_block_arg: [
+    o('& tIDENTIFIER', "$$ = $2;")
+  ],
+
+  opt_f_block_arg: [
+    o(', f_block_arg', "$$ = $2;"),
+    o('none',          "$$ = null;")
+  ],
+
+  f_opt: [
+    o('tIDENTIFIER = arg', "$$ = {name: $1, expression: $3};")
+  ],
+
+  f_optarg: [
+    o('f_opt',            "$$ = [$1];"),
+    o('f_optarg , f_opt', "$1.push($3);")
   ],
 
   operation: [
