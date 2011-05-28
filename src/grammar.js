@@ -7,400 +7,155 @@ function o(rule, action) {
 }
 
 var grammar = {
-  Root: [
-    o('Body', 'return $1')
+  program: [
+    o('compstmt', "$$ = {type: 'Program', statements: $1}; return $$;")
   ],
 
-  Body: [
-    o('',                           "$$ = {type: 'Body', lines: []};"),
-    o('Expression',                 "$$ = {type: 'Body', lines: [$1]};"),
-    o('Statement',                  "$$ = {type: 'Body', lines: [$1]};"),
-    o('Body Terminator Expression', "$1.lines.push($3);"),
-    o('Body Terminator Statement',  "$1.lines.push($3);"),
-    o('Body Terminator')
+  bodystmt: [
+    o('compstmt')
   ],
 
-  Terminator: [
-    o(';'),
-    o('NEWLINE')
+  compstmt: [
+    o('stmts opt_terms', "$$ = $1;")
   ],
 
-  OptNewline: [
-    o(''),
-    o('NEWLINE')
+  stmts: [
+    o('none',             "$$ = [];"),
+    o('stmt',             "$$ = [$1];"),
+    o('stmts terms stmt', "$1.push($3);")
   ],
 
-  Statement: [
-    o('Return'),
-    o('Retry')
+  stmt: [
+    o('expr')
   ],
 
-  Expression: [
-    o('', "$$ = {type: 'EmptyExpression'};"), 
-    o('NumberLiteral'),
-    o('StringLiteral'),
-    o('SymbolLiteral'),
-    o('NilLiteral'),
-    o('TrueLiteral'),
-    o('FalseLiteral'),
-    o('ArrayLiteral'),
-    o('HashLiteral'),
-    o('QuotedSymbol'),
-    o('Assignment'),
-    o('CompoundAssignment'),
-    o('VariableRef'),
-    o('Def'),
-    o('Class'),
-    o('SingletonClass'),
-    o('Module'),
-    o('Call'),
-    o('Operation'),
-    o('Logical'),
-    o('If'),
-    o('Unless'),
-    o('Ternary'),
-    o('Self'),
-    o('BeginBlock'),
-    o('( Expression )', "$$ = $2;")
+  expr: [
+    o('arg')
   ],
 
-  Self: [
-    o('SELF', "$$ = {type: 'Self'}")
+  expr_value: [
+    o('expr')
   ],
 
-  Return: [
-    o('RETURN Expression', "$$ = {type: 'Return', expression: $2};"),
-    o('RETURN',            "$$ = {type: 'Return', expression: null};")
+  arg: [
+    o('arg + arg', "$$ = {type: 'OperatorCall', left: $1, right: $3, op: $2};"),
+    o('primary'),
   ],
 
-  Retry: [
-    o('RETRY', "$$ = {type: 'Retry'};")
+  arg_value: [
+    o('arg')
   ],
 
-  NumberLiteral: [
-    o('NUMBER', "$$ = {type: 'NumberLiteral', value: $1};")
+  primary: [
+    o('literal'),
+    o('method_call')
   ],
 
-  StringLiteral: [
-    o('STRING', "$$ = {type: 'StringLiteral', value: $1};")
+  primary_value: [
+    o('primary')
   ],
 
-  SymbolLiteral: [
-    o('SYMBOL', "$$ = {type: 'SymbolLiteral', value: $1};"),
+  literal: [
+    o('tNUMBER', "$$ = {type: 'NumberLiteral', value: $1};")
   ],
 
-  NilLiteral: [
-    o('NIL', "$$ = {type: 'NilLiteral'};"),
+  method_call: [
+    o('operation paren_args',                      "$$ = {type: 'FunctionCall', name: $1, args: $2};"),
+    o('primary . operation2', "$$ = {type: 'MethodCall', receiver: $1, name: $3};")
   ],
 
-  TrueLiteral: [
-    o('TRUE', "$$ = {type: 'TrueLiteral'};"),
+  paren_args: [
+    o('( none )',             "$$ = [];"),
+    o('( call_args opt_nl )', "$$ = $2;")
   ],
 
-  FalseLiteral: [
-    o('FALSE', "$$ = {type: 'FalseLiteral'};"),
+  opt_paren_args: [
+    o('none'),
+    o('paren_args')
   ],
 
-  QuotedSymbol: [
-    o(': StringLiteral', "$$ = {type: 'QuotedSymbol', string: $2};")
+  call_args: [
+    o('args opt_block_arg', "$$ = {type: 'CallArgs', args: $1, block_arg: $2};")
   ],
 
-  Call: [
-    o('IDENTIFIER OptBlock',                              "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: null, block: $2};"),
-    o('IDENTIFIER ( ) OptBlock',                          "$$ = {type: 'Call', expression: null, name: $1,     args: [],       block_arg: null, block: $4};"),
-    o('IDENTIFIER ( BlockArg )',                          "$$ = {type: 'Call', expression: null, name: $1,     args: null,     block_arg: $3,   block: null};"),
-    o('IDENTIFIER ( ArgList ) OptBlock',                  "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: null, block: $5};"),
-    o('IDENTIFIER ( ArgList , BlockArg )',                "$$ = {type: 'Call', expression: null, name: $1,     args: $3,       block_arg: $5,   block: null};"),
-    o('Expression . IDENTIFIER OptBlock',                 "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: null, block: $4};"),
-    o('Expression . IDENTIFIER ( ) OptBlock',             "$$ = {type: 'Call', expression: $1,   name: $3,     args: [],       block_arg: null, block: $6};"),
-    o('Expression . IDENTIFIER ( BlockArg )',             "$$ = {type: 'Call', expression: $1,   name: $3,     args: null,     block_arg: $5,   block: null};"),
-    o('Expression . IDENTIFIER ( ArgList ) OptBlock',     "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: null, block: $7};"),
-    o('Expression . IDENTIFIER ( ArgList , BlockArg )',   "$$ = {type: 'Call', expression: $1,   name: $3,     args: $5,       block_arg: $7,   block: null};"),
-    o('Expression [ ArgList ]',                           "$$ = {type: 'Call', expression: $1,   name: '[]',   args: $3,       block_arg: null, block: null};"),
-    o('SUPER OptBlock',                                   "$$ = {type: 'SuperCall', args: null, block_arg: null, block: $2};"),
-    o('SUPER ( ) OptBlock',                               "$$ = {type: 'SuperCall', args: [],   block_arg: null, block: $4};"),
-    o('SUPER ( BlockArg )',                               "$$ = {type: 'SuperCall', args: null, block_arg: $2,   block: $2};"),
-    o('SUPER ( ArgList ) OptBlock',                       "$$ = {type: 'SuperCall', args: $3,   block_arg: null, block: $5};"),
-    o('SUPER ( ArgList , BlockArg )',                     "$$ = {type: 'SuperCall', args: $3,   block_arg: $5,   block: null};"),
-    o('YIELD',                                            "$$ = {type: 'YieldCall', args: null};"),
-    o('YIELD ( )',                                        "$$ = {type: 'YieldCall', args: []};"),
-    o('YIELD ( ArgList )',                                "$$ = {type: 'YieldCall', args: $3};")
+  block_arg: [
+    o('tAMPER arg_value')
   ],
 
-  Operation: [
-    o('Expression ** Expression',  "$$ = {type: 'Call', expression: $1, name: '**',  args: [$3], block: null};"),
-    o('! Expression',              "$$ = {type: 'Call', expression: $2, name: '!',   args: null, block: null};"),
-    o('~ Expression',              "$$ = {type: 'Call', expression: $2, name: '~',   args: null, block: null};"),
-    o('+ Expression',              "$$ = {type: 'Call', expression: $2, name: '+@',  args: null, block: null};"),
-    o('- Expression',              "$$ = {type: 'Call', expression: $2, name: '-@',  args: null, block: null};"),
-    o('Expression * Expression',   "$$ = {type: 'Call', expression: $1, name: '*',   args: [$3], block: null};"),
-    o('Expression / Expression',   "$$ = {type: 'Call', expression: $1, name: '/',   args: [$3], block: null};"),
-    o('Expression % Expression',   "$$ = {type: 'Call', expression: $1, name: '%',   args: [$3], block: null};"),
-    o('Expression + Expression',   "$$ = {type: 'Call', expression: $1, name: '+',   args: [$3], block: null};"),
-    o('Expression - Expression',   "$$ = {type: 'Call', expression: $1, name: '-',   args: [$3], block: null};"),
-    o('Expression << Expression',  "$$ = {type: 'Call', expression: $1, name: '<<',  args: [$3], block: null};"),
-    o('Expression >> Expression',  "$$ = {type: 'Call', expression: $1, name: '>>',  args: [$3], block: null};"),
-    o('Expression & Expression',   "$$ = {type: 'Call', expression: $1, name: '&',   args: [$3], block: null};"),
-    o('Expression ^ Expression',   "$$ = {type: 'Call', expression: $1, name: '^',   args: [$3], block: null};"),
-    o('Expression | Expression',   "$$ = {type: 'Call', expression: $1, name: '|',   args: [$3], block: null};"),
-    o('Expression <= Expression',  "$$ = {type: 'Call', expression: $1, name: '<=',  args: [$3], block: null};"),
-    o('Expression < Expression',   "$$ = {type: 'Call', expression: $1, name: '<',   args: [$3], block: null};"),
-    o('Expression > Expression',   "$$ = {type: 'Call', expression: $1, name: '>',   args: [$3], block: null};"),
-    o('Expression >= Expression',  "$$ = {type: 'Call', expression: $1, name: '>=',  args: [$3], block: null};"),
-    o('Expression <=> Expression', "$$ = {type: 'Call', expression: $1, name: '<=>', args: [$3], block: null};"),
-    o('Expression == Expression',  "$$ = {type: 'Call', expression: $1, name: '==',  args: [$3], block: null};"),
-    o('Expression === Expression', "$$ = {type: 'Call', expression: $1, name: '===', args: [$3], block: null};"),
-    o('Expression != Expression',  "$$ = {type: 'Call', expression: $1, name: '!=',  args: [$3], block: null};"),
-    o('Expression =~ Expression',  "$$ = {type: 'Call', expression: $1, name: '=~',  args: [$3], block: null};"),
-    o('Expression !~ Expression',  "$$ = {type: 'Call', expression: $1, name: '!~',  args: [$3], block: null};")
+  opt_block_arg: [
+    o(', block_arg'),
+    o('none',      "$$ = null;")
   ],
 
-  Logical: [
-    o('Expression && Expression', "$$ = {type: 'Logical', operator: '&&', expressions: [$1, $3]};"),
-    o('Expression || Expression', "$$ = {type: 'Logical', operator: '||', expressions: [$1, $3]};")
+  args: [
+    o('arg_value',        "$$ = [$1];"),
+    o('args , arg_value', "$1.push($3);" )
   ],
 
-  Block: [
-    o('DO | BlockParamList | Body END', "$$ = {type: 'Block', params: $3, body: $5};"),
-    o('DO Body END', "$$ = {type: 'Block', params: null, body: $2};"),
-    o('{ | BlockParamList | Body }', "$$ = {type: 'Block', params: $3, body: $5};"),
-    o('{ Body }', "$$ = {type: 'Block', params: null, body: $2};")
+  operation: [
+    o('tIDENTIFIER'),
+    o('tCONSTANT'),
+    o('tFID')
   ],
 
-  OptBlock: [
-    o('', "$$ = null;"),
-    o('Block')
+  operation2: [
+    o('tIDENTIFIER'),
+    o('tCONSTANT'),
+    o('tFID'),
+    o('op')
   ],
 
-  If: [
-    o('IfStart END'),
-    o('IfStart ELSE NEWLINE Body END', "$1.else_body = $4;"),
-    o('Expression IF Expression',      "$$ = {type: 'If', conditions: [$3], bodies: [$1], else_body: null};"),
-    o('Statement IF Expression',       "$$ = {type: 'If', conditions: [$3], bodies: [$1], else_body: null};")
-  ],
-
-  IfStart: [
-    o('IF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};"),
-    o('IfStart ElsIf',           "$1.conditions = $1.conditions.concat($2.conditions); $1.bodies = $1.bodies.concat($2.bodies);")
-  ],
-
-  ElsIf: [
-    o('ELSIF Expression Then Body', "$$ = {type: 'If', conditions: [$2], bodies: [$4], else_body: null};")
-  ],
-
-  Unless: [
-    o('UNLESS Expression Then Body END', "$$ = {type: 'Unless', condition: $2, body: $4};"),
-    o('Expression UNLESS Expression',    "$$ = {type: 'Unless', condition: $3, body: $1};"),
-    o('Statement UNLESS Expression',     "$$ = {type: 'Unless', condition: $3, body: $1};")
-  ],
-
-  Ternary: [
-    o('Expression ? OptNewline Expression : OptNewline Expression', "$$ = {type: 'If', conditions: [$1], bodies: [$4], else_body: $7};")
-  ],
-
-  Then: [
-    o('Terminator'),
-    o('THEN'),
-    o('Terminator THEN')
-  ],
-
-  ArgList: [
-    o('Expression',           "$$ = [$1];"),
-    o('ArgList , Expression', "$1.push($3);")
-  ],
-
-  ArrayLiteral: [
-    o('[ ]',         "$$ = {type: 'ArrayLiteral', expressions: []};"),
-    o('[ ArgList ]', "$$ = {type: 'ArrayLiteral', expressions: $2};")
-  ],
-
-  AssocList: [
-    o('Expression => Expression',             "$$ = {type: 'AssocList', keys: [$1], values: [$3]};"  ),
-    o('AssocList , Expression => Expression', "$1.keys.push($3); $1.values.push($5);" )
-  ],
-
-  HashLiteral: [
-    o('{ }',           "$$ = {type: 'HashLiteral', keys: [], values: []};"),
-    o('{ AssocList }', "$$ = {type: 'HashLiteral', keys: $2.keys, values: $2.values};")
-  ],
-
-  Def: [
-    o('DEF MethodName Terminator Body END',               "$$ = {type: 'Def', name: $2, params: null, body: $4};"),
-    o('DEF MethodName ( ParamList ) Body END', "$$ = {type: 'Def', name: $2, params: $4,   body: $6};"),
-    o('SingletonDef')
-  ],
-
-  MethodName: [
-    o('IDENTIFIER',   "$$ = $1;"),
-    o('IDENTIFIER =', "$$ = $1 + '=';"),
-    o('[ ]',          "$$ = '[]';"),
-    o('[ ] =',        "$$ = '[]=';"),
-    o('**'),
-    o('!'),
-    o('~'),
+  op: [
+    o('|'),
+    o('^'),
+    o('&'),
+    o('tCMP'),
+    o('tEQ'),
+    o('tEQQ'),
+    o('tMATCH'),
+    o('>'),
+    o('tGEQ'),
+    o('<'),
+    o('tLEQ'),
+    o('tLSHFT'),
+    o('tRSHFT'),
     o('+'),
     o('-'),
     o('*'),
+    o('tSTAR'),
     o('/'),
     o('%'),
-    o('<<'),
-    o('>>'),
-    o('&'),
-    o('^'),
-    o('|'),
-    o('<='),
-    o('<'),
-    o('>'),
-    o('>='),
-    o('<=>'),
-    o('=='),
-    o('==='),
-    o('!='),
-    o('=~'),
-    o('!~')
+    o('tPOW'),
+    o('~'),
+    o('tUPLUS'),
+    o('tUMINUS'),
+    o('tAREF'),
+    o('tASET'),
+    o('`')
   ],
 
-  SingletonDef: [
-    o('DEF Self . MethodName Terminator Body END',               "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF Self . MethodName ( ParamList ) Body END',            "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};"),
-    o('DEF IDENTIFIER . MethodName Terminator Body END',         "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: {type: 'Call', expression: null, name: $2, args: null, block_arg: null, block: null}};"),
-    o('DEF IDENTIFIER . MethodName ( ParamList ) Body END',      "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: {type: 'Call', expression: null, name: $2, args: null, block_arg: null, block: null}};"),
-    o('DEF BareConstantRef . MethodName Terminator Body END',    "$$ = {type: 'SingletonDef', name: $4, params: null, body: $6, object: $2};"),
-    o('DEF BareConstantRef . MethodName ( ParamList ) Body END', "$$ = {type: 'SingletonDef', name: $4, params: $6,   body: $8, object: $2};")
+  term: [
+    o(';'),
+    o('tNEWLINE')
   ],
 
-  BlockParamList: [
-    o('',                          "$$ = {type: 'BlockParamList', required: [], splat: null};"),
-    o('ReqParamList',              "$$ = {type: 'BlockParamList', required: $1, splat: null};"),
-    o('SplatParam',                "$$ = {type: 'BlockParamList', required: [], splat: $1};"),
-    o('ReqParamList , SplatParam', "$$ = {type: 'BlockParamList', required: $1, splat: $3};")
+  terms: [
+    o('term'),
+    o('terms term')
   ],
 
-  ParamList: [
-    o('',                                                      "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: null};"),
-    o('ReqParamList',                                          "$$ = {type: 'ParamList', required: $1, optional: [], splat: null, block: null};"),
-    o('ReqParamList , OptParamList',                           "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null, block: null};"),
-    o('ReqParamList , OptParamList , SplatParam',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5,   block: null};"),
-    o('ReqParamList , OptParamList , SplatParam , BlockParam', "$$ = {type: 'ParamList', required: $1, optional: $3, splat: $5,   block: $7};"),
-    o('ReqParamList , SplatParam',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3,   block: null};"),
-    o('ReqParamList , SplatParam , BlockParam',                "$$ = {type: 'ParamList', required: $1, optional: [], splat: $3,   block: $5};"),
-    o('ReqParamList , OptParamList , BlockParam',              "$$ = {type: 'ParamList', required: $1, optional: $3, splat: null, block: $5};"),
-    o('ReqParamList , BlockParam',                             "$$ = {type: 'ParamList', required: $1, optional: [], splat: null, block: $3};"),
-    o('OptParamList',                                          "$$ = {type: 'ParamList', required: [], optional: $1, splat: null, block: null};"),
-    o('OptParamList , SplatParam',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3,   block: null};"),
-    o('OptParamList , SplatParam , BlockParam',                "$$ = {type: 'ParamList', required: [], optional: $1, splat: $3,   block: $5};"),
-    o('OptParamList , BlockParam',                             "$$ = {type: 'ParamList', required: [], optional: $1, splat: null, block: $3};"),
-    o('SplatParam',                                            "$$ = {type: 'ParamList', required: [], optional: [], splat: $1,   block: null};"),
-    o('SplatParam , BlockParam',                               "$$ = {type: 'ParamList', required: [], optional: [], splat: $1,   block: $3};"),
-    o('BlockParam',                                            "$$ = {type: 'ParamList', required: [], optional: [], splat: null, block: $1};")
+  opt_terms: [
+    o('none'),
+    o('terms')
   ],
 
-  ReqParamList: [
-    o('IDENTIFIER',                "$$ = [$1];"),
-    o('ReqParamList , IDENTIFIER', "$1.push($3);")
+  opt_nl: [
+    o('none'),
+    o('tNEWLINE')
   ],
 
-  OptParamList: [
-    o('IDENTIFIER = Expression',                "$$ = [{name: $1, expression: $3}];"),
-    o('OptParamList , IDENTIFIER = Expression', "$1.push({name: $3, expression: $5});")
-  ],
-
-  SplatParam: [
-    o('* IDENTIFIER', "$$ = $2;")
-  ],
-
-  BlockParam: [
-    o('& IDENTIFIER', "$$ = $2;")
-  ],
-
-  BlockArg: [
-    o('& Expression', "$$ = $2;")
-  ],
-
-  Assignment: [
-    o('IDENTIFIER = Expression',              "$$ = {type: 'LocalAssign',    name: $1,       expression: $3};"),
-    o('@ IDENTIFIER = Expression',            "$$ = {type: 'InstanceAssign', name: '@' + $2, expression: $4};"),
-    o('ConstantRef = Expression',             "$$ = {type: 'ConstantAssign', constant: $1,   expression: $3};"),
-    o('Expression . IDENTIFIER = Expression', "$$ = {type: 'CallAssign', expression: $1, name: $3+'=', args: [$5]};"),
-    o('Expression [ ArgList ] = Expression',  "$$ = {type: 'CallAssign', expression: $1, name: '[]=',  args: $3.concat($6)};")
-  ],
-
-  CompoundAssignment: [
-    o('IDENTIFIER COMPOUND_ASSIGN Expression',              "$$ = {type: 'LocalCompoundAssign', name: $1, operator: $2, expression: $3};"),
-    o('@ IDENTIFIER COMPOUND_ASSIGN Expression',            "$$ = {type: 'InstanceCompoundAssign', name: '@' + $2, operator: $3, expression: $4};"),
-    o('ConstantRef COMPOUND_ASSIGN Expression',             "$$ = {type: 'ConstantCompoundAssign', constant: $1, operator: $2, expression: $3};"),
-    o('Expression [ ArgList ] COMPOUND_ASSIGN Expression',  "$$ = {type: 'IndexedCallCompoundAssign', object: $1, index: $3, operator: $5, expression: $6};"),
-    o('Expression . IDENTIFIER COMPOUND_ASSIGN Expression', "$$ = {type: 'CallCompoundAssign', object: $1, name: $3, operator: $4, expression: $5};")
-  ],
-
-  VariableRef: [
-    o('@ IDENTIFIER',   "$$ = {type: 'InstanceRef', name: '@' + $2};"),
-    o('@ @ IDENTIFIER', "$$ = {type: 'ClassRef',    name: '@@' + $3};"),
-    o('ConstantRef')
-  ],
-
-  BareConstantRef: [
-    o('CONSTANT', "$$ = {type: 'ConstantRef', global: false, names: [$1]};"),
-  ],
-
-  ConstantRef: [
-    o('CONSTANT',                "$$ = {type: 'ConstantRef', global: false, names: [$1]};"),
-    o(':: CONSTANT',             "$$ = {type: 'ConstantRef', global: true,  names: [$2]};"),
-    o('ConstantRef :: CONSTANT', "$1.names.push($3);")
-  ],
-
-  Class: [
-    o('CLASS ConstantRef Terminator Body END',              "$$ = {type: 'Class', constant: $2, super_expr: null, body: $4};"),
-    o('CLASS ConstantRef < Expression Terminator Body END', "$$ = {type: 'Class', constant: $2, super_expr: $4,   body: $6};")
-  ],
-
-  SingletonClass: [
-    o('CLASS << Expression Terminator Body END', "$$ = {type: 'SingletonClass', object: $3, body: $5};")
-  ],
-
-  Module: [
-    o('MODULE ConstantRef Terminator Body END', "$$ = {type: 'Module', constant: $2, body: $4};")
-  ],
-
-  BeginBlock: [
-    o('BEGIN Body RescueBlocks EnsureBlock END',           "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: null, ensure: $4};"),
-    o('BEGIN Body EnsureBlock END',                        "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: $3};"),
-    o('BEGIN Body RescueBlocks END',                       "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: null, ensure: null};"),
-    o('BEGIN Body RescueBlocks ElseBlock END',             "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: null};"),
-    o('BEGIN Body ElseBlock END',                          "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: $3,   ensure: null};"),
-    o('BEGIN Body ElseBlock EnsureBlock END',              "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: $3,   ensure: $4};"),
-    o('BEGIN Body RescueBlocks ElseBlock EnsureBlock END', "$$ = {type: 'BeginBlock', body: $2, rescues: $3, else_body: $4,   ensure: $5};"),
-    o('BEGIN Body END',                                    "$$ = {type: 'BeginBlock', body: $2, rescues: [], else_body: null, ensure: null};")
-  ],
-
-  RescueBlocks: [
-    o('RescueBlock',              "$$ = [$1];"),
-    o('RescueBlocks RescueBlock', "$1.push($2);")
-  ],
-
-  RescueBlock: [
-    o('RESCUE Do Body',                              "$$ = {type: 'RescueBlock', exception_types: null, name: null, body: $3};"),
-    o('RESCUE ExceptionTypes Do Body',               "$$ = {type: 'RescueBlock', exception_types: $2,   name: null, body: $4};"),
-    o('RESCUE ExceptionTypes => IDENTIFIER Do Body', "$$ = {type: 'RescueBlock', exception_types: $2,   name: $4,   body: $6};")
-  ],
-
-  ExceptionTypes: [
-    o('ConstantRef',                  "$$ = [$1];"),
-    o('ExceptionTypes , ConstantRef', "$1.push($3);")
-  ],
-
-  ElseBlock: [
-    o('ELSE Body', "$$ = $2;")
-  ],
-
-  EnsureBlock: [
-    o('ENSURE Body', "$$ = $2;")
-  ],
-
-  Do: [
-    o('Terminator'),
-    o('DO'),
-    o('Terminator DO')
+  none: [
+    o('')
   ]
 };
 
@@ -433,9 +188,9 @@ var operators = [
   [ 'right', '=' ],
   [ 'right', '||=' ],
   [ 'right', '&&=' ],
-  [ 'nonassoc', 'RETURN' ],
-  [ 'nonassoc', 'IF' ],
-  [ 'nonassoc', 'UNLESS' ]
+  [ 'nonassoc', 'kRETURN' ],
+  [ 'nonassoc', 'kIF' ],
+  [ 'nonassoc', 'kUNLESS' ]
 ];
 
 var tokens = [], name, symbols, token, i, j;
@@ -458,7 +213,7 @@ exports.parser = new Parser({
   tokens: tokens,
   bnf: grammar,
   operators: operators.reverse(),
-  startSymbol: 'Root',
+  startSymbol: 'program',
   lex: null
 });
 

@@ -58,22 +58,6 @@ Bully.Lexer.OPERATORS = [
   '&&='
 ];
 
-Bully.Lexer.COMPOUND_ASSIGN_OPERATORS = [
-  '||=',
-  '&&=',
-  '+=',
-  '-=',
-  '*=',
-  '/=',
-  '%=',
-  '<<=',
-  '>>=',
-  '&=',
-  '|=',
-  '^=',
-  '**='
-];
-
 function regex_escape(text) {
   return text.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
 }
@@ -98,9 +82,8 @@ Bully.Lexer.prototype = {
   tokenize: function(code) {
     var pos        = 0,  // current character position
         tokens     = [], // list of the parsed tokens, form is: [tag, value, lineno]
-        line       = 1,  // the current source line number
+        line       = 0,  // the current source line number
         opRe       = build_regex(Bully.Lexer.OPERATORS),
-        compoundRe = build_regex(Bully.Lexer.COMPOUND_ASSIGN_OPERATORS),
         chunk, match, i;
 
 
@@ -114,15 +97,9 @@ Bully.Lexer.prototype = {
           tokens.push([match.toUpperCase(), match, line]);
         }
         else {
-          tokens.push(['IDENTIFIER', match, line]);
+          tokens.push(['tIDENTIFIER', match, line]);
         }
 
-        pos += match.length;
-      }
-      // match compound assignment operators
-      else if ((match = chunk.match(compoundRe))) {
-        match = match[1];
-        tokens.push(['COMPOUND_ASSIGN', match, line]);
         pos += match.length;
       }
       // match operators
@@ -140,12 +117,12 @@ Bully.Lexer.prototype = {
       // match constants
       else if ((match = chunk.match(/^([A-Z]\w*)/))) {
         match = match[1];
-        tokens.push(['CONSTANT', match, line]);
+        tokens.push(['tCONSTANT', match, line]);
         pos += match.length;
       }
       else if ((match = chunk.match(/^(\d+(?:\.\d+)?)/))) {
         match = match[1];
-        tokens.push(['NUMBER', match, line]);
+        tokens.push(['tNUMBER', match, line]);
         pos += match.length;
       }
       // double quoted strings
@@ -163,13 +140,13 @@ Bully.Lexer.prototype = {
       }
       // handle new lines
       else if ((match = chunk.match(/^\n/))) {
-        tokens.push(["NEWLINE", "\n", line]);
+        tokens.push(["tNEWLINE", "\n", line]);
         line += 1;
         pos += 1;
       }
       // convert strings of spaces and tabs to a single SPACE token
       else if ((match = chunk.match(/^[ \t]+/))) {
-        tokens.push(["SPACE", " ", line]);
+        tokens.push(["tSPACE", " ", line]);
         pos += match[0].length;
       }
       // ignore comments

@@ -4,7 +4,7 @@ Bully.Rewriter = function(tokens) {
   return this;
 };
 
-Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'CLASS' ];
+Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS = [ 'kCLASS' ];
 
 Bully.Rewriter.prototype = {
   rewrite: function() {
@@ -56,16 +56,16 @@ Bully.Rewriter.prototype = {
 
     while ((token = this.next())) {
       if (token[0] === '{' || token[0] === '[') {
-        while ((token = this.peek()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(1); }
+        while ((token = this.peek()) && token[0] === 'tNEWLINE' || token[0] === 'tSPACE') { this.remove(1); }
       }
       else if (token[0] === '}' || token[0] === ']') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(); }
+        while ((token = this.prev()) && token[0] === 'tNEWLINE' || token[0] === 'tSPACE') { this.remove(); }
         this.next();
       }
       else if (token[0] === ',') {
-        while ((token = this.prev()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(); }
+        while ((token = this.prev()) && token[0] === 'tNEWLINE' || token[0] === 'tSPACE') { this.remove(); }
         this.next();
-        while ((token = this.peek()) && token[0] === 'NEWLINE' || token[0] === 'SPACE') { this.remove(1); }
+        while ((token = this.peek()) && token[0] === 'tNEWLINE' || token[0] === 'tSPACE') { this.remove(1); }
       }
     }
 
@@ -76,9 +76,9 @@ Bully.Rewriter.prototype = {
     var t1, t2;
 
     while ((t1 = this.next()) && (t2 = this.peek())) {
-      if ((t1[0] === '.' || t1[0] === 'DEF') &&
+      if ((t1[0] === '.' || t1[0] === 'kDEF') &&
           Bully.Rewriter.KEYWORDS_ALLOWED_AS_METHODS.indexOf(t2[0]) !== -1) {
-        t2[0] = 'IDENTIFIER';
+        t2[0] = 'tIDENTIFIER';
       }
     }
 
@@ -107,21 +107,21 @@ Bully.Rewriter.prototype = {
         cur    = this.current(),
         next   = this.peek(),
         next2  = this.peek(2),
-        before = ['IDENTIFIER', 'SUPER', 'YIELD'],
-        after  = ['IDENTIFIER', 'SELF', 'NUMBER', 'STRING', 'SYMBOL', 'CONSTANT', 'TRUE', 'FALSE', 'NIL', '@', '[', '::'];
+        before = ['tIDENTIFIER', 'kSUPER', 'kYIELD'],
+        after  = ['tIDENTIFIER', 'kSELF', 'tNUMBER', 'tSTRING', 'tSYMBOL', 'tCONSTANT', 'kTRUE', 'kFALSE', 'kNIL', '@', '[', '::'];
 
     if (!prev || !cur || !next) { return false; }
 
-    if (before.indexOf(prev[0]) !== -1 && cur[0] === 'SPACE') {
+    if (before.indexOf(prev[0]) !== -1 && cur[0] === 'tSPACE') {
       if (after.indexOf(next[0]) !== -1) { return true; }
 
       // handle block and splat params
       //   foo *x
       //   foo &b
-      if ((next[0] === '&' || next[0] === '*') && next2 && next2[0] !== 'SPACE') {
+      if ((next[0] === '&' || next[0] === '*') && next2 && next2[0] !== 'tSPACE') {
         return true;
       }
-      if (next[0] === ':' && next2 && next2[0] === 'STRING') {
+      if (next[0] === ':' && next2 && next2[0] === 'tSTRING') {
         return true;
       }
     }
@@ -130,12 +130,12 @@ Bully.Rewriter.prototype = {
   },
 
   _advance_to_implicit_close_paren: function() {
-    var end_tokens = [';', 'NEWLINE', '}', 'DO', 'END'],
+    var end_tokens = [';', 'tNEWLINE', '}', 'kDO', 'kEND'],
         cur, prev, opens;
 
     while ((cur = this.next())) {
       prev = this.peek(-1);
-      prev = prev[0] === 'SPACE' ? this.peek(-2) : prev;
+      prev = prev[0] === 'tSPACE' ? this.peek(-2) : prev;
 
       if (end_tokens.indexOf(cur[0]) !== -1) {
         this.prev();
@@ -181,7 +181,7 @@ Bully.Rewriter.prototype = {
     var token;
 
     while ((token = this.next())) {
-      if (token[0] === 'SPACE') { this.remove(); }
+      if (token[0] === 'tSPACE') { this.remove(); }
     }
 
     this.reset();
